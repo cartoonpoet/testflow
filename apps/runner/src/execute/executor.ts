@@ -5,6 +5,7 @@ import type { Redis } from "ioredis";
 import type { DataSource } from "typeorm";
 import { TestStepEntity } from "@testflow/db";
 import { ArtifactCollector, startTracing, stopTracing } from "./artifacts.js";
+import { executeCodeRun } from "./code-executor.js";
 import { openBrowserSession } from "./browser.js";
 import type { BrowserSession } from "./browser.js";
 import { executeStep } from "./interpreter.js";
@@ -97,6 +98,14 @@ export async function executeRun(params: {
   abort: RunAbortHandle;
   log: (message: string) => void;
 }): Promise<ExecuteRunResult> {
+  // ★ 실행 엔진 분기 (03-phases Task 3.7). **아래 녹화 경로는 한 줄도 바뀌지 않았다** —
+  //   두 엔진이 공존하고, 분기만 앞에 붙는다. 공유하는 것은 `RunReporter`(= SSE/DB 규약),
+  //   `storage/`, 취소 채널, heartbeat 다. 다른 것은 쟁점 2에 정리돼 있다.
+  //   `sourceType` 은 API 가 큐 페이로드에 실어 준다(04-gen-2 §4).
+  if (params.job.sourceType === "code") {
+    return executeCodeRun(params);
+  }
+
   const { job, config, dataSource, redis, abort, log } = params;
 
   // ★ 평문 비밀번호가 존재하는 유일한 장소에서 마스킹 대상 "값"을 뽑는다.

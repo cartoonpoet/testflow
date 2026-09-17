@@ -20,6 +20,7 @@
     "poc:r2": "pnpm build:poc && node dist-poc/poc/r2/r2.js"
   },
   "dependencies": {
+    "@playwright/test": "1.63.0",
     "@testflow/contracts": "workspace:*",
     "@testflow/db": "workspace:*",
     "bullmq": "6.3.6",
@@ -31,7 +32,6 @@
     "ws": "8.21.3"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
     "@testflow/config-eslint": "workspace:*",
     "@testflow/config-typescript": "workspace:*",
     "@types/node": "22.20.3",

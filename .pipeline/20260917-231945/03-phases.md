@@ -408,7 +408,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   ③ **`projects` 2개 · `webServer` 있는 config 각각을 실제로 돌려 결과를 기록한다.**
   동작하면 "지원", 안 되면 **"지원하지 않음 + 사용자에게 보이는 거부 메시지"** 로 확정한다
   — 어느 쪽이든 판정을 문서화한다(추측 금지).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.2: 커스텀 reporter (사용자 프로세스로 주입됨)
 - **파일**: `apps/runner/src/execute/pw-reporter.ts` (신규 생성)
@@ -422,7 +422,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① PoC spec 3건 실행 시 reporter 이벤트가 **`run.begin` 1 · `test.begin` 3 ·
   `step.begin`/`step.end` 다수 · `run.end` 1** 로 수신된다(PoC 실측 105건과 같은 구조).
   ② 이 파일의 import 목록에 `@testflow/contracts` · `ioredis` · `typeorm` 이 **0건**이다(grep 으로 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.3: reporter 이벤트 → SSE 규약 변환 + ★ 매핑 회귀 테스트
 - **파일**: `apps/runner/src/execute/pw-event-mapper.ts` (신규 생성) + `pw-event-mapper.spec.ts` (신규)
@@ -441,7 +441,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   ② `Fill "s3cr3t-pw"` → `Fill "***"` 이고 `Expect "toHaveText"` 는 **변형되지 않는다**.
   ③ 변환 결과 전량이 `RunEventSchema.safeParse` 를 통과한다(**invalid 0건**).
   ④ `hook`/`fixture` 카테고리와 `depth > 0` 이 전부 걸러진다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.4: 코드 작업공간 (임시 디렉토리 수명주기)
 - **파일**: `apps/runner/src/execute/code-workspace.ts` (신규 생성)
@@ -455,7 +455,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 실행 후 임시 디렉토리가 **남지 않는다**(`ls /tmp/testflow-code-*` = 0개).
   ② 취소·타임아웃으로 중단시켜도 남지 않는다(실제로 중단시켜 확인).
   ③ `filename` 에 `../` 를 넣은 레코드를 DB 에 직접 INSERT 해도 **디렉토리 밖에 파일이 생기지 않는다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.5: `playwright test` 실행 오케스트레이션
 - **파일**: `apps/runner/src/execute/code-executor.ts` (신규 생성)
@@ -472,7 +472,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   ② `step_results` 행 수 = 사용자에게 보여줄 스텝 수이고 `step_id` 가 전부 NULL 이다.
   ③ 일부러 실패하는 spec 으로 `status=failed` + `failed_seq` 가 채워진다.
   ④ **실행 중 취소하면 `cancelled` 로 확정되고 중단 스텝이 `failed` 가 아니다.**
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.6: 증적 수집 — Playwright 산출물 → `artifacts`
 - **파일**: `apps/runner/src/execute/code-artifacts.ts` (신규 생성)
@@ -489,7 +489,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   **video · trace · screenshot** 을 돌려주고 각 `url` 이 **200** 으로 실제 파일을 내려준다.
   ② `artifact.ready` 가 `run.finished` **보다 먼저** 온다(라운드 1 순서 규약 유지).
   ③ 성공한 실행은 증적을 남기지 않는다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.7: `executor.ts` 분기
 - **파일**: `apps/runner/src/execute/executor.ts` (수정)
@@ -499,7 +499,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 녹화 시나리오 실행이 **라운드 1과 동일하게** 동작한다
   (04-gen-6 의 `goto→fill→fill→click→assert_text→assert_url` 6스텝을 다시 돌려 6/6 passed 확인).
   ② 코드 시나리오 실행이 Task 3.5 대로 동작한다. ③ `pnpm --filter @testflow/runner test` 75건 통과.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

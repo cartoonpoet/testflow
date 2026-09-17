@@ -7,6 +7,7 @@ import {
   runEventSeqKey,
 } from "@testflow/contracts";
 import type {
+  ActionType,
   Artifact,
   ArtifactType,
   RunEvent,
@@ -45,9 +46,12 @@ import { maskSecretText } from "../mask.js";
  * 호출부가 마스킹을 잊을 수 있는 틈을 남기지 않는다.
  *
  * ## `runs` 갱신 범위
- * `total_steps` 는 **실행 요청 시점에 API 가 이미 채웠다.** Runner 는
+ * **녹화 경로**에서 `total_steps` 는 실행 요청 시점에 API 가 이미 채웠다. Runner 는
  * `passed_steps`/`failed_seq`/`started_at`/`finished_at`/`duration_ms`/`status`/`runner_id`
  * 만 건드린다 (04-gen-5 전달사항 1번).
+ *
+ * **코드 경로(라운드 2)는 예외다** — 실행해 봐야 스텝 수를 알기 때문에 API 가 `0` 으로 두고
+ * Runner 가 `updateTotalSteps()` 로 늘린다(쟁점 2). 그 메서드는 코드 경로 전용 절에 있다.
  */
 export class RunReporter {
   /** sequence → step_results.id. 증적을 스텝에 묶을 때 쓴다. */
@@ -213,6 +217,122 @@ export class RunReporter {
     await this.dataSource
       .getRepository(StepResultEntity)
       .update({ runId: this.runId, status: "pending" }, { status: "skipped" });
+  }
+
+  /* ── 코드 실행 경로 (라운드 2) ─────────────────────────── */
+
+  /**
+   * ★ 코드 실행은 **스텝을 미리 시딩할 수 없다** — 실행해 봐야 스텝을 안다(쟁점 2).
+   *   그래서 `step.started` 시점에 행을 **INSERT** 한다. `seedStepResults()` + `stepStarted()`
+   *   조합(UPDATE)을 쓸 수 없는 이유가 이것이고, 라운드 1 결정 4번("대기 행")이 성립하지 않는 지점이다.
+   *
+   * ★ `stepId` 는 **항상 NULL** 이다. `test_steps` 에 대응 행이 없다(FK 는 NULL 허용).
+   *
+   * ★ `nameSnapshot` 을 **여기서 마스킹한다.** Playwright step 제목에는 입력값이 평문으로
+   *   실려 온다(`Fill "s3cr3t-pw"`). 호출부가 패턴 마스킹(`stripStepValue`)을 이미 걸지만
+   *   **값 기반 마스킹은 이 클래스만이 할 수 있다**(`secretValues` 를 가진 유일한 곳).
+   *   두 겹을 다 거치게 해서 호출부가 잊을 틈을 남기지 않는다.
+   */
+  async codeStepStarted(params: {
+    sequence: number;
+    name: string;
+    actionType: ActionType;
+    totalSteps: number;
+    startedAt: Date;
+  }): Promise<string> {
+    const id = randomUUID();
+    this.stepResultIds.set(params.sequence, id);
+    const nameSnapshot = this.mask(params.name).slice(0, 200);
+
+    await this.dataSource.getRepository(StepResultEntity).insert({
+      id,
+      runId: this.runId,
+      stepId: null,
+      sequence: params.sequence,
+      nameSnapshot,
+      actionType: params.actionType,
+      status: "running" as StepResultStatus,
+      startedAt: params.startedAt,
+      durationMs: null,
+      errorMessage: null,
+    });
+
+    await this.publish({
+      event: "step.started",
+      runId: this.runId,
+      sequence: params.sequence,
+      name: nameSnapshot,
+      totalSteps: params.totalSteps,
+      at: params.startedAt.toISOString(),
+    });
+    return id;
+  }
+
+  /** 코드 실행 스텝 종료. `errorMessage`·`nameSnapshot` 양쪽이 마스킹된다. */
+  async codeStepFinished(params: {
+    sequence: number;
+    name: string;
+    actionType: ActionType;
+    status: StepResultStatus;
+    startedAt: Date;
+    durationMs: number;
+    errorMessage?: string | null;
+  }): Promise<StepResult> {
+    const nameSnapshot = this.mask(params.name).slice(0, 200);
+    const masked =
+      params.errorMessage === undefined || params.errorMessage === null
+        ? null
+        : this.mask(params.errorMessage).slice(0, 60_000);
+
+    await this.dataSource.getRepository(StepResultEntity).update(
+      { runId: this.runId, sequence: params.sequence },
+      { status: params.status, durationMs: params.durationMs, errorMessage: masked },
+    );
+
+    const result: StepResult = {
+      id: this.stepResultIds.get(params.sequence) ?? randomUUID(),
+      runId: this.runId,
+      stepId: null,
+      sequence: params.sequence,
+      nameSnapshot,
+      actionType: params.actionType,
+      status: params.status,
+      startedAt: params.startedAt.toISOString(),
+      durationMs: params.durationMs,
+      errorMessage: masked,
+    };
+
+    await this.publish({
+      event: "step.finished",
+      runId: this.runId,
+      sequence: params.sequence,
+      result,
+      at: new Date().toISOString(),
+    });
+    return result;
+  }
+
+  /**
+   * ★ `runs.total_steps` 를 실행 중에 갱신한다.
+   *
+   * 라운드 1은 요청 시점에 스텝 수를 확정해 넣었지만 코드 실행은 **스텝을 발견해 가며** 센다
+   * (API 가 `total_steps = 0` 으로 만들어 둔다 — 04-gen-2 §4.2). 계약은 바꾸지 않는다:
+   * `totalSteps` 는 이미 숫자이고, **화면이 M 이 커지는 것을 견디면 된다**(쟁점 2).
+   */
+  async updateTotalSteps(totalSteps: number): Promise<void> {
+    await this.dataSource.getRepository(RunEntity).update({ id: this.runId }, { totalSteps });
+  }
+
+  /**
+   * 아직 `running` 인 스텝을 `skipped` 로 접는다(취소·타임아웃으로 프로세스를 끊은 경우).
+   *
+   * ★ `failed` 로 기록하지 않는다 — 테스터가 직접 멈춘 실행이 "실패 1건"으로 통계에 잡히면
+   *   성공률이 왜곡된다(라운드 1 `executor.ts` 의 같은 판단).
+   */
+  async skipRunningSteps(): Promise<void> {
+    await this.dataSource
+      .getRepository(StepResultEntity)
+      .update({ runId: this.runId, status: "running" }, { status: "skipped" });
   }
 
   /**
