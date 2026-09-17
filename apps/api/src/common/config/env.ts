@@ -95,6 +95,14 @@ export const EnvSchema = z.looseObject({
    * 비어 있으면 `ws://RUNNER_WS_HOST:RUNNER_WS_PORT/rec` 를 쓴다.
    */
   RUNNER_WS_PUBLIC_URL: z.preprocess(blankToUndefined, z.string().default("")),
+  /**
+   * 라운드 2 — 실행 라이브 스트림(`/live/:runId`)의 공개 베이스 URL
+   * (예: `wss://testflow.internal/live`). 비어 있으면 `ws://RUNNER_WS_HOST:RUNNER_WS_PORT/live`.
+   *
+   * ★ `RUNNER_WS_PUBLIC_URL` 을 재사용하지 않는다 — 그 값은 `/rec` 경로까지 포함한 베이스라
+   *   그대로 쓰면 실행 스트림이 녹화 경로로 간다. nginx location 도 따로 잡아야 한다.
+   */
+  RUNNER_WS_LIVE_PUBLIC_URL: z.preprocess(blankToUndefined, z.string().default("")),
 });
 export type Env = z.infer<typeof EnvSchema>;
 

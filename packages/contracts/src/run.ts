@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ActionTypeSchema } from "./step.js";
+import { ScenarioSourceTypeSchema } from "./scenario.js";
 import { ArtifactTypeSchema, StorageKeySchema } from "./storage.js";
 
 /* ────────────────────────────────────────────────────────────
@@ -192,6 +193,23 @@ export const RunJobDataSchema = z.object({
   baseUrl: z.string().max(500),
   envLabel: z.string().max(50),
   browser: BrowserSchema,
+  /**
+   * 라운드 2 추가 — Runner 의 실행 엔진 분기 키 (03-phases 쟁점 2 · Task 3.7).
+   *
+   * `steps` → `execute/interpreter.ts` (라운드 1 경로, 무변경).
+   * `code`  → `playwright test` 외부 프로세스.
+   *
+   * ★ **코드 본문(`scenario_codes.content`)은 이 페이로드에 싣지 않는다.**
+   *   Runner 가 `scenarioId` 로 DB 에서 읽는다. 근거:
+   *   ① job 은 완료 후 1시간 남는다(`removeOnComplete:{age:3600}`) — 최대 256KiB 본문을
+   *      run 마다 Redis 에 복제할 이유가 없다.
+   *   ② 이 페이로드에서 **민감한 것은 `variables` 하나**라는 성질을 유지해야 감사가 쉽다.
+   *   ③ Runner 는 이미 DataSource 를 갖고 있다(`step_results` 를 직접 쓴다).
+   *   대가: 큐 등록 ~ 실행 사이에 본문이 바뀌면 **바뀐 본문이 실행된다**(스냅샷이 아니다).
+   *   큐 대기는 보통 수 초이고, 본문 스냅샷이 필요해지면 `runs` 에 컬럼이 아니라
+   *   `run_codes` 스냅샷 테이블을 새로 두어야 한다(`runs` 를 뜨겁게 만들지 않기 위해).
+   */
+  sourceType: ScenarioSourceTypeSchema,
   variables: z.record(z.string(), z.string()),
   secretKeys: z.array(z.string()),
 });
@@ -226,6 +244,15 @@ export const RunSchema = z.object({
   /** 실행 시점 값 고정(재현성). */
   baseUrl: z.string().max(500),
   browser: BrowserSchema,
+  /**
+   * 라운드 2 추가 — **실행 시점 스냅샷**(`runs.source_type`). 조인이 아니다.
+   *
+   * 화면이 "이 실행은 코드 실행인가"를 알아야 라이브 뷰를 열지 / 대기 행을 그릴지 정한다.
+   * `scenarios` 조인으로 읽으면 **시나리오가 삭제된 뒤 이력에서 값이 사라진다**
+   * (`runs.scenario_id` 는 SET NULL 이다). `scenario_name`·`base_url` 을 스냅샷으로 둔
+   * 라운드 1 원칙과 같은 이유로 컬럼에 고정한다.
+   */
+  sourceType: ScenarioSourceTypeSchema,
   status: RunStatusSchema,
   runnerId: z.string().max(60).nullable(),
   totalSteps: z.number().int().nonnegative(),

@@ -79,3 +79,45 @@ describe("planRunBatch — 스위트는 부모 run 없이 batch_id 로 묶는다
     expect(planRunBatch({ targets: [], startSerial: 1, batchId: null })).toEqual([]);
   });
 });
+
+/** 라운드 2 — 03-phases 쟁점 2. 기존 8건은 한 글자도 고치지 않았다(위 그대로). */
+describe("planRunBatch — sourceType 분기", () => {
+  it("sourceType 을 생략하면 steps 다 (라운드 1 호출부 무영향)", () => {
+    const planned = planRunBatch({
+      targets: [target("s1", "로그인", 5)],
+      startSerial: 1,
+      batchId: null,
+    });
+    expect(planned[0]?.sourceType).toBe("steps");
+    expect(planned[0]?.totalSteps).toBe(5);
+  });
+
+  it("★ code 시나리오는 totalSteps 가 0 으로 시작한다 (실행해 봐야 스텝 수를 안다)", () => {
+    const planned = planRunBatch({
+      // 설령 호출 측이 스텝 수를 넘겨도 code 는 0 이어야 한다.
+      targets: [{ ...target("s1", "코드 시나리오", 7), sourceType: "code" }],
+      startSerial: 1,
+      batchId: null,
+    });
+    expect(planned[0]?.sourceType).toBe("code");
+    expect(planned[0]?.totalSteps).toBe(0);
+  });
+
+  it("스위트에 녹화·코드가 섞여도 batch_id 묶음은 그대로다", () => {
+    const planned = planRunBatch({
+      targets: [
+        { ...target("s1", "녹화", 4), sourceType: "steps" },
+        { ...target("s2", "코드", 0), sourceType: "code" },
+        { ...target("s3", "녹화2", 2) },
+      ],
+      startSerial: 20,
+      batchId: BATCH_ID,
+    });
+
+    expect(new Set(planned.map((run) => run.batchId))).toEqual(new Set([BATCH_ID]));
+    expect(planned.map((run) => run.batchSequence)).toEqual([1, 2, 3]);
+    expect(planned.map((run) => run.sourceType)).toEqual(["steps", "code", "steps"]);
+    expect(planned.map((run) => run.totalSteps)).toEqual([4, 0, 2]);
+    expect(planned.map((run) => run.runCode)).toEqual(["RUN-0020", "RUN-0021", "RUN-0022"]);
+  });
+});

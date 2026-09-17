@@ -312,7 +312,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① `POST …/scenarios {name, sourceType:"code"}` → 201, 응답 `sourceType==="code"`.
   ② `sourceType` 없이 만들면 `"steps"` 다(기존 웹 화면이 그대로 동작한다 — 실제로 호출해 확인).
   ③ `PATCH /api/scenarios/:id {sourceType:"steps"}` 가 **400** 이다(`forbidNonWhitelisted`).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.2: 코드 본문 조회 · 저장 엔드포인트
 - **파일**: `apps/api/src/modules/scenarios/scenario-code.controller.ts` (신규), `scenario-code.service.ts` (신규)
@@ -329,7 +329,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① `import fs from "fs"` 가 든 본문을 `PUT` 하면 **400** 이고 응답 `details[0].line` 이
   실제 줄 번호다. ② 정상 spec 을 `PUT` 하면 200 이고 `GET` 이 같은 본문을 돌려준다(바이트 일치).
   ③ `filename: "../../etc/passwd"` 는 400. ④ 256KB 초과 본문은 400.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.3: 코드 시나리오의 발행(publish) 규칙
 - **파일**: `apps/api/src/modules/scenarios/scenarios.service.ts` (수정)
@@ -340,7 +340,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 코드 본문이 없는 `code` 시나리오 발행 → **400** + 한국어 메시지.
   ② 본문이 있으면 200 `{status:"published", version:2}`.
   ③ **녹화 시나리오 발행 동작이 전과 동일함을 실제로 호출해 확인한다**(회귀).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.4: `POST /api/runs` 의 코드 시나리오 분기
 - **파일**: `apps/api/src/modules/runs/runs.plan.ts` · `runs.service.ts` (수정)
@@ -354,7 +354,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   ② 큐 페이로드(`HGET bull:run:<runId> data`)에 `"sourceType":"code"` 가 있다.
   ③ **스위트에 코드 시나리오와 녹화 시나리오를 섞어 넣어도 `batch_id` 묶음이 그대로 만들어진다.**
   ④ `runs.plan.spec.ts` 회귀 8건이 그대로 통과한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.5: 라이브 스트림 토큰 발급 + 폐기
 - **파일**: `apps/api/src/modules/runs/live-stream.controller.ts` (신규), `apps/api/src/common/utils/stream-token.ts` (신규),
@@ -369,7 +369,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① `GET /api/runs/:id/live` 응답 `wsUrl` 이 `:4100` 을 포함하고 `:4000` 을 포함하지 않는다.
   ② `redis-cli GET testflow:run:token:<runId>` 가 sha256 hex 64자이고 **평문 토큰이 아니다**.
   ③ 종료된 run 은 404. ④ **`pnpm --filter @testflow/api test` 93건이 그대로 통과한다**(기존 9건 포함).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.6: `RunDetail` 에 `sourceType` 노출
 - **파일**: `apps/api/src/modules/runs/run.mapper.ts` (수정), `packages/contracts/src/run.ts` (수정 — 추가만)
@@ -381,7 +381,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **재사용**: `toRun`/`toRunSummary` 매퍼 구조.
 - **완료 기준**: ① `GET /api/runs/:id` 응답에 `sourceType` 이 있다.
   ② **시나리오를 삭제한 뒤에도** 그 값이 유지된다(실제로 삭제하고 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

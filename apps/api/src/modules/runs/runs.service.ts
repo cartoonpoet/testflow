@@ -12,6 +12,7 @@ import type {
   RunJobData,
   RunListItem,
   RunListQuery,
+  ScenarioSourceType,
 } from "@testflow/contracts";
 import { ProjectEntity, RunEntity, StepResultEntity } from "@testflow/db";
 import { maskSecrets } from "../../common/utils/mask.js";
@@ -24,6 +25,8 @@ interface ScenarioRow {
   id: string;
   project_id: string;
   name: string;
+  /** ★ 코드 본문(`scenario_codes.content`)은 **읽지 않는다** — 큐에도 싣지 않는다. */
+  source_type: ScenarioSourceType;
 }
 
 interface SuiteScenarioRow extends ScenarioRow {
@@ -98,6 +101,13 @@ export class RunsService {
           baseUrl,
           envLabel,
           browser: request.browser,
+          /**
+           * ★ Runner 의 실행 엔진 분기 키 (03-phases 쟁점 2 · Task 3.7).
+           *   `steps` → 기존 interpreter 경로(**동작 무변경**), `code` → `playwright test`.
+           *   **코드 본문은 싣지 않는다** — Runner 가 `scenarioId` 로 DB 에서 읽는다.
+           *   근거는 `RunJobDataSchema.sourceType` 의 JSDoc 에 있다.
+           */
+          sourceType: run.sourceType,
           // ★ 평문 변수가 존재하는 유일한 장소.
           variables: request.variables,
           secretKeys: request.secretKeys,
@@ -218,7 +228,7 @@ export class RunsService {
   }> {
     if (request.scenarioId !== undefined) {
       const rows = (await this.dataSource.query(
-        `SELECT id, project_id, name FROM scenarios WHERE id = ?`,
+        `SELECT id, project_id, name, source_type FROM scenarios WHERE id = ?`,
         [request.scenarioId],
       )) as ScenarioRow[];
       const scenario = rows[0];
@@ -235,6 +245,7 @@ export class RunsService {
             scenarioId: scenario.id,
             scenarioName: scenario.name,
             stepCount: stepCounts.get(scenario.id) ?? 0,
+            sourceType: scenario.source_type,
           },
         ],
       };
@@ -254,7 +265,7 @@ export class RunsService {
     if (!suite) throw new NotFoundException(`스위트를 찾을 수 없습니다: ${suiteId}`);
 
     const rows = (await this.dataSource.query(
-      `SELECT s.id, s.project_id, s.name, ss.sequence
+      `SELECT s.id, s.project_id, s.name, s.source_type, ss.sequence
          FROM suite_scenarios ss
          JOIN scenarios s ON s.id = ss.scenario_id
         WHERE ss.suite_id = ?
@@ -270,10 +281,13 @@ export class RunsService {
     return {
       projectId: suite.project_id,
       suiteId,
+      // ★ 스위트에 녹화·코드 시나리오가 섞여 있어도 `batch_id` 묶음은 그대로다.
+      //   갈리는 것은 run 마다의 `source_type` 스냅샷과 큐 페이로드뿐이다.
       targets: rows.map((row) => ({
         scenarioId: row.id,
         scenarioName: row.name,
         stepCount: stepCounts.get(row.id) ?? 0,
+        sourceType: row.source_type,
       })),
     };
   }
@@ -338,8 +352,11 @@ export class RunsService {
               envLabel: common.envLabel,
               baseUrl: common.baseUrl,
               browser: common.browser,
+              // 실행 시점 스냅샷 — 시나리오가 삭제돼도 이력에 남아야 한다(Task 2.6).
+              sourceType: run.sourceType,
               status: "queued" as const,
               runnerId: null,
+              // `code` 는 0 이다 — 실행해 봐야 스텝 수를 안다(쟁점 2). Runner 가 증가시킨다.
               totalSteps: run.totalSteps,
               passedSteps: 0,
               failedSeq: null,

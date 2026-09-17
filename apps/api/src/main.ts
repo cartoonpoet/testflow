@@ -3,6 +3,7 @@ import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import compression from "compression";
+import { MAX_SCENARIO_CODE_BYTES } from "@testflow/contracts";
 import { AppModule } from "./app.module.js";
 
 /**
@@ -23,6 +24,24 @@ import { AppModule } from "./app.module.js";
 const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
 app.use(compression());
+
+/**
+ * ★ JSON 본문 상한 — 라운드 2에서 올렸다. **실측으로 발견한 문제다.**
+ *
+ * express 의 기본값은 **100KB** 다. 그런데 코드 시나리오 본문의 계약상 상한은
+ * `MAX_SCENARIO_CODE_BYTES`(256KiB)이고, 그것을 넘겼을 때 사용자가 받아야 하는 응답은
+ * `validateScenarioCode()` 의 **400 + `details`(줄 번호 · 한국어 사유)** 다.
+ * 기본값 그대로 두면 **101KB 짜리 정상 코드가 `413 request entity too large` 로 거부**되고
+ * (계약상 허용 범위인데도) 256KiB 초과 본문은 우리 검증기에 **닿지도 못한다.**
+ * 실제로 262KB 본문을 PUT 해서 413 을 받아 확인했다.
+ *
+ * → **전송 상한은 의미 상한보다 반드시 커야 한다.** JSON 직렬화는 따옴표·역슬래시 이스케이프로
+ *   본문을 부풀리므로 256KiB 에 넉넉한 여유를 둔 4배(1MiB)로 잡는다. 의미 상한은 여전히
+ *   `MAX_SCENARIO_CODE_BYTES` 이고 **거부 주체는 `validateScenarioCode()` 하나다.**
+ *   (제어문자로만 채운 병적인 입력은 이스케이프가 6배까지 부풀어 여전히 413 이 될 수 있다 —
+ *   그런 입력은 어차피 의미 상한도 넘으므로 거부가 정답이다.)
+ */
+app.useBodyParser("json", { limit: MAX_SCENARIO_CODE_BYTES * 4 });
 
 app.enableCors({
   origin:

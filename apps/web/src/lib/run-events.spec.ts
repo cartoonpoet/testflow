@@ -33,6 +33,8 @@ function detail(overrides: Partial<RunDetail> = {}): RunDetail {
     envLabel: "스테이징",
     baseUrl: "https://staging.example.com",
     browser: "chromium",
+    // 라운드 2 추가 필드(`RunSchema.sourceType`). 이 테스트는 녹화 실행을 다룬다.
+    sourceType: "steps",
     status: "queued",
     runnerId: null,
     totalSteps: 3,

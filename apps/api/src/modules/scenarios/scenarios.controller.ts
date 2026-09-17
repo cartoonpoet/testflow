@@ -28,6 +28,18 @@ import type { ScenarioDetailResponse } from "./scenarios.service.js";
 import { parseAdvancedFlag } from "./step.mapper.js";
 
 /**
+ * ★ `PATCH` 는 **모르는 키를 거부**한다 (03-phases Task 2.1 완료기준 ③ — `forbidNonWhitelisted`).
+ *
+ * `sourceType` 은 생성 후 변경할 수 없다. zod 의 기본 동작은 모르는 키를 **조용히 버리는 것**이라
+ * `PATCH {sourceType:"steps"}` 가 200 으로 성공한 것처럼 보인다 — 그러면 사용자는 바뀐 줄 안다.
+ * 400 으로 명시 거부한다.
+ *
+ * `contracts` 의 `PatchScenarioDtoSchema` 자체는 건드리지 않았다(다른 소비자의 동작이 바뀐다).
+ * strict 는 **이 엔드포인트의 판단**이므로 호출부에 둔다.
+ */
+const PatchScenarioBodySchema = PatchScenarioDtoSchema.strict();
+
+/**
  * ERDify 규약 — `@Controller()` 빈 인자 + 메서드마다 전체 경로.
  * 중첩 리소스(`projects/:projectId/scenarios`)와 평면 리소스(`scenarios/:id`)를
  * 한 컨트롤러에서 함께 노출하기 위한 선택이다.
@@ -65,7 +77,7 @@ export class ScenariosController {
   @Patch("scenarios/:id")
   patch(
     @Param("id") id: string,
-    @Body(zodBody(PatchScenarioDtoSchema)) dto: PatchScenarioDto,
+    @Body(zodBody(PatchScenarioBodySchema)) dto: PatchScenarioDto,
   ): Promise<Scenario> {
     return this.scenarios.patch(id, dto);
   }

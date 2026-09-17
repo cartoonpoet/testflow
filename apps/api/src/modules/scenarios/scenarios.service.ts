@@ -7,6 +7,7 @@ import {
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { ProjectEntity, ScenarioEntity, TestStepEntity } from "@testflow/db";
+import { hasBlockingIssues, validateScenarioCode } from "@testflow/contracts";
 import type {
   ApiTestStep,
   CreateScenarioDto,
@@ -134,7 +135,13 @@ export class ScenariosService {
     };
   }
 
-  /** `POST /api/projects/:projectId/scenarios` — `code` 는 `TC-<FEATURE>-<3자리>` 로 자동 채번. */
+  /**
+   * `POST /api/projects/:projectId/scenarios` — `code` 는 `TC-<FEATURE>-<3자리>` 로 자동 채번.
+   *
+   * ★ `sourceType` 은 **여기서만** 정해진다. `PATCH` 에는 이 필드가 없고
+   *   (`PatchScenarioDtoSchema` 에 없다 + 컨트롤러가 strict 로 400 을 낸다),
+   *   채번 규칙은 `steps`/`code` 가 **동일**하다(코드 시나리오도 `TC-…` 를 받는다).
+   */
   async create(projectId: string, dto: CreateScenarioDto): Promise<Scenario> {
     await this.mustFindProject(projectId);
     const slug = featureSlug(dto.feature);
@@ -149,6 +156,8 @@ export class ScenariosService {
         name: dto.name,
         feature: dto.feature ?? null,
         status: "draft",
+        // 기본값 `"steps"` 는 `CreateScenarioDtoSchema` 가 채운다(기존 호출부 무영향).
+        sourceType: dto.sourceType,
         version: 1,
         authorName: dto.authorName ?? null,
         lastRunId: null,
@@ -199,13 +208,26 @@ export class ScenariosService {
     }
   }
 
-  /** `POST /api/scenarios/:id/publish` — 발행 시 version 을 1 올린다. */
+  /**
+   * `POST /api/scenarios/:id/publish` — 발행 시 version 을 1 올린다.
+   *
+   * ★ 발행 조건이 `sourceType` 별로 갈린다 (03-phases Task 2.3).
+   *   - `steps`: **기존 규칙 그대로** — 스텝 ≥ 1. 한 글자도 바꾸지 않았다(회귀 금지).
+   *   - `code` : 코드 본문이 있고 `validateScenarioCode()` 의 `severity:"error"` 가 0건.
+   *     본문이 저장될 때 이미 검사했지만 **다시 본다** — 저장 이후에 규칙이 강화될 수 있고
+   *     (허용 목록 축소), DB 에 직접 넣은 행도 있을 수 있다.
+   *     `code` 시나리오는 `test_steps` 가 언제나 0행이라 기존 규칙을 그대로 태울 수 없다.
+   */
   async publish(id: string): Promise<PublishScenarioResponse> {
     const scenario = await this.mustFind(id);
 
-    const stepCount = await this.steps.count({ where: { scenarioId: id } });
-    if (stepCount === 0) {
-      throw new BadRequestException("스텝이 하나도 없는 시나리오는 발행할 수 없습니다.");
+    if (scenario.sourceType === "code") {
+      await this.assertPublishableCode(id);
+    } else {
+      const stepCount = await this.steps.count({ where: { scenarioId: id } });
+      if (stepCount === 0) {
+        throw new BadRequestException("스텝이 하나도 없는 시나리오는 발행할 수 없습니다.");
+      }
     }
 
     scenario.status = "published";
@@ -213,6 +235,31 @@ export class ScenariosService {
     const saved = await this.scenarios.save(scenario);
 
     return { status: "published", version: saved.version };
+  }
+
+  /**
+   * `code` 시나리오의 발행 가능 여부.
+   *
+   * ★ `ScenarioCodeEntity` 리포지토리를 이 서비스에 **주입하지 않는다.** 주입해 두면
+   *   목록 조회 경로에서 실수로 본문을 끌어올 길이 열린다(쟁점 1이 구조로 막은 것이다).
+   *   그래서 본문이 필요한 이 한 곳에서만 원시 SQL 로 **`content` 컬럼만** 읽는다.
+   *   (`ScenarioCodeService` 를 주입하면 그쪽이 이 서비스를 주입하고 있어 순환이 된다.)
+   */
+  private async assertPublishableCode(scenarioId: string): Promise<void> {
+    const rows = (await this.dataSource.query(
+      `SELECT content FROM scenario_codes WHERE scenario_id = ?`,
+      [scenarioId],
+    )) as { content: string }[];
+
+    const content = rows[0]?.content;
+    if (content === undefined) {
+      throw new BadRequestException("코드 본문이 없는 시나리오는 발행할 수 없습니다.");
+    }
+    if (hasBlockingIssues(validateScenarioCode(content))) {
+      throw new BadRequestException(
+        "코드에 오류가 있어 발행할 수 없습니다. 코드 편집 화면에서 오류를 먼저 해결하세요.",
+      );
+    }
   }
 
   async mustFind(id: string): Promise<ScenarioEntity> {
