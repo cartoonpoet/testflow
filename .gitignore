@@ -1,0 +1,50 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# 환경변수 — .env.example 만 커밋한다
+.env
+.env.*
+!.env.example
+
+# 증적 저장소 (ARTIFACT_ROOT 기본값)
+artifacts/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# 테스트 커버리지
+coverage/
+
+# yarn (node-modules linker)
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/versions
+.pnp.*
+.yarn/install-state.gz
+
+# 로그
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 에디터 / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+{
+  "name": "@testflow/config-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "files": [
+    "base.json",
+    "react.json",
+    "nest.json",
+    "node.json"
+  ]
+}

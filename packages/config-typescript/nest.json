@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "TestFlow NestJS (ESM)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    // ★ NestJS 12 는 순수 ESM 이다 ("type":"module", CJS export condition 없음).
+    //    CommonJS 로 두면 TS1479 ("cannot be imported with require") 로 전부 깨진다.
+    //    → 상대 경로 import 에 반드시 .js 확장자를 붙일 것. (Gen-Phase 1 스파이크에서 실측 확인)
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
+    // Nest DI 와 TypeORM 엔티티가 design:paramtypes / design:type 런타임 메타데이터에 의존한다.
+    // TS 6.0.3 에서 정상 emit 되는 것을 스파이크로 확인했다.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // 데코레이터 메타데이터가 타입 정보를 런타임까지 들고 가야 하므로 끌 수 없다.
+    "verbatimModuleSyntax": false,
+
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "src"
+  }
+}

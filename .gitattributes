@@ -1,0 +1,24 @@
+* text=auto eol=lf
+
+# 바이너리 — 줄바꿈 변환 금지
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webm  binary
+*.mp4   binary
+*.zip   binary
+*.woff  binary
+*.woff2 binary
+*.pdf   binary
+
+# Playwright trace 는 zip 컨테이너다
+*.trace.zip binary
+
+# 스크립트는 반드시 LF (WSL/컨테이너에서 실행)
+*.sh text eol=lf
+
+# yarn 산출물
+yarn.lock text eol=lf
+.yarn/releases/** binary

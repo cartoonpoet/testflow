@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "TestFlow Node (runner, ESM)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+
+    // runner 는 Nest 가 아니지만 @testflow/db 의 TypeORM 엔티티를 import 하므로
+    // 데코레이터 메타데이터 옵션을 동일하게 켠다.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // DOM 은 없다. 단 record/injected.ts 는 원격 페이지 컨텍스트에서 돌기 때문에
+    // DOM lib 이 필요하며 별도 tsconfig(injected 전용)로 분리한다 — Gen-Phase 7.
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "outDir": "dist",
+    "rootDir": "src"
+  }
+}

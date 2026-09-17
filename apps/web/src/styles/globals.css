@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/*
+ * 시안 :root 토큰 → Tailwind 4 @theme 이식 단일 지점.
+ * primitives → semantic 2계층 분리는 Gen-Phase 8 에서 완성한다.
+ * 여기 있는 값은 스캐폴딩 검증용 최소 집합이다.
+ */
+@theme {
+  --color-brand: #087f5b;
+  --color-soft: #e6f4ef;
+}

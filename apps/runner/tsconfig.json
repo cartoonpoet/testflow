@@ -1,0 +1,16 @@
+{
+  "extends": "@testflow/config-typescript/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    // injected.ts 는 원격 페이지(브라우저) 컨텍스트에서 실행되므로 DOM lib 이 필요하다.
+    // Gen-Phase 7 에서 tsconfig.injected.json 으로 분리해 빌드한다.
+    "src/record/injected.ts"
+  ]
+}

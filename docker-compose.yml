@@ -1,0 +1,52 @@
+# 로컬 개발용 MySQL + Redis.
+#
+# ★ 변수 이름에 TESTFLOW_ 접두사를 붙인 이유 (보안):
+#   개발자 셸에 이미 회사 공용 DB_HOST / DB_USER / DB_PW 가 export 돼 있는 경우가 있다.
+#   compose 는 ambient 환경변수를 .env 보다 우선하므로, 여기서 ${DB_PW} 를 쓰면
+#   로컬 컨테이너가 회사 운영 비밀번호를 root 암호로 들고 뜨게 된다.
+#   (실제로 `docker compose config` 출력에 회사 비밀번호가 찍히는 것을 확인했다.)
+#   따라서 compose 전용 변수명을 쓰고, 기본값은 로컬 전용 더미값으로 둔다.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: testflow-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TESTFLOW_DB_PW:-testflow_local}
+      MYSQL_DATABASE: ${TESTFLOW_DB_NAME:-testflow}
+      TZ: Asia/Seoul
+    ports:
+      - "${TESTFLOW_DB_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # mysqladmin ping 은 서버가 연결을 거절해도 성공으로 보고하는 경우가 있어
+      # 실제 쿼리를 던져 확인한다.
+      test: ["CMD-SHELL", "mysql -uroot -p\"$$MYSQL_ROOT_PASSWORD\" -e 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: testflow-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${TESTFLOW_REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  mysql-data:
+  redis-data:

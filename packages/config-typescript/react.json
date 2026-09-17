@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "TestFlow React (Vite)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    // Vite 가 번들러이므로 emit 하지 않는다. 타입 검사 전용.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+
+    "jsx": "react-jsx",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+
+    // 프론트는 데코레이터를 쓰지 않으므로 type-only import 를 엄격히 구분한다.
+    "verbatimModuleSyntax": true,
+
+    "allowImportingTsExtensions": true,
+    "types": ["vite/client"]
+  }
+}
