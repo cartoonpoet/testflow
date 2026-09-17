@@ -22,10 +22,11 @@
 5. [환경변수 전량](#환경변수-전량)
 6. [타임존](#타임존)
 7. [실행 격리 모드](#실행-격리-모드-runner_execution_mode)
-8. [배포 전제](#배포-전제)
-9. [MVP 범위와 미충족 항목](#mvp-범위와-미충족-항목)
-10. [고정된 기술 결정](#고정된-기술-결정)
-11. [문제 해결](#문제-해결)
+8. [코드 입력 실행의 격리 ⚠️](#코드-입력-실행의-격리-runner_code_execution_mode--기본-docker)
+9. [배포 전제](#배포-전제)
+10. [MVP 범위와 미충족 항목](#mvp-범위와-미충족-항목)
+11. [고정된 기술 결정](#고정된-기술-결정)
+12. [문제 해결](#문제-해결)
 
 ---
 
@@ -298,6 +299,11 @@ compose 는 ambient 환경변수를 `.env` 보다 우선한다. 그래서 `${DB_
 | `RUNNER_DOCKER_IMAGE` | `testflow/playwright-exec:1.63.0` | docker 모드 전용 |
 | `RUNNER_CONTAINER_MEMORY` / `RUNNER_CONTAINER_CPUS` | `2g` / `1.5` | 컨테이너 1개당 커널 수준 상한 |
 | `RUNNER_DOCKER_BIN` | (자동) | WSL + Docker Desktop 에서는 리눅스 `docker` 가 없고 `docker.exe` 만 PATH 에 있다. 비우면 `docker` → `docker.exe` 순으로 탐색 |
+| `RUNNER_CODE_EXECUTION_MODE` | **`docker`** | ★ **코드 입력 실행 전용**. 위 `RUNNER_EXECUTION_MODE` 와 **별개**다. `local` 로 내리면 붙여넣은 코드가 Runner 호스트에서 그대로 실행된다 — [해당 절](#코드-입력-실행의-격리-runner_code_execution_mode--기본-docker) 필독 |
+| `RUNNER_CODE_DOCKER_IMAGE` | `testflow/playwright-code-exec:1.63.0` | `Dockerfile.code-exec` 로 빌드. 없으면 실행이 `error` 로 거부된다 |
+| `RUNNER_CODE_WORKSPACE_ROOT` | (비움 = `os.tmpdir()`) | docker 모드에서는 **bind mount 가능한 경로**여야 한다. WSL + Docker Desktop 에서는 `/mnt/<드라이브>/…` 아래 |
+| `RUNNER_CODE_CDP_PORT` | `0` (실행마다 빈 포트) | 라이브 화면용 CDP 포트를 고정한다. 고정하면 **동시 실행 2건째가 붙지 못한다** — 방화벽이 특정 포트만 허용하는 환경이나 고장 주입 용도다 |
+| `RUNNER_DOCKER_MOUNT_STYLE` | (자동) | `native` \| `wsl-docker-desktop`. 비우면 docker 바이너리 이름으로 판별한다(`docker.exe` → WSL) |
 
 ### compose 전용
 
@@ -359,6 +365,60 @@ docker 모드에서 주의할 점:
 
 ---
 
+## 코드 입력 실행의 격리 (`RUNNER_CODE_EXECUTION_MODE`) — 기본 `docker`
+
+> **위 절과 별개의 설정이다.** 녹화 기반(`steps`) 실행의 `RUNNER_EXECUTION_MODE` 기본값은
+> 그대로 `local` 이고, 여기서 바뀌는 것은 **"테스트 코드 넣기"로 만든 시나리오**의 실행뿐이다.
+
+### 왜 기본값이 다른가
+
+녹화 기반 실행은 **우리가 만든 JSON 스텝**을 해석한다 — 신뢰 경계가 없다.
+코드 입력 실행은 **사용자가 붙여넣은 임의 Node 코드를 `playwright test` 로 실행**한다.
+그 코드는 `fs.readFile("~/.ssh/id_rsa")` 도 `fetch("http://외부")` 도 할 수 있다.
+저장 시점의 import 허용목록 검사(`validateScenarioCode()`)는 **보안 장치가 아니다** —
+정규식은 우회된다(`require(["f","s"].join(""))`). **보안은 이 격리가 담당한다.**
+
+| 모드 | 무엇이 컨테이너에 들어가는가 |
+|---|---|
+| **`docker`** (기본) | **`playwright test` 프로세스째.** 브라우저·인터프리터·사용자 코드 전부 |
+| `local` | 아무것도. **붙여넣은 코드가 Runner 호스트에서 그대로 실행된다** |
+
+### 준비
+
+```bash
+docker build -f apps/runner/Dockerfile.code-exec \
+  -t testflow/playwright-code-exec:1.63.0 apps/runner
+```
+
+이미지나 docker 가 없으면 **실행이 `error` 로 거부된다.** `local` 로 조용히 내려가지 않는다 —
+격리됐다고 믿게 만드는 것이 격리가 없는 것보다 나쁘다.
+
+### ⚠️ `local` 로 내리려면 이것을 읽고 내려라
+
+```bash
+RUNNER_CODE_EXECUTION_MODE=local
+```
+
+> **`local` 에서 붙여넣은 테스트 코드는 Runner 호스트에서 그대로 실행된다.**
+> 파일 시스템 전체 · 네트워크 · 호스트 환경변수(DB 자격증명 포함)에 접근할 수 있다.
+> **신뢰할 수 없는 코드를 넣지 마라.** 혼자 쓰는 개발 머신에서만 쓸 값이다.
+
+### docker 모드에서 실제로 필요한 것 (실측으로 확인한 제약)
+
+| 항목 | 내용 |
+|---|---|
+| `RUNNER_CODE_WORKSPACE_ROOT` | 작업공간은 **bind mount 가능한 경로**여야 한다. **WSL + Docker Desktop 에서는 `/tmp` 이 컨테이너에 빈 디렉토리로 마운트된다** — `/mnt/<드라이브>/…` 아래를 지정해야 한다. 리눅스 네이티브 docker 는 기본값(`os.tmpdir()`)으로 된다 |
+| 대상 사이트 | 호스트 로컬이면 `baseUrl` 에 `host.docker.internal` 을 써야 컨테이너에서 닿는다 |
+| 진행 이벤트 싱크 | reporter 가 컨테이너에서 호스트로 POST 하므로 Runner 가 그 포트를 **`0.0.0.0`** 에 연다(실행 1건 동안만, NDJSON 만 받는다). `local` 에서는 `127.0.0.1` 이다 |
+| CDP 라이브 화면 | 컨테이너 안 TCP 중계를 거쳐 **`127.0.0.1` 에만** 퍼블리시된다. 인증 없는 DevTools 를 외부에 열지 않는다 |
+| `variables` 평문 | **`docker inspect` 에 남지 않는다** — `-e` 가 아니라 **stdin JSON** 으로 넘기고 컨테이너 안 부트스트랩이 자식 env 에만 심는다(확인: inspect 전문 grep 0건). 단 **컨테이너 안** `/proc/<pid>/environ` 에는 있다 — 사용자 코드가 `process.env["TESTFLOW_VAR_*"]` 로 읽는다는 계약을 지키는 한 피할 수 없다 |
+| 마운트 | `<작업공간>:/ws`(rw) 와 `<runner>/dist:/tfdist`(**ro**) **두 개뿐**이다. `ARTIFACT_ROOT` 는 마운트하지 않는다 |
+| 증적 | 컨테이너가 `/ws/out` 에 쓰고 Runner 가 호스트 쪽에서 읽어 `ARTIFACT_ROOT` 로 옮긴다 |
+
+관련 변수는 [환경변수 전량 → 실행 격리](#실행-격리) 표에 있다.
+
+---
+
 ## 배포 전제
 
 ### 1) Runner 와 API 는 **같은 호스트**에 두고 `ARTIFACT_ROOT` 를 공유한다
@@ -408,11 +468,25 @@ server {
     proxy_set_header Connection "upgrade";
     proxy_read_timeout 3600s;
   }
+
+  # ④ 실행 라이브 스트림 — **같은 Runner 포트의 다른 경로**. 단방향(보기만)이다
+  location /live/ {
+    proxy_pass http://127.0.0.1:4100;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+  }
 }
 ```
 
 `.env` 에 `RUNNER_WS_PUBLIC_URL=wss://testflow.internal/rec` 를 넣으면
-API 가 응답하는 `wsUrl` 이 이 주소를 가리킨다.
+API 가 응답하는 `wsUrl` 이 이 주소를 가리킨다. 실행 라이브 스트림은
+**별도 변수** `RUNNER_WS_LIVE_PUBLIC_URL=wss://testflow.internal/live` 를 쓴다
+(녹화 변수에는 `/rec` 경로가 이미 들어 있어 재사용하면 실행 스트림이 녹화 경로로 간다).
+
+두 경로는 **토큰 키 공간이 분리돼 있다** — `testflow:rec:token:` ↔ `testflow:run:token:`.
+녹화 토큰으로 `/live/` 에 붙으면 close **4401** 이다(그 반대도 마찬가지).
 
 ### 3) SSE 이벤트 규약
 

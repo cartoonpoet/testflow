@@ -1,0 +1,51 @@
+# TestFlow **코드 입력 실행**용 격리 이미지 (03-phases Task 4.5 — ★ 게이트 G2).
+#
+# ## 라운드 1의 `Dockerfile.exec` 와 무엇이 다른가
+# `Dockerfile.exec` 는 **브라우저 서버만** 띄운다(`playwright run-server`). 인터프리터와
+# 비밀번호는 호스트에 남는다 — 라운드 1의 실행 대상이 우리가 만든 JSON 스텝이었기 때문이다.
+#
+# 이 이미지는 **`playwright test` 프로세스째** 담는다. 라운드 2의 실행 대상은 **사용자가
+# 붙여넣은 임의 Node 코드**이고, 격리해야 할 대상이 바로 그 프로세스다(쟁점 4).
+# 그래서 `Dockerfile.exec` 를 고치지 않고 따로 둔다 — 녹화 경로와 기존 `steps` 실행의
+# 격리 기본값(`local`)은 바뀌지 않는다.
+#
+# ## 빌드 / 사용
+#   docker build -f apps/runner/Dockerfile.code-exec -t testflow/playwright-code-exec:1.63.0 apps/runner
+#   RUNNER_CODE_EXECUTION_MODE=docker  (기본값)
+#   RUNNER_CODE_DOCKER_IMAGE=testflow/playwright-code-exec:1.63.0
+#
+# ## ★ 우리 코드는 이미지에 **넣지 않는다**
+# Runner 의 `dist` 는 실행 시점에 `/tfdist` 로 **읽기 전용 bind mount** 한다
+# (`code-container.ts`). 넣으면 Runner 코드를 한 줄 고칠 때마다 3.5GB 이미지를 다시
+# 빌드해야 한다. 읽기 전용인 이유: 사용자 코드가 Runner 코드를 고칠 수 없어야 한다.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+
+# 브라우저는 이미 /ms-playwright 에 있다. npm 이 다시 받지 않게 한다(수 GB 절약).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# ★ `@playwright/test` 를 `/opt/tf` 에 설치한 뒤 `/node_modules` 로 링크한다.
+#
+#   ① 베이스 이미지에는 `@playwright/test` 가 **없다**(실측: MODULE_NOT_FOUND).
+#      `playwright` CLI 에 `test` 서브커맨드는 있지만 사용자 spec 의
+#      `import { test } from "@playwright/test"` 가 해석되지 않는다.
+#   ② **WORKDIR 에 설치하면 안 된다** — 작업공간 bind mount 가 그 디렉토리를 덮어
+#      `npx` 가 레지스트리에서 새로 받아오고 결국 spec 이 모듈을 못 찾는다(실측).
+#   ③ 루트에 직접 `npm install` 은 npm 이 거부한다(실측: exit 1). 그래서 링크를 쓴다.
+#   `/node_modules` 는 사용자 spec 이 **어느 디렉토리에 있어도** Node 가 상위를 훑다가
+#   잡는 마지막 지점이다.
+WORKDIR /opt/tf
+RUN npm install --omit=dev --no-audit --no-fund @playwright/test@1.63.0 \
+  && npm cache clean --force \
+  && ln -s /opt/tf/node_modules /node_modules
+
+# ★ `/tfdist` 의 `.js` 는 ESM 이고 그 위에 package.json 이 없다.
+#   Node 22+ 의 구문 자동 감지로도 로드되지만, 그 동작에 기대지 않고 명시한다 —
+#   감지가 꺼지거나 바뀌면 "config 로드 실패"가 `No tests found` 로 나와 원인이 안 보인다.
+RUN printf '{"type":"module","private":true}\n' > /package.json
+
+# 작업공간은 실행 시점에 마운트된다(`-v <workspace>:/ws -w /ws`).
+WORKDIR /ws
+
+# ENTRYPOINT 를 두지 않는다 — `code-container.ts` 가 부트스트랩(`pw-container-boot.js`)을
+# 명령으로 직접 넘긴다. 그 부트스트랩이 ① CDP TCP 중계 ② stdin 변수 주입을 한다.

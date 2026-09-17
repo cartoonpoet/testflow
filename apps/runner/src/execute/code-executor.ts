@@ -11,10 +11,19 @@
  *   → 작업공간 삭제 (항상)
  * ```
  *
- * ## ★ 라이브 스트리밍은 여기에 없다 (Gen-Phase 4)
- * `connectOverCDP` · screencast · `/live/:runId` 는 **의도적으로 붙이지 않았다.** 스트림 없이
- * "코드가 실행되고 결과가 DB·SSE 에 남는다"가 먼저 성립해야, 라이브를 붙였을 때 무엇이 깨졌는지
- * 구분된다(03-phases 진행 전략). 붙일 지점은 `CDP_ATTACH_POINT` 주석이 표시한다.
+ * ## ★ 라이브 스트리밍 (Gen-Phase 4 Task 4.4) — 경로 D
+ * ```
+ * findFreeCdpPort() → use.launchOptions.args 에 --remote-debugging-port=<p> 덧붙이기
+ *   → spawn 직후 startCodeBrowser() (백그라운드 폴링)
+ *   → connectOverCDP → watchBrowserPages → startScreencast → LiveStreamSession
+ *   → 뷰어는 같은 WS 서버의 /live/:runId 로 붙는다 (record/ws-server.ts)
+ * ```
+ * ★★ **스트림은 실행의 전제가 아니다.** CDP 부착이 실패해도(포트 선점·worker 재시작 후
+ *    재바인딩 실패) 실행은 그대로 끝까지 간다. 그 원칙을 코드로 보장하는 지점이 세 곳이다 —
+ *      ① 포트 할당 실패 → `cdpPort = null` 로 그냥 진행한다.
+ *      ② `startCodeBrowser()` 는 **동기 반환**이고 `await` 하지 않는다(최대 30초 폴링을 기다리지 않는다).
+ *      ③ supervisor 의 예외는 그 안에서 삼켜 뷰어에게만 `{t:"error"}` 로 알린다.
+ *    실패는 `{t:"error"}` 로 뷰어에만 알리고 `run.finished` 는 정상적으로 발행된다.
  *
  * ## ★ 실행 환경 오류(`error`) ↔ 시나리오 실패(`failed`) 구분 — 04-gen-6 결정 6번
  * | 상황 | status |
@@ -35,7 +44,18 @@ import type { RunJobData, RunStatus } from "@testflow/contracts";
 import type { Redis } from "ioredis";
 import type { DataSource } from "typeorm";
 import { collectPlaywrightArtifacts } from "./code-artifacts.js";
-import { extractUnsupportedConfigMessage } from "./pw-config.js";
+import { findFreeCdpPort, startCodeBrowser } from "./code-browser.js";
+import type { CodeBrowserAttachment } from "./code-browser.js";
+import {
+  CONTAINER_HOST_ALIAS,
+  CONTAINER_PW_CONFIG_MODULE,
+  CONTAINER_PW_REPORTER_MODULE,
+  runnerDistDir,
+  spawnCodeContainer,
+} from "./code-container.js";
+import type { CodeContainerHandle } from "./code-container.js";
+import { PW_CONFIG_FILENAME, extractUnsupportedConfigMessage } from "./pw-config.js";
+import type { LiveStreamRegistry, LiveStreamSession } from "./live-stream.js";
 import type { CodeWorkspace } from "./code-workspace.js";
 import {
   ARTIFACT_SETTLE_MS,
@@ -75,12 +95,22 @@ interface EventSink {
 }
 
 /**
- * reporter 가 POST 하는 NDJSON 을 받는 loopback HTTP 서버.
+ * reporter 가 POST 하는 NDJSON 을 받는 HTTP 서버.
  *
- * ★ **127.0.0.1 에만 바인딩하고 포트는 0(빈 포트 자동 할당)** 이다. 동시 실행 2건이
- *   포트를 다투지 않게 하려면 고정 포트를 쓸 수 없다(PoC 는 host 포트에서 파생시켰다).
+ * ★ 포트는 **0(빈 포트 자동 할당)** 이다. 동시 실행 2건이 포트를 다투지 않게 하려면
+ *   고정 포트를 쓸 수 없다(PoC 는 host 포트에서 파생시켜 충돌했다).
+ *
+ * ★ 바인딩 주소는 격리 모드에 따라 갈린다 — **실측으로 확인된 제약**(게이트 G2 ③):
+ *   - `local`  : `127.0.0.1` (기본. 외부에 열지 않는다)
+ *   - `docker` : **`0.0.0.0`** — 컨테이너가 `host.docker.internal` 로 닿아야 한다.
+ *     `127.0.0.1` 로 두면 컨테이너에서 연결이 거부되고 **진행 이벤트가 0건**이 된다
+ *     (화면에 스텝이 하나도 안 뜬다). 그만큼 로컬 노출면이 늘어나는 것이 docker 모드의
+ *     대가 중 하나다 — 이 서버는 **실행 1건 동안만** 살아 있고 NDJSON 만 받는다.
  */
-async function startEventSink(onEvents: (chunk: string) => void): Promise<EventSink> {
+async function startEventSink(
+  onEvents: (chunk: string) => void,
+  options: { bindHost: string; urlHost: string },
+): Promise<EventSink> {
   const server: Server = createServer((req, res) => {
     if (req.method !== "POST") {
       res.writeHead(405).end();
@@ -97,13 +127,13 @@ async function startEventSink(onEvents: (chunk: string) => void): Promise<EventS
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => resolve());
+    server.listen(0, options.bindHost, () => resolve());
   });
 
   const address = server.address();
   const port = typeof address === "object" && address !== null ? address.port : 0;
   return {
-    url: `http://127.0.0.1:${String(port)}/events`,
+    url: `http://${options.urlHost}:${String(port)}/events`,
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve());
@@ -131,8 +161,10 @@ export async function executeCodeRun(params: {
   redis: Redis;
   abort: RunAbortHandle;
   log: (message: string) => void;
+  liveStreams?: LiveStreamRegistry;
 }): Promise<ExecuteRunResult> {
   const { job, config, dataSource, redis, abort, log } = params;
+  const liveStreams = params.liveStreams ?? null;
 
   // ★ 평문 비밀번호가 존재하는 유일한 장소에서 마스킹 대상 "값"을 뽑는다.
   //   reporter 안에 갇혀 DB·SSE 로 나가는 모든 문자열에 적용된다.
@@ -164,6 +196,57 @@ export async function executeCodeRun(params: {
 
   const startedAt = await reporter.runStarted();
   log(`run ${job.runId} 시작 (코드) — ${code.filename} ${String(code.content.length)}자`);
+
+  /* ── 라이브 스트림 준비 (경로 D) ─────────────────────────────
+   * 세션을 **실행 시작과 함께** 연다. 뷰어는 `GET /api/runs/:id/live` 로 토큰을 받아
+   * `/live/:runId` 로 붙는데, 세션이 없으면 4404 다 — 실행 중에만 붙을 수 있다.
+   *
+   * ★ 포트 할당이 실패해도 `cdpPort = null` 로 그냥 진행한다. CDP 포트가 없으면
+   *   `mergePlaywrightConfig()` 가 `--remote-debugging-port` 를 넣지 않고, 실행은
+   *   Gen-Phase 3 와 **완전히 동일**하게 돈다(라이브 화면만 없다).
+   * ──────────────────────────────────────────────────────────── */
+  /**
+   * ★ 격리 모드 — **코드 실행 전용**이다(`RUNNER_CODE_EXECUTION_MODE`, 기본 `docker`).
+   *   녹화 경로와 기존 `steps` 실행의 `RUNNER_EXECUTION_MODE` 는 건드리지 않는다(쟁점 4).
+   */
+  const isolated = config.codeExecutionMode === "docker";
+
+  const live: LiveStreamSession | null = liveStreams === null ? null : liveStreams.open(job.runId);
+  let cdpPort: number | null = null;
+  if (live !== null && config.codeCdpPort > 0) {
+    // 고정 포트(`RUNNER_CODE_CDP_PORT`). 동시 실행이 있으면 두 번째가 붙지 못한다 —
+    // 그것이 이 설정의 알려진 대가다(env.ts 주석).
+    cdpPort = config.codeCdpPort;
+  } else if (live !== null) {
+    cdpPort = await findFreeCdpPort().then(
+      (port) => port,
+      (error: unknown) => {
+        log(
+          `  [live] CDP 포트 할당 실패 — 라이브 없이 실행한다: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        return null;
+      },
+    );
+  }
+  /**
+   * ★ `docker` 격리에서는 CDP 포트가 **두 개**다 (게이트 G2 ②).
+   *   - `cdpPort`   : **컨테이너 안** 포트. Chromium 이 `127.0.0.1` 에 bind 한다.
+   *   - `relayPort` : 호스트로 퍼블리시되는 포트. `connectOverCDP` 는 **이쪽**에 붙는다.
+   *   중계가 필요한 이유는 `pw-container-boot.ts` 주석에 실측과 함께 있다
+   *   (Chromium DevTools 가 루프백 peer 만 받는다).
+   *   `local` 에서는 둘이 **같은 포트**다(중계가 없다).
+   */
+  let attachPort: number | null = cdpPort;
+  if (isolated && live !== null && cdpPort !== null) {
+    attachPort = await findFreeCdpPort().then(
+      (port) => port,
+      () => null,
+    );
+  }
+  let attachment: CodeBrowserAttachment | null = null;
+  let container: CodeContainerHandle | null = null;
 
   const mapper = new PwEventMapper();
   const stepStartedAt = new Map<number, Date>();
@@ -234,15 +317,20 @@ export async function executeCodeRun(params: {
     }
   };
 
-  const sink = await startEventSink((chunk) => {
-    for (const event of parseReporterNdjson(chunk)) {
-      const action = mapper.accept(event);
-      if (action === null) continue;
-      chain = chain.then(() => apply(action)).catch((error: unknown) => {
-        log(`  이벤트 처리 실패: ${error instanceof Error ? error.message : String(error)}`);
-      });
-    }
-  });
+  const sink = await startEventSink(
+    (chunk) => {
+      for (const event of parseReporterNdjson(chunk)) {
+        const action = mapper.accept(event);
+        if (action === null) continue;
+        chain = chain.then(() => apply(action)).catch((error: unknown) => {
+          log(`  이벤트 처리 실패: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+    },
+    isolated
+      ? { bindHost: "0.0.0.0", urlHost: CONTAINER_HOST_ALIAS }
+      : { bindHost: "127.0.0.1", urlHost: "127.0.0.1" },
+  );
 
   // 초기값을 두지 않는다 — 아래 분기가 **모든 경로에서** 확정하므로(try 의 if/else 사슬 +
   // catch) 초기값은 "혹시 빠뜨렸을 때 조용히 passed 가 되는" 위험만 남긴다.
@@ -267,12 +355,18 @@ export async function executeCodeRun(params: {
       runId: job.runId,
       filename: code.filename,
       content: code.content,
+      // ★ docker 에서는 bind mount 가능한 경로여야 하고, `node_modules` 링크를 만들지 않으며
+      //   (이미지가 `/node_modules` 로 제공한다), config 는 **컨테이너 안 경로**를 import 한다.
+      root: config.codeWorkspaceRoot,
+      ...(isolated
+        ? { skipNodeModulesLink: true, configModulePath: CONTAINER_PW_CONFIG_MODULE }
+        : {}),
     });
     const ws = workspace;
 
     const env: Record<string, string> = {
       ...buildPwEnv({
-        reporterPath: pwReporterModulePath(),
+        reporterPath: isolated ? CONTAINER_PW_REPORTER_MODULE : pwReporterModulePath(),
         eventsUrl: sink.url,
         // ★ 사용자 config 에 baseURL 이 없으면 이 값이 `use.baseURL` 이 된다 —
         //   그래야 화면의 환경 선택(`runs.base_url`)이 코드 실행에 실제로 반영된다.
@@ -281,12 +375,11 @@ export async function executeCodeRun(params: {
         viewport: { width: DEFAULT_VIEWPORT.w, height: DEFAULT_VIEWPORT.h },
         // 이번 범위에는 사용자 config 저장 경로가 없다. 병합 경로는 만들어 뒀다(Task 3.1).
         userConfigPath: null,
-        // ★ CDP_ATTACH_POINT — Gen-Phase 4 가 여기에 빈 포트를 넣으면 경로 D 가 켜진다.
-        //   그 다음 `connectOverCDP` + `startScreencast` 를 붙인다(code-browser.ts).
-        cdpPort: null,
+        // ★ CDP_ATTACH_POINT — 경로 D. 값이 있으면 `mergePlaywrightConfig()` 가
+        //   `use.launchOptions.args` 에 `--remote-debugging-port=<p>` 를 **덧붙인다**.
+        //   `null` 이면 Gen-Phase 3 와 동일하게(라이브 없이) 실행된다.
+        cdpPort,
       }),
-      // 사용자 코드가 `process.env["TESTFLOW_VAR_<KEY>"]` 로 읽는다.
-      ...buildVariableEnv(job.variables),
       // 환경 라벨은 사용자 코드가 분기에 쓸 수 있게 넘긴다(baseUrl 은 buildPwEnv 가 넣는다).
       TESTFLOW_ENV_LABEL: job.envLabel,
       // Playwright 의 자체 색상·진행표시를 끈다(로그가 ANSI 로 더러워진다).
@@ -294,23 +387,72 @@ export async function executeCodeRun(params: {
       CI: "1",
     };
 
-    const child: ChildProcess = spawn(
-      process.execPath,
-      [pwCliPath(), "test", "--config", ws.configPath],
-      {
+    /**
+     * ★ `variables` 평문. 사용자 코드가 `process.env["TESTFLOW_VAR_<KEY>"]` 로 읽는다.
+     *
+     * 전달 방법이 모드마다 다르고, **그 차이가 게이트 G2 의 핵심**이다:
+     *  - `local`  : 자식 프로세스 env (호스트 안이므로 노출면이 안 늘어난다)
+     *  - `docker` : **stdin 한 줄(JSON)**. `-e` 로 주면 `docker inspect` **전문에 평문이
+     *    그대로 나온다**(실측 확인). stdin 으로 주면 `docker inspect` grep **0건**이고
+     *    사용자 계약(`process.env`)은 그대로다 — `pw-container-boot.ts` 가 자식 env 에만 심는다.
+     */
+    const variableEnv = buildVariableEnv(job.variables);
+
+    let child: ChildProcess;
+    if (isolated) {
+      // 이미지·docker 가 없으면 **여기서 던진다.** local 로 조용히 내려가지 않는다
+      // (격리됐다고 믿게 만드는 것이 격리가 없는 것보다 나쁘다 — `code-container.ts` 주석).
+      container = await spawnCodeContainer(config, {
+        runId: job.runId,
+        workspaceDir: ws.dir,
+        distDir: runnerDistDir(),
+        configFilename: PW_CONFIG_FILENAME,
+        cdpPort: cdpPort ?? 0,
+        relayPort: attachPort ?? 0,
+        env,
+        secretEnv: variableEnv,
+      });
+      child = container.child;
+      log(
+        `  [격리] docker — 컨테이너 ${container.containerName} · 이미지 ${config.codeDockerImage} ` +
+          `· 작업공간 ${ws.dir} → /ws` +
+          (attachPort === null ? "" : ` · CDP 중계 127.0.0.1:${String(attachPort)} → 컨테이너 ${String(cdpPort)}`),
+      );
+    } else {
+      log("  [격리] local — ★ 붙여넣은 코드가 Runner 호스트에서 그대로 실행된다");
+      child = spawn(process.execPath, [pwCliPath(), "test", "--config", ws.configPath], {
         cwd: ws.dir,
-        env: { ...process.env, ...env },
+        env: { ...process.env, ...env, ...variableEnv },
         stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+      });
+    }
+
+    /* ★ 스트림 부착 — spawn **직후**, `await exit` **앞**이다.
+     *
+     * `startCodeBrowser()` 는 동기로 반환하고 CDP 폴링은 백그라운드에서 돈다.
+     * 여기서 `await` 하면 포트가 열릴 때까지(최대 30초) 실행이 아니라 **우리가** 멈춘다.
+     * 정리는 `finally` 의 `attachment.stop()` 이다(04-gen-3 전달사항 ②).
+     *
+     * ★ 붙는 포트는 `attachPort` 다 — docker 에서는 중계 포트, local 에서는 CDP 포트 그 자체. */
+    if (live !== null && attachPort !== null) {
+      attachment = startCodeBrowser({ cdpPort: attachPort, session: live, log });
+    }
 
     // ★ 취소·하드 타임아웃이 오면 프로세스를 끊는다. Playwright 는 SIGTERM 에
     //   `FullResult.status = "interrupted"` 를 보고하고 종료한다 → `cancelled` 로 매핑된다.
+    //   docker 에서는 `docker kill -s TERM` 이 그 신호를 컨테이너 PID 1 로 보낸다 —
+    //   docker **클라이언트**에 SIGTERM 을 줘도 컨테이너 안의 테스트는 멈추지 않는다.
     let killTimer: NodeJS.Timeout | null = null;
     abort.onAbort((reason) => {
-      log(`  실행 중단 신호(${reason}) — playwright 프로세스 종료`);
-      child.kill("SIGTERM");
-      killTimer = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
+      log(`  실행 중단 신호(${reason}) — ${isolated ? "컨테이너" : "playwright 프로세스"} 종료`);
+      if (container !== null) {
+        const handle = container;
+        void handle.terminate();
+        killTimer = setTimeout(() => void handle.forceKill(), KILL_GRACE_MS);
+      } else {
+        child.kill("SIGTERM");
+        killTimer = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
+      }
       killTimer.unref();
     });
 
@@ -403,6 +545,9 @@ export async function executeCodeRun(params: {
   } finally {
     // ★ 어떤 경로로 끝나도 정리한다(성공·실패·취소·타임아웃·예외).
     //   이벤트 싱크(HTTP 서버)를 닫지 않으면 run 마다 포트가 하나씩 남는다.
+    //   스트림 정리는 **증적 수집이 끝난 뒤**다 — `ARTIFACT_SETTLE_MS` 와 같은 이유로
+    //   브라우저가 살아 있는 동안은 프레임이 흐르는 것이 맞다(04-gen-3 전달사항 ③).
+    await attachment?.stop().catch(() => undefined);
     await sink.close().catch(() => undefined);
     const dir = workspace?.dir ?? "?";
     await workspace?.dispose().catch((error: unknown) => {
@@ -411,6 +556,28 @@ export async function executeCodeRun(params: {
   }
 
   const totalSteps = mapper.totalSteps;
+
+  /* ── ★ 스트림 종료 — 캔버스를 비우지 않는다 ────────────────────
+   * `{t:"state", state:"ended", runStatus}` 를 보내고 **마지막 프레임을 남긴 채**
+   * `LIVE_STREAM_ENDED_LINGER_MS` 뒤에 **정상 종료(close 1000)** 한다.
+   * `close(runId)` 는 레지스트리에서만 내리고 그 linger 를 건드리지 않는다
+   * (`LiveStreamSession.dispose()` 주석). 캔버스가 검게 죽는 것을 막는 지점이다(쟁점 3).
+   * ──────────────────────────────────────────────────────────── */
+  if (live !== null) {
+    const streamStats = attachment?.stats() ?? null;
+    live.end(status);
+    liveStreams?.close(job.runId);
+    if (streamStats !== null) {
+      log(
+        `  [live] 스트림 종료 — pagesAttached=${String(streamStats.pagesAttached)} ` +
+          `rebinds=${String(streamStats.rebinds)} rebindFail=${String(streamStats.rebindFailures)} ` +
+          `frames ${String(streamStats.framesPassed)}/${String(streamStats.framesProduced)} ` +
+          `(스로틀 드롭 ${String(streamStats.framesThrottled)}) ` +
+          `bytes=${String(streamStats.bytesProduced)} err=${streamStats.lastError ?? "none"}`,
+      );
+    }
+  }
+
   await reporter.runFinished({
     status,
     startedAt,

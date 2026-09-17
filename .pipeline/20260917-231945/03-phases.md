@@ -521,7 +521,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 테스트 3건짜리 spec 실행 시 `pagesAttached >= 3` (테스트마다 새 page 를 잡아 붙는다).
   ② 실효 fps ≥ 10, 프레임 왕복 p95 ≤ 200ms 를 **실측해 기록**한다(PoC 기준 유지).
   ③ 동시 실행 2건에서 **CDP 포트가 충돌하지 않는다**(실제로 동시에 2건 돌려 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.2: WS 서버에 `/live/:runId` 경로 추가
 - **파일**: `apps/runner/src/record/ws-server.ts` (수정)
@@ -537,7 +537,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 잘못된 토큰 → close **4401**. ② 녹화 토큰으로 `/live/` 에 붙으면 **4401**
   (키 공간 분리가 실제로 동작한다). ③ 종료된 run → **4404**.
   ④ **기존 `/rec/` 경로 동작이 전과 동일하다** — 04-gen-7 의 녹화 검증을 다시 돌려 확인한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.3: 스트림 수명주기 + 상태 메시지
 - **파일**: `apps/runner/src/execute/live-stream.ts` (신규 생성)
@@ -552,7 +552,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 테스트 3건 spec 실행 시 `between-tests` 가 **최소 1회** 발행된다
   (PoC 가 관측한 전환 공백이 실제로 메시지로 표면화된다).
   ② `ended` 수신 후에도 **마지막 프레임이 캔버스에 남는다**(Gen-Phase 5 에서 육안 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.4: `code-executor` 에 스트림 배선
 - **파일**: `apps/runner/src/execute/code-executor.ts` (수정), `apps/runner/src/execute/pw-config.ts` (수정)
@@ -562,7 +562,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **재사용**: Task 3.5 의 오케스트레이션.
 - **완료 기준**: ① CDP 연결을 일부러 막아도(포트 선점) **실행은 정상 완료**되고 `run.finished` 가 온다.
   ② 정상 경로에서 실행 시작 후 프레임이 흐른다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.5: ★ 격리 정책 확정 (게이트 G2)
 - **파일**: `apps/runner/src/execute/code-container.ts` (신규 생성 — 판정 결과에 따름), `.env.example` (수정),
@@ -579,7 +579,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   ② 채택한 기본값이 `.env.example` 과 README 에 **같은 값**으로 적혀 있다.
   ③ `docker` 로 확정한 경우: `docker inspect` 전문에서 **컨테이너에 마운트된 경로 목록**을 기록한다
   (`ARTIFACT_ROOT` 가 노출되지 않아야 한다 — 라운드 1 규율).
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

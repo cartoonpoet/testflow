@@ -128,10 +128,36 @@ export async function createCodeWorkspace(params: {
   runId: string;
   filename: string;
   content: string;
+  /**
+   * 작업공간 부모 디렉토리. 비우면 `os.tmpdir()`.
+   *
+   * ★ **`docker` 격리에서는 bind mount 가능한 경로여야 한다.** WSL + Docker Desktop 에서
+   *   `/tmp` 은 컨테이너에 **빈 디렉토리로** 마운트된다(실측 — `code-container.ts`
+   *   `toDockerMountPath()` 주석). 그 환경에서는 `/mnt/<드라이브>/…` 를 넘긴다.
+   */
+  root?: string;
+  /**
+   * `node_modules` 심볼릭 링크를 만들지 않는다.
+   *
+   * ★ `docker` 격리에서 이 링크는 **깨진 링크**다 — 호스트 경로를 가리키는데 컨테이너 안에는
+   *   그 경로가 없다. 컨테이너 이미지가 `/node_modules` 로 `@playwright/test` 를 제공한다
+   *   (`Dockerfile.code-exec`). 링크를 그대로 두면 Node 가 그것을 먼저 잡아 모듈 해석이 깨진다.
+   */
+  skipNodeModulesLink?: boolean;
+  /**
+   * 생성 config 가 동적 import 할 `pw-config.js` 의 경로.
+   *
+   * ★ `docker` 격리에서는 **컨테이너 안 경로**(`/tfdist/execute/pw-config.js`)여야 한다.
+   *   호스트 경로를 그대로 쓰면 컨테이너 안에 그 파일이 없어 config 로드가 실패하고,
+   *   Playwright 는 그것을 `No tests found` 로 보고해 원인이 보이지 않는다.
+   */
+  configModulePath?: string;
 }): Promise<CodeWorkspace> {
   const filename = assertSafeSpecFilename(params.filename);
 
-  const dir = await mkdtemp(join(tmpdir(), `${CODE_WORKSPACE_PREFIX}${params.runId.slice(0, 8)}-`));
+  const parent = params.root !== undefined && params.root.trim() !== "" ? params.root : tmpdir();
+  await mkdir(parent, { recursive: true });
+  const dir = await mkdtemp(join(parent, `${CODE_WORKSPACE_PREFIX}${params.runId.slice(0, 8)}-`));
   let disposed = false;
   const dispose = async (): Promise<void> => {
     if (disposed) return;
@@ -156,14 +182,20 @@ export async function createCodeWorkspace(params: {
   try {
     await mkdir(join(dir, PW_TEST_DIR), { recursive: true });
     await mkdir(join(dir, PW_OUTPUT_DIR), { recursive: true });
-    await symlink(join(RUNNER_ROOT_DIR, "node_modules"), join(dir, "node_modules"), "dir");
+    if (params.skipNodeModulesLink !== true) {
+      await symlink(join(RUNNER_ROOT_DIR, "node_modules"), join(dir, "node_modules"), "dir");
+    }
 
     const specPath = join(dir, PW_TEST_DIR, filename);
     // 사용자 코드는 **한 글자도 바꾸지 않는다.** 주입은 config 와 환경변수에만 있다.
     await writeFile(specPath, params.content, "utf8");
 
     const configPath = join(dir, PW_CONFIG_FILENAME);
-    await writeFile(configPath, buildPwConfigSource(pwConfigModulePath()), "utf8");
+    await writeFile(
+      configPath,
+      buildPwConfigSource(params.configModulePath ?? pwConfigModulePath()),
+      "utf8",
+    );
 
     return { dir, configPath, specPath, outputDir: join(dir, PW_OUTPUT_DIR), dispose };
   } catch (error) {
