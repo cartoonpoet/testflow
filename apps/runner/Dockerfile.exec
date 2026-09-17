@@ -1,0 +1,30 @@
+# TestFlow 실행 격리용 브라우저 이미지 (03-phases Task 6.6).
+#
+# ★ 이 이미지 안에 들어가는 것은 **브라우저뿐**이다.
+#   인터프리터·DB 자격증명·실행 변수(계정/비밀번호)는 호스트 Runner 프로세스에 남는다.
+#   사유와 초안(인터프리터를 컨테이너에 넣고 stdin 으로 변수 전달) 대비 비교표는
+#   `src/execute/container.ts` 상단 주석에 있다. 요지: 비밀번호가 격리 경계 **바깥**에
+#   남으므로 `docker inspect` / 프로세스 목록 / 컨테이너 파일시스템 어디에도 나타나지 않는다.
+#
+# 빌드:
+#   docker build -f apps/runner/Dockerfile.exec -t testflow/playwright-exec:1.63.0 .
+# 사용:
+#   RUNNER_EXECUTION_MODE=docker RUNNER_DOCKER_IMAGE=testflow/playwright-exec:1.63.0
+#
+# 베이스 이미지는 브라우저 바이너리(/ms-playwright)만 들고 있고 `playwright` npm 패키지는
+# 없다. 그대로 `npx playwright run-server` 를 돌리면 **컨테이너를 띄울 때마다 npm 이
+# 레지스트리에서 받아온다** — 망분리 환경에서 그대로 실패한다. 그래서 여기서 미리 넣는다.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble
+
+# 브라우저는 이미 /ms-playwright 에 있다. npm install 이 다시 받지 않게 한다(수 GB 절약).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+RUN npm install --omit=dev --no-audit --no-fund playwright@1.63.0 \
+  && npm cache clean --force
+
+# 브라우저 서버. 인증이 없으므로 **호스트 쪽에서 127.0.0.1 에만 바인딩**한다
+# (`docker run -p 127.0.0.1:<port>:3000` — `container.ts` 참조).
+EXPOSE 3000
+CMD ["npx", "playwright", "run-server", "--port", "3000", "--host", "0.0.0.0"]

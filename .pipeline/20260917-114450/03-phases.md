@@ -293,48 +293,48 @@ total_gen_phases: 12
 - **작업**: `StorageAdapter` 인터페이스(`put/get/getStream/delete/exists`)와 `LocalDiskStorage` 구현(`ARTIFACT_ROOT` 기준, `storage_key`를 상대 경로로 해석, 디렉토리 자동 생성). **S3/MinIO 구현체는 만들지 않는다** — 인터페이스만 남긴다(★ 최종 결정 (b)).
 - **참고**: 02-context "(b) Artifact 저장소" 권고 승인.
 - **완료 기준**: `apps/runner/src/storage/s3.ts` 가 **존재하지 않는다**. 단위 테스트: `put('runs/x/step-01.png', buf)` 후 `exists()` true, 실제 파일이 `$ARTIFACT_ROOT/runs/x/step-01.png`에 생긴다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.2: `locator.ts` — target JSON → Playwright Locator 복원
 - **파일**: `apps/runner/src/execute/locator.ts` (신규 생성)
 - **작업**: `target_json.primary` 를 `getByRole/getByLabel/getByText/getByTestId/locator(css)` 로 복원하고, 실패(또는 매칭 0개·2개 이상) 시 `fallbacks`를 **순서대로** 시도한다. **어느 단계에서 성공했는지(`resolvedBy`)를 반환**해 나중에 "불안정한 스텝" 신호로 쓸 수 있게 한다. `frameUrl`이 있으면 해당 frame 안에서 탐색.
 - **참고**: 02-context "Locator 생성 로직" — 순위 배열 저장 및 resolvedBy 기록.
 - **완료 기준**: 더미 페이지(Task 3.1)에 대해 primary를 일부러 깨뜨린 target JSON을 주면 fallback으로 해결되고 `resolvedBy:'text'` 같은 값이 반환된다(단위 테스트).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.3: `interpreter.ts` — action_type 디스패치
 - **파일**: `apps/runner/src/execute/interpreter.ts` (신규 생성)
 - **작업**: 12개 `ActionType`을 Playwright 호출로 디스패치. `goto`는 `{{baseUrl}}` 치환, `fill`은 `{{변수}}` 치환(값은 **큐 페이로드의 `variables`에서만** 가져온다 — DB 조회 없음). `assert_visible/assert_text/assert_url`은 `expect()` 기반. 스텝별 타임아웃은 `options_json.timeoutMs`(기본 10000). 각 스텝 전후로 이벤트 콜백 호출.
 - **참고**: 02-context "DB 스키마 초안" `test_steps.action_type` enum, "★ 최종 결정" (c).
 - **완료 기준**: 12개 action_type 전부에 대한 디스패치 분기가 존재하고(`switch` exhaustiveness를 `never` 체크로 타입 보장), 더미 로그인 페이지에 대해 `goto→fill→fill→click→assert_url` 5스텝이 통과한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.4: `reporter.ts` — 스텝 이벤트 → Redis pub/sub + DB 기록
 - **파일**: `apps/runner/src/execute/reporter.ts` (신규 생성)
 - **작업**: `step.started`/`step.finished`/`run.status`/`run.finished`/`artifact.ready` 를 Redis 채널 `run:<id>` 에 publish하고 동시에 `step_results`·`runs` 테이블을 갱신한다. **`error_message`는 마스킹 후 저장**(Playwright 에러에 입력값이 실려 나온다). Redis List에 최근 N건을 버퍼링해 API의 `Last-Event-ID` 재전송을 지원한다.
 - **참고**: 02-context "★ 최종 결정 (c) 파생 영향" — 마스킹 3경로 중 `error_message`.
 - **완료 기준**: 실행 1회 후 `step_results` 행 수 = 시나리오 스텝 수, `runs.duration_ms`가 채워진다. 비밀번호를 틀리게 넣어 실패시킨 뒤 `error_message`에 평문 비밀번호가 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.5: `artifacts.ts` — 증적 수집
 - **파일**: `apps/runner/src/execute/artifacts.ts` (신규 생성)
 - **작업**: 실행 컨텍스트를 `recordVideo` + `tracing.start({screenshots:true, snapshots:true})` 로 열고, **실패 스텝에서 스크린샷**, 실행 종료 시 video·trace·console log·network log를 수집해 `StorageAdapter.put()`으로 저장 후 `artifacts` 레코드를 만든다. 성공 실행의 video/trace는 보존할지 옵션(`KEEP_ARTIFACTS_ON_SUCCESS`)으로 제어(기본 false — 디스크 절약).
 - **참고**: 02-context DB 스키마 `artifacts` 테이블(`artifact_type` 5종), FR-008.
 - **완료 기준**: 일부러 실패하는 시나리오 실행 후 `GET /api/runs/:id/artifacts` 가 **screenshot·video·trace·console_log 4종**을 반환하고, 각 `url`을 열면 실제 파일이 내려온다. `trace` 파일이 `npx playwright show-trace` 로 열린다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.6: Docker 실행 격리 + 자원 제한
 - **파일**: `apps/runner/src/execute/container.ts`, `apps/runner/Dockerfile.exec` (신규 생성)
 - **작업**: ★ 최종 결정 (d) — **실행 1회당 컨테이너 1개**. `mcr.microsoft.com/playwright:v1.63.0` 기반 이미지에 인터프리터를 넣고, `--memory=$RUNNER_CONTAINER_MEMORY --cpus=$RUNNER_CONTAINER_CPUS --rm` + `ARTIFACT_ROOT` 볼륨 마운트로 기동한다. 하드 타임아웃 초과 시 컨테이너 강제 종료 + run status를 `timeout`으로. `variables`는 **환경변수가 아니라 stdin JSON**으로 전달한다(`docker inspect`·프로세스 목록에 비밀번호가 남지 않도록).
 - **참고**: 02-context "★ 최종 결정" (d) + "(d) Docker 불가 시" 대안은 **채택하지 않는다**.
 - **완료 기준**: 실행 중 `docker ps` 에 컨테이너 1개가 보이고 `docker stats`가 설정한 메모리 상한을 반영한다. 실행 종료 후 컨테이너가 자동 제거된다(`docker ps -a`에 없음). `docker inspect <id>` 출력에 비밀번호 평문이 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 6.7: `main.ts` — BullMQ Worker 기동
 - **파일**: `apps/runner/src/main.ts` (신규 생성)
 - **작업**: BullMQ Worker(`concurrency: RUNNER_CONCURRENCY`)로 `run` 큐를 소비하고 Task 6.3~6.6을 조립한다. Redis에 **runner heartbeat 키**를 주기 갱신(health의 `runner` 판정용). 취소 요청(`POST /api/runs/:id/cancel`)은 Redis 채널로 받아 컨테이너를 kill한다. 녹화 WS 서버 기동 자리는 Gen-Phase 7에서 채운다.
 - **완료 기준**: Runner 기동 후 `GET /api/health` 의 `runner`가 `"ok"`로 바뀐다. `POST /api/runs` → 실행 완료까지 전체 경로가 동작하고 `runs.status`가 `passed`가 된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 
