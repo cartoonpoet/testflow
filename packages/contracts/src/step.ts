@@ -365,3 +365,31 @@ export function displayStepValue(step: Pick<TestStep, "input">): string {
   if (!step.input) return "";
   return step.input.isSecret ? SECRET_MASK : step.input.value;
 }
+
+/* ── 5. API 응답용 스텝 (css 제거본) ─────────────────────── */
+
+/**
+ * ★ API 응답 전용 스텝. `target` 이 `PublicLocatorTarget`(css 제거본)이다.
+ *
+ * `TestStepSchema` 로는 이 형태를 표현할 수 없다 — `PublicLocatorTarget.primary` 가
+ * nullable 이기 때문이다(primary 자체가 css 였던 경우). 그래서 별도 스키마를 둔다.
+ * **필드 이름·구조는 `TestStepBaseSchema` 와 완전히 동일하고 `target` 만 좁혀진다.**
+ *
+ * 사용처: `GET /api/scenarios/:id`, `PUT/POST /api/scenarios/:id/steps`,
+ *        `PATCH /api/steps/:stepId` 의 **응답**. `?advanced=1` 이면 원본 `TestStep` 을 낸다.
+ */
+export const PublicTestStepSchema = TestStepBaseSchema.extend({
+  target: PublicLocatorTargetSchema.nullable(),
+});
+export type PublicTestStep = z.infer<typeof PublicTestStepSchema>;
+
+/** API 응답 직렬화 직전에 통과시킨다. `target` 의 css 후보가 전부 제거된다. */
+export function toPublicTestStep(step: TestStep): PublicTestStep {
+  return {
+    ...step,
+    target: step.target ? toPublicLocatorTarget(step.target) : null,
+  };
+}
+
+/** 응답에 실려 나갈 수 있는 스텝 형태. `?advanced=1` 여부에 따라 둘 중 하나다. */
+export type ApiTestStep = TestStep | PublicTestStep;

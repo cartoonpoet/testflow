@@ -200,3 +200,26 @@ export type RecorderServerMessage = z.infer<typeof RecorderServerMessageSchema>;
 export const WS_CLOSE_UNAUTHORIZED = 4401;
 /** 세션이 이미 만료/종료됐을 때의 close code. */
 export const WS_CLOSE_SESSION_GONE = 4404;
+
+/* ────────────────────────────────────────────────────────────
+ * Runner heartbeat (health 판정용)
+ * ──────────────────────────────────────────────────────────── */
+
+/**
+ * Runner 가 살아 있음을 알리는 Redis 키의 접두사.
+ *
+ * - **쓰는 쪽**: `apps/runner` (Gen-Phase 6 Task 6.7) 이 `RUNNER_HEARTBEAT_TTL_SEC` 보다
+ *   짧은 주기로 `SET <key> <timestamp> EX <ttl>` 한다.
+ * - **읽는 쪽**: `apps/api` health 모듈이 이 접두사로 SCAN 해서 하나라도 있으면 `"ok"`,
+ *   없으면 `"down"` 으로 판정한다.
+ *
+ * 양쪽이 같은 문자열을 써야 하므로 계약(contracts)에 둔다.
+ */
+export const RUNNER_HEARTBEAT_KEY_PREFIX = "testflow:runner:heartbeat:";
+
+/** heartbeat 키의 TTL(초). 갱신 주기는 이 값의 1/3 이하를 권장한다. */
+export const RUNNER_HEARTBEAT_TTL_SEC = 30;
+
+export function runnerHeartbeatKey(runnerId: string): string {
+  return `${RUNNER_HEARTBEAT_KEY_PREFIX}${runnerId}`;
+}

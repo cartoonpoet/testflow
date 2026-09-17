@@ -190,49 +190,49 @@ total_gen_phases: 12
 - **작업**: ERDify 부트스트랩 규약을 그대로 이식 — `NestFactory.create<NestExpressApplication>`, `compression()`, `app.setGlobalPrefix("api")`, `useGlobalPipes(new ValidationPipe({whitelist:true, forbidNonWhitelisted:true, transform:true}))`, CORS(프로덕션은 `CORS_ORIGINS` 분리), 포트 `Number(process.env["API_PORT"] ?? 4000)`. **env는 bracket 접근**. `cookieParser`는 비회원제이므로 제외한다.
 - **참고**: 02-context "부트스트랩" 절의 실제 코드.
 - **완료 기준**: `yarn workspace @testflow/api dev` 로 기동되고 `curl localhost:4000/api/health` 가 404가 아닌 응답을 준다(모듈 등록 전이면 404여도 무방하나 프로세스는 살아 있어야 한다).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.2: `app.module.ts` + 공통 설정
 - **파일**: `apps/api/src/app.module.ts`, `apps/api/src/common/config/*.ts` (신규 생성)
 - **작업**: `ConfigModule.forRoot({isGlobal:true})`, `TypeOrmModule.forRootAsync`(`packages/db`의 DataSource 옵션 재사용, `autoLoadEntities` 대신 엔티티 명시), `BullModule.forRootAsync`(ioredis 연결) 등록. 도메인 모듈 8개(projects, scenarios, recordings, runs, artifacts, suites, dashboard, health)를 import 자리만 잡는다. **커스텀 exception filter는 만들지 않는다**(ERDify 규약 — Nest 기본 예외 사용).
 - **참고**: 02-context "에러 처리" 절.
 - **완료 기준**: `apps/api/src/common/filters/` 디렉토리가 **존재하지 않는다**. API 기동 시 TypeORM·BullMQ 연결 로그가 에러 없이 출력된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.3: `mask.ts` — Secret 마스킹 단일 함수
 - **파일**: `apps/api/src/common/utils/mask.ts` (신규 생성)
 - **작업**: `maskSecrets(input: unknown, secretValues: string[]): unknown` — 문자열·객체·배열을 재귀 순회하며 `secretValues`에 포함된 값을 `'••••••••'`로 치환한다. 추가로 `maskByKey(obj)` — 키 이름이 `password|pwd|secret|token`에 해당하면 값 마스킹. **호출 지점 3곳**(API 응답 / 서버 로그 / `step_results.error_message` 저장)을 JSDoc에 명시한다. Playwright 에러 메시지에 입력값이 실려 나오는 케이스를 반드시 커버한다.
 - **참고**: 02-context "★ 최종 결정 > (c) 파생 영향" — `crypto.ts`는 만들지 않고 `mask.ts`만 유지.
 - **완료 기준**: `apps/api/src/common/utils/crypto.ts` 가 **존재하지 않는다**. 단위 테스트: `maskSecrets("locator resolved to input[value='hunter2']", ["hunter2"])` 결과에 `hunter2`가 포함되지 않는다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.4: health 모듈
 - **파일**: `apps/api/src/modules/health/{health.module.ts,health.controller.ts}` (신규 생성)
 - **작업**: `GET /api/health` 가 `{status, db, redis, runner}` 를 반환. db는 `SELECT 1`, redis는 `PING`, runner는 Redis에 Runner가 등록한 heartbeat 키 존재 여부로 판정(없으면 `'down'`).
 - **참고**: 02-context "API 스펙 초안" health 행.
 - **완료 기준**: `curl localhost:4000/api/health` 가 **200**과 `{"status":"ok","db":"ok","redis":"ok","runner":"down"}` 형태 JSON을 반환한다(Runner 미기동 시 `runner:"down"`이 정상).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.5: projects 모듈 (화면 없음, 값 공급용)
 - **파일**: `apps/api/src/modules/projects/{projects.module.ts,projects.controller.ts,projects.service.ts,dto/}` (신규 생성)
 - **작업**: `GET /api/projects`, `GET /api/projects/:id`, `PATCH /api/projects/:id`. **응답에서 `variables` 필드는 제거한다** — 변수는 DB에 없고 실행 요청 body로만 온다(★ 최종 결정 (c)). `baseUrl`은 **실행 다이얼로그의 기본값 placeholder** 용도임을 서비스 JSDoc에 명시. 컨트롤러는 `@Controller()` 빈 인자 + 메서드별 전체 경로 스타일(ERDify 규약).
 - **참고**: 02-context "컨트롤러" 절, "★ 최종 결정" (a)(c).
 - **완료 기준**: `GET /api/projects` 가 시드된 기본 프로젝트 1건을 `{id,name,baseUrl,defaultEnvLabel}` 형태로 반환한다. 응답에 `variables` 키가 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.6: scenarios 모듈 — CRUD + 목록 검색/필터
 - **파일**: `apps/api/src/modules/scenarios/{scenarios.module.ts,scenarios.controller.ts,scenarios.service.ts,dto/}` (신규 생성)
 - **작업**: `GET /api/projects/:projectId/scenarios`(`?q&status&feature&page&size`, 응답은 시안 6열 + `stepCount` + `lastResult`), `POST`(생성, `code` 자동 채번 `TC-<FEATURE>-<3자리>`), `GET/PATCH/DELETE /api/scenarios/:id`, `POST /api/scenarios/:id/publish`(status→published, version+1). `lastResult`는 `scenarios.last_run_id` 비정규화 컬럼 조인.
 - **참고**: 02-context "API 스펙 초안" 시나리오 절, "DB 스키마 초안" scenarios 테이블.
 - **완료 기준**: 시나리오 3건 생성 후 `GET /api/projects/:id/scenarios?q=로그인&status=draft` 가 필터링된 결과와 `total`을 반환한다. `POST /api/scenarios/:id/publish` 후 재조회 시 `status:'published'`, `version:2`.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 4.7: steps 엔드포인트 (scenarios 모듈 내)
 - **파일**: `apps/api/src/modules/scenarios/steps.controller.ts`, `steps.service.ts` (신규 생성)
 - **작업**: `PUT /api/scenarios/:id/steps`(전량 치환 — 순서변경·삭제 동시 처리, 트랜잭션 내에서 `sequence` 재기입), `POST /api/scenarios/:id/steps`(`afterSequence` 뒤 삽입 + 후속 sequence 밀기), `PATCH /api/steps/:stepId`, `DELETE /api/steps/:stepId`. 요청 검증은 `TestStepSchema`(contracts)로. **응답에서 `target_json.fallbacks`의 `by:'css'` 항목을 기본 제외**하고 `?advanced=1` 일 때만 포함한다.
 - **참고**: 02-context "설계상 반드시 지켜야 할 제약" — CSS Selector 비노출.
 - **완료 기준**: `PUT .../steps` 로 3개 스텝을 순서 바꿔 보내면 `uq_test_steps_seq` 제약 위반 없이 반영된다. 기본 `GET /api/scenarios/:id` 응답 JSON에 문자열 `"css"`가 **나타나지 않는다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 
