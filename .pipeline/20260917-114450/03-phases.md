@@ -28,47 +28,47 @@ total_gen_phases: 12
 - **작업**: 임시 디렉토리에서 최신 안정 조합(TS 7.0.2 / NestJS 12.0.3 / TypeORM 1.1.1 / Playwright 1.63 / React 19.3 / Vite 8.3 / Tailwind 4.3)을 실제로 설치해 아래 4건을 검증한다. ① TS 7.0.2에서 `experimentalDecorators`+`emitDecoratorMetadata`로 NestJS 12 컨트롤러/DI가 컴파일·기동되는가, ② TypeORM 1.1.1의 `DataSource`·`MigrationInterface`·`@Entity` API가 0.3.x 대비 바뀌었는가(릴리스 노트 + 실제 `migration:run` 1회), ③ NestJS 11→12 breaking(`ValidationPipe` 옵션, `@nestjs/config`, `@nestjs/bullmq` 호환), ④ Tailwind 4.3 `@theme` + shadcn/ui CLI 조합. 막히는 항목만 **개별적으로 한 단계 내린다**(예: TS만 5.9 계열로). ERDify 검증 조합(Nest 11 / TypeORM 0.3 / TS 5.x)이 최종 안전망.
 - **참고**: 02-context "기술 스택 확정안" 표의 `미확인` 표시 3건 + "주의사항 및 의존성 > 버전 관련".
 - **완료 기준**: `spike-versions.md`에 7개 패키지별 **확정 버전과 판정 근거**가 표로 기록된다. 하향한 항목이 있으면 그 사유와 재승급 조건이 명시된다. 스파이크 임시 디렉토리는 `PROJECT_DIR` 밖에 두고 남기지 않는다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.2: git 초기화 + `.gitattributes` / `.gitignore`
 - **파일**: `.gitattributes`, `.gitignore` (신규 생성)
 - **작업**: `git init` 후 **첫 커밋 전에** `.gitattributes`에 `* text=auto eol=lf` 를 명시한다(websystem CRLF 사고 재발 방지 — 02-context "기타"). `.gitignore`는 `node_modules/`, `dist/`, `.env`, `.turbo/`, `artifacts/`(= `ARTIFACT_ROOT` 기본값), `playwright-report/`, `test-results/` 포함. 브랜치는 CLAUDE.md 기본 규칙에 따라 `feat/testflow-mvp`.
 - **참고**: 02-context "신규 프로젝트 구조" 루트 파일 목록, "기타".
 - **완료 기준**: `git check-attr text -- README.md` 가 `text: auto` 를 출력한다. `git status`에 `node_modules`가 나타나지 않는다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.3: yarn workspaces 루트 + turbo 태스크 그래프
 - **파일**: `package.json`, `turbo.json`, `.yarnrc.yml` (신규 생성)
 - **작업**: 루트 `package.json`에 `"workspaces": ["apps/*", "packages/*"]`, `private: true`, 스크립트 `dev/build/lint/typecheck/test`를 turbo 위임으로 정의. `turbo.json`은 ERDify 태스크 그래프를 차용하되 **pnpm `--filter` 문법을 yarn 문법으로 변환**한다(`yarn workspace <name> <cmd>`, 의존은 `workspace:^`). `build`는 `dependsOn: ["^build"]`, `typecheck`/`lint`는 캐시 on.
 - **참고**: 02-context "패키지 매니저 불일치" 절 — turbo는 PM 중립이므로 그래프만 그대로 가져온다.
 - **완료 기준**: `yarn install` 이 에러 없이 끝나고 `yarn workspaces list` 가 `apps/*` + `packages/*` 를 모두 나열한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.4: `packages/config-typescript` 프리셋 4종
 - **파일**: `packages/config-typescript/{package.json,base.json,react.json,nest.json,node.json}` (신규 생성)
 - **작업**: `base.json`에 `strict: true`, `noPropertyAccessFromIndexSignature: true`(→ env는 `process.env["X"]` bracket 접근 강제, ERDify 규약), `noUncheckedIndexedAccess`, `moduleResolution: bundler|node16` 를 Task 1.1 확정 버전에 맞춰 설정. `nest.json`은 `experimentalDecorators`+`emitDecoratorMetadata` **on**, `react.json`은 `jsx: react-jsx` + DOM lib, `node.json`은 runner용(DOM 없음, 단 `injected.ts`는 별도 tsconfig로 DOM 필요).
 - **참고**: 02-context "새로 생성할 파일" 표 / "부트스트랩" 절의 bracket 접근 근거.
 - **완료 기준**: 4개 파일이 존재하고 각각 단독으로 `tsc --showConfig -p <file>` 가 에러 없이 출력된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.5: `packages/config-eslint` flat config 3종
 - **파일**: `packages/config-eslint/{package.json,base.js,react.js,nest.js}` (신규 생성)
 - **작업**: ESLint 9 flat config. `base.js`는 typescript-eslint 권장 + prettier 충돌 비활성화, `react.js`는 react-hooks 규칙(특히 `exhaustive-deps` on), `nest.js`는 decorator 사용을 허용하는 예외 설정. oxlint는 채택하지 않는다(Nest 룰셋 생태계 이유 — 02-context).
 - **완료 기준**: 루트에서 `yarn lint` 실행 시 "0 problems" 또는 설정 오류 없이 종료한다(대상 파일이 아직 없어도 config 로드 에러가 없어야 한다).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.6: `docker-compose.yml` + `.env.example`
 - **파일**: `docker-compose.yml`, `.env.example` (신규 생성)
 - **작업**: `mysql:8.4`(포트·`utf8mb4_0900_ai_ci` charset·초기 DB `testflow`·헬스체크) + `redis:7` 서비스 정의. `.env.example` 키: `DB_HOST/DB_PORT/DB_USER/DB_PW/DB_NAME`, `REDIS_HOST/REDIS_PORT`, `API_PORT=4000`, `RUNNER_WS_PORT`, `ARTIFACT_ROOT`, `RUNNER_CONCURRENCY`, `RUNNER_DOCKER_IMAGE`, `RUNNER_CONTAINER_MEMORY`, `RUNNER_CONTAINER_CPUS`, `CORS_ORIGINS`. **`SECRET_ENC_KEY`는 넣지 않는다**(AES 미구현 결정).
 - **참고**: 02-context "새로 생성할 파일" 표 + "★ 최종 결정" (c)(d).
 - **완료 기준**: `docker compose up -d` 후 `docker compose ps` 가 mysql·redis 둘 다 `healthy`를 보고한다. `.env.example`에 `SECRET_ENC_KEY`가 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 1.7: 앱 3종 빈 워크스페이스 생성
 - **파일**: `apps/{web,api,runner}/package.json` + 각 `tsconfig.json` (신규 생성)
 - **작업**: 3개 워크스페이스의 껍데기만 만든다. `web`은 Vite+React 템플릿 기반, `api`는 Nest CLI 없이 수동 구성(`nest.json` 확장), `runner`는 얇은 Node 프로세스(`node.json` 확장). 각각 `@testflow/config-typescript`를 `workspace:^`로 참조. 소스는 다음 Gen-Phase에서 채운다.
 - **완료 기준**: `yarn typecheck` 가 3개 워크스페이스 전부에서 통과한다(파일이 비어 있어도 config 오류 0).
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 
