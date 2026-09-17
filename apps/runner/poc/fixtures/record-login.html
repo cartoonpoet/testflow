@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>TestFlow 녹화 검증 · 로그인 + 중복 요소</title>
+    <!--
+      ★ Gen-Phase 7(녹화 파이프라인) 검증용 더미 페이지.
+        `login.html`(PoC-1 좌표 정확도용)은 **수정하지 않고** 별도 fixture 로 추가했다.
+
+        검사하려는 것 4가지 —
+          1. 디바운스   : 아이디를 여러 글자 타이핑해도 `fill` 스텝이 1개인가
+          2. 비밀번호   : type=password 값이 초안 어디에도 남지 않고 {{password}} 로 승격되는가
+          3. 고유성 검증: "확인" 3개 / "삭제" 3개 중 각각을 눌렀을 때 후보가 유일해지는가
+                         - 확인 버튼은 data-testid 가 서로 달라 **testid 로 내려가면 유일**해진다
+                         - 삭제 버튼은 구별 속성이 없어 **nth 로 좁혀야만** 유일해진다
+          4. Locator 우선순위: role 이 잡히면 role, 안 잡히면(=password) label
+
+      ★ 모든 조작 대상은 **알려진 절대 좌표**에 둔다. 녹화 검증 스크립트가 원격 좌표를 직접
+        계산해 캔버스에 클릭을 쏘기 때문이다(원격 페이지를 질의할 방법이 없다).
+        아래 좌표를 바꾸면 `poc/record-verify.ts` 의 `REMOTE` 상수도 함께 바꿔야 한다.
+    -->
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        width: 1280px; height: 800px; overflow: hidden; position: relative;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #f5f7f6; color: #15211e;
+      }
+      h1 { position: absolute; left: 28px; top: 24px; font-size: 20px; margin: 0; }
+      label.cap { position: absolute; left: 28px; font-size: 14px; line-height: 38px; }
+      input.box, select.box {
+        position: absolute; left: 160px; width: 260px; height: 38px; padding: 0 10px;
+        font-size: 14px; border: 1px solid #c9d4d0; border-radius: 6px; background: #fff;
+      }
+      /* 좌표: 아이디 90 · 비밀번호 140 · 환경 190 · 자동로그인 240 · 로그인 280 */
+      #username { top: 90px; }  label[for="username"] { top: 90px; }
+      #password { top: 140px; } label[for="password"] { top: 140px; }
+      #env      { top: 190px; } label[for="env"]      { top: 190px; }
+      #remember { position: absolute; left: 160px; top: 244px; width: 18px; height: 18px; }
+      label[for="remember"] { top: 234px; }
+      #login-submit {
+        position: absolute; left: 160px; top: 280px; width: 120px; height: 38px;
+        font-size: 14px; border: 0; border-radius: 6px; background: #087f5b; color: #fff; cursor: pointer;
+      }
+      #result { position: absolute; left: 300px; top: 280px; line-height: 38px;
+                font-size: 15px; font-weight: 700; color: #16825f; }
+      /* 행 i: top = 380 + i*60, 높이 48. 확인 left 260 / 삭제 left 370, 둘 다 90×32, top +8 */
+      .row { position: absolute; left: 28px; width: 500px; height: 48px;
+             border: 1px solid #dde3e0; border-radius: 10px; background: #fff; }
+      .row .title { position: absolute; left: 14px; top: 0; line-height: 48px; font-size: 14px; }
+      .row button {
+        position: absolute; top: 8px; width: 90px; height: 32px; font-size: 13px;
+        border-radius: 6px; border: 1px solid #c9d4d0; background: #fff; cursor: pointer;
+      }
+      .row .ok  { left: 232px; }   /* 행 기준 232 + 행 left 28 = 260 */
+      .row .del { left: 342px; }   /* 342 + 28 = 370 */
+      #log { position: absolute; left: 28px; top: 600px;
+             font-family: ui-monospace, monospace; font-size: 12px; color: #4a5a55; }
+      #anim { position: absolute; left: 0; top: 780px; width: 60px; height: 14px;
+              background: #087f5b; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>TestFlow 녹화 검증 페이지</h1>
+
+    <form id="login-form" onsubmit="return false;">
+      <label class="cap" for="username">아이디</label>
+      <input class="box" id="username" name="username" type="text" />
+
+      <label class="cap" for="password">비밀번호</label>
+      <input class="box" id="password" name="password" type="password" />
+
+      <label class="cap" for="env">환경</label>
+      <select class="box" id="env" name="env">
+        <option value="stg">스테이징</option>
+        <option value="prd">운영</option>
+      </select>
+
+      <label class="cap" for="remember">자동 로그인</label>
+      <input id="remember" name="remember" type="checkbox" />
+
+      <button id="login-submit" type="submit">로그인</button>
+    </form>
+
+    <div id="result"></div>
+
+    <!-- ★ 같은 이름의 버튼이 여러 개인 상황 — 고유성 검증이 실제로 도는지 보는 자리 -->
+    <div class="row" style="top: 380px"><span class="title">계약서 A</span>
+      <button class="ok" type="button" data-testid="confirm-a">확인</button>
+      <button class="del" type="button">삭제</button></div>
+    <div class="row" style="top: 440px"><span class="title">계약서 B</span>
+      <button class="ok" type="button" data-testid="confirm-b">확인</button>
+      <button class="del" type="button">삭제</button></div>
+    <div class="row" style="top: 500px"><span class="title">계약서 C</span>
+      <button class="ok" type="button" data-testid="confirm-c">확인</button>
+      <button class="del" type="button">삭제</button></div>
+
+    <div id="log">last: (none)</div>
+    <div id="anim"></div>
+
+    <script>
+      (function () {
+        var logEl = document.getElementById("log");
+        var resultEl = document.getElementById("result");
+
+        function note(text) {
+          logEl.textContent = "last: " + text;
+          document.body.setAttribute("data-hit", text);
+        }
+
+        document.getElementById("login-form").addEventListener("submit", function (e) {
+          e.preventDefault();
+          var id = document.getElementById("username").value;
+          // ★ 비밀번호 값은 화면에도 로그에도 남기지 않는다(이 페이지가 유출 경로가 되면 안 된다).
+          resultEl.textContent = id === "" ? "아이디를 입력하세요" : "로그인 성공";
+          note("login-submit");
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll(".row button"), function (btn) {
+          btn.addEventListener("click", function () {
+            var row = btn.parentNode.querySelector(".title").textContent;
+            note(btn.textContent + "|" + row);
+          });
+        });
+
+        // screencast 는 변경분만 송출한다 → fps 측정을 위해 상시 변경을 하나 둔다.
+        var anim = document.getElementById("anim");
+        var x = 0;
+        function tick() {
+          x = (x + 6) % 1220;
+          anim.style.transform = "translateX(" + x + "px)";
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })();
+    </script>
+  </body>
+</html>

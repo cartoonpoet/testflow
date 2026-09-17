@@ -1,0 +1,27 @@
+{
+  // `src/record/injected.ts` 전용 빌드 (Gen-Phase 7 / Task 7.3·7.4).
+  //
+  // 이 파일만 tsconfig 가 따로인 이유 2가지 —
+  //  1) **DOM lib 이 필요하다.** 원격 페이지 컨텍스트에서 돌기 때문이다. 나머지 runner 코드는
+  //     Node 전용(`lib: ["ES2023"]`)이라 같은 프로젝트에 둘 수 없다.
+  //  2) **모듈이 아니라 스크립트로 emit 해야 한다.** `context.addInitScript({path})` 는 파일을
+  //     페이지에서 그대로 평가한다 — `export` 가 한 줄이라도 섞이면 SyntaxError 가 난다.
+  //     그래서 `isolatedModules` 를 끈다(켜져 있으면 TS1208 로 "글로벌 스크립트"를 거부한다).
+  //
+  // 산출물은 제품 빌드와 같은 `dist/` 에 떨어진다 → `dist/record/injected.js`.
+  // `session.ts` 가 이 경로를 찾는다(`resolveInjectedScriptPath`).
+  "extends": "@testflow/config-typescript/node.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": [],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "isolatedModules": false,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "tsBuildInfoFile": "dist/.injected.tsbuildinfo"
+  },
+  "include": ["src/record/injected.ts"]
+}

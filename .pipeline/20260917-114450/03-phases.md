@@ -347,41 +347,41 @@ total_gen_phases: 12
 - **작업**: `sessionId` 1개 = 브라우저 컨텍스트 1개. 생성 시 `viewport` 고정, `addInitScript`로 `injected.js` 등록, `exposeBinding('__tfEmit')` 연결, screencast 시작. **유휴 타임아웃**(마지막 클라이언트 메시지로부터 N분) 시 자동 폐기하고 `recording_sessions.status='expired'`로 갱신. 초안 스텝은 **주기적으로 `recording_sessions.draft_steps` JSON 컬럼에 저장**한다(세션이 끊겨도 테스터 작업이 날아가지 않게 — DB에 둔 이유).
 - **참고**: 02-context DB 스키마 `recording_sessions` 위의 설계 주석.
 - **완료 기준**: 세션 생성 후 유휴 타임아웃을 1분으로 줄여 대기하면 브라우저 프로세스가 종료되고 DB status가 `expired`로 바뀐다. 세션 중간에 Runner를 죽여도 `draft_steps`에 직전까지의 초안이 남아 있다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 7.2: 녹화 WS 서버 + 세션 토큰 검증
 - **파일**: `apps/runner/src/record/ws-server.ts` (신규 생성) / `apps/runner/src/main.ts` (수정)
 - **작업**: `ws` 서버를 `RUNNER_WS_PORT`에 띄우고 `/rec/:sessionId?token=…` 경로만 수락한다. 토큰은 Redis에서 검증(Task 5.4가 발급). 검증 실패 시 즉시 close(4401). Task 3.4의 PoC WS 서버 로직을 제품 코드로 승격하되 **프레임 드롭 정책과 `bufferedAmount` 감시를 유지**한다. 메시지 스키마는 `@testflow/contracts`의 WS union으로 검증.
 - **참고**: 02-context "구조상 쟁점 1건" — Runner 직결, API 미중계.
 - **완료 기준**: 올바른 토큰으로는 연결되고 `?token=bad` 는 close code **4401**로 거부된다. `wscat`으로 접속 시 바이너리 프레임이 수신된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 7.3: `injected.ts` — 행동 감지 리스너
 - **파일**: `apps/runner/src/record/injected.ts` (신규 생성)
 - **작업**: 원격 페이지 컨텍스트에서 도는 유일한 코드. **캡처 단계(`{capture:true}`)**에 리스너를 건다(대상 페이지의 `stopPropagation()`을 우회). 수집 이벤트: `click`, `input`/`change`, `submit`, `keydown`의 Enter·Tab. **`input` 디바운스 필수** — 같은 요소 연속 입력은 **마지막 값 하나의 `fill` 스텝으로 합친다**(안 하면 "아이디 입력"이 스텝 20개가 된다). `isComposing` 중에는 이벤트를 흘리지 않는다. **`type="password"` 필드는 값을 수집하지 않고** `{{password}}` 변수 참조 + `isSecret:true`로 승격한다. 수집 결과는 `window.__tfEmit(payload)`로 전송.
 - **참고**: 02-context "행동 → 스텝 변환" 절 전체 + "★ 최종 결정 (c) 파생 영향" 마지막 항목.
 - **완료 기준**: 더미 로그인 페이지에서 아이디 10자를 타이핑하면 `__tfEmit` 호출이 **1회**(디바운스 후)만 발생한다. 비밀번호 필드에 입력한 값이 emit payload 어디에도 **없고** `{{password}}` 참조만 있다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 7.4: `injected.ts` — Locator 후보 생성 + 고유성 검증
 - **파일**: `apps/runner/src/record/injected.ts` (Task 7.3에 이어 수정)
 - **작업**: 감지한 `event.target`에서 **role → label → text → test-id → css** 5단계 후보를 생성한다. **각 후보마다 그 자리에서 매칭을 돌려 문서 내 1개만 맞는지 검증**하고, 2개 이상이면 조상 컨테이너로 범위를 좁히거나 다음 순위로 내려간다. **이 검증을 빼먹으면 "녹화는 되는데 재생이 깨지는" 최악의 실패 모드가 나온다.** 결과를 `{primary, fallbacks[], frameUrl, snapshot}` 형태로 만든다. `playwright-selector-generator` 사용 여부는 Task 1.1 스파이크에서 호환성이 확인된 경우에만 검토하고, 기본은 자체 구현.
 - **참고**: 02-context "Locator 생성 로직" 절 전체.
 - **완료 기준**: 같은 텍스트("확인") 버튼이 3개 있는 테스트 페이지에서 각각을 클릭했을 때 생성된 primary locator가 **서로 다르고 각각 정확히 1개**에 매칭된다(단위 테스트 3케이스).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 7.5: `step-mapper.ts` — 원시 행동 → 업무 문장 스텝
 - **파일**: `apps/runner/src/record/step-mapper.ts` (신규 생성)
 - **작업**: `{action, role, accessibleName}` → `"'로그인' 버튼 클릭"`, `"'아이디' 입력란에 값 입력"` 같은 **한국어 업무 문장**으로 변환하고 `TestStep`(contracts)을 생성한다. 시안의 `<code>` 칩(**이동/입력/클릭/확인**)과 1:1 대응하는 매핑 테이블을 둔다. CDP `Page.frameNavigated` → `goto` 스텝. 자동 생성 문장은 초안일 뿐이며 테스터가 덮어쓴다는 점을 주석에 명시.
 - **참고**: 02-context "업무 문장 변환" 절, 01-clarify 화면 3의 `<code>` 칩 4종.
 - **완료 기준**: 단위 테스트에서 role=button/name=로그인 payload가 `{name:"'로그인' 버튼 클릭", actionType:'click'}` 을 만든다. 4종 칩 각각에 대응하는 action_type 매핑이 존재한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 7.6: 초안 확정 → 시나리오 반영
 - **파일**: `apps/runner/src/record/session.ts` (수정) / `apps/api/src/modules/recordings/recordings.service.ts` (수정)
 - **작업**: `POST /api/recordings/:sessionId/stop` 시 `draft_steps`를 `test_steps` 테이블로 확정 삽입하고(기존 스텝 뒤에 이어붙임) `sequence`를 재기입한다. 브라우저 폐기 + `status='stopped'`. 응답으로 확정된 `{steps:[TestStep]}` 반환.
 - **완료 기준**: 녹화 5스텝 후 stop을 호출하면 `GET /api/scenarios/:id` 응답의 `steps` 길이가 5가 되고 `sequence`가 1~5로 연속한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

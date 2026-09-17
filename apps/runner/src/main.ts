@@ -16,6 +16,7 @@ import { createDataSourceOptions } from "@testflow/db";
 import { RunAbortHandle, executeRun } from "./execute/executor.js";
 import { loadConfig } from "./env.js";
 import type { RunnerConfig } from "./env.js";
+import { startRecordingWsServer } from "./record/ws-server.js";
 
 /**
  * Runner 진입점 — BullMQ Worker (03-phases Task 6.7).
@@ -35,8 +36,11 @@ import type { RunnerConfig } from "./env.js";
  * `cancelled` 로 확정하지만, **이미 `running` 인 run 의 최종 status 확정은 Runner 의 몫**이다
  * (API 가 먼저 바꾸면 Runner 가 나중에 `passed` 로 덮어써 상태가 되돌아간다 — 04-gen-5 이슈 4번).
  *
- * ## 녹화 WS 서버
- * Gen-Phase 7 Task 7.2 에서 이 파일에 붙는다. 이번 범위가 아니다.
+ * ## 녹화 WS 서버 (Gen-Phase 7 Task 7.2)
+ * `RUNNER_WS_PORT`(기본 4100)에 `ws` 서버를 함께 띄운다. 경로는 `/rec/:sessionId?token=…`
+ * 하나뿐이고, 토큰은 API 가 Redis 에 넣은 **SHA-256 해시**와 타이밍 안전 비교한다.
+ * **API 를 중계로 끼우지 않는다** — 프레임마다 홉이 늘면 지연이 배가된다.
+ * 제어 채널(`rec:<id>:control`) 구독도 그 서버가 맡는다.
  */
 
 const HEARTBEAT_INTERVAL_MS = (RUNNER_HEARTBEAT_TTL_SEC * 1000) / 3;
@@ -61,6 +65,9 @@ async function main(): Promise<void> {
   const redis = new Redis({ host: config.redis.host, port: config.redis.port });
   // 구독 전용 연결(구독 모드에 들어간 연결로는 다른 명령을 보낼 수 없다).
   const subscriber = new Redis({ host: config.redis.host, port: config.redis.port });
+  // 녹화 제어 채널 전용 구독 연결. 실행 취소 구독과 섞지 않는다 — 패턴이 다르고,
+  // 한쪽 구독이 늘어날 때 다른 쪽 핸들러가 같이 깨우쳐지는 것을 피한다.
+  const recordingSubscriber = new Redis({ host: config.redis.host, port: config.redis.port });
 
   const dataSource = new DataSource(createDataSourceOptions());
   await dataSource.initialize();
@@ -68,6 +75,15 @@ async function main(): Promise<void> {
 
   await startHeartbeat(redis, config);
   await startCancelListener(subscriber);
+
+  // 녹화 WS 서버 — BullMQ Worker 와 같은 프로세스에서 돈다(Playwright 는 Runner 에만 있다).
+  const recorder = await startRecordingWsServer({
+    config,
+    redis,
+    subscriber: recordingSubscriber,
+    dataSource,
+    log,
+  });
 
   const worker = new Worker<RunJobData>(
     RUN_QUEUE_NAME,
@@ -120,12 +136,15 @@ async function main(): Promise<void> {
 
   log(
     `Worker 기동 — queue="${RUN_QUEUE_NAME}" concurrency=${String(config.concurrency)} ` +
-      `mode=${config.executionMode} runnerId=${config.runnerId} artifactRoot=${config.artifactRoot}`,
+      `mode=${config.executionMode} runnerId=${config.runnerId} artifactRoot=${config.artifactRoot} ` +
+      `recorderPort=${String(recorder.port)}`,
   );
 
   setupShutdown(async () => {
     log("종료 신호 수신 — 진행 중인 실행을 마치고 정리합니다.");
     await worker.close();
+    await recorder.close().catch(() => undefined);
+    await recordingSubscriber.quit().catch(() => undefined);
     await subscriber.quit().catch(() => undefined);
     await redis.del(runnerHeartbeatKey(config.runnerId)).catch(() => undefined);
     await redis.quit().catch(() => undefined);
