@@ -6,6 +6,8 @@
  */
 export * from "./step.js";
 export * from "./scenario.js";
+export * from "./code-validation.js";
+export * from "./pw-step-title.js";
 export * from "./suite.js";
 export * from "./run.js";
 export * from "./recording.js";

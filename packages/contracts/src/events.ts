@@ -247,6 +247,66 @@ export const WS_CLOSE_UNAUTHORIZED = 4401;
 /** 세션이 이미 만료/종료됐을 때의 close code. */
 export const WS_CLOSE_SESSION_GONE = 4404;
 
+/* ════════════════════════════════════════════════════════════
+ * C. 실행 라이브 스트림 WS  (`/live/:runId`) — 라운드 2, 03-phases 쟁점 3
+ *
+ *   녹화 WS(`/rec/:sessionId`)와 **같은 서버·같은 포트(`RUNNER_WS_PORT`)** 의 다른 경로다.
+ *   포트 1개 · nginx 규칙 1개 · **프레임 봉투 25바이트 · 백프레셔 드롭 정책 ·
+ *   `bufferedAmount` 상한이 전부 동일**하기 때문이다. 분리하면 그 네 가지가 두 벌이 되고
+ *   둘이 어긋나는 순간 한쪽 화면만 조용히 깨진다.
+ *
+ *   분리되는 것은 **세션 레지스트리**와 **Redis 토큰 키 공간**뿐이다
+ *   (`LIVE_STREAM_TOKEN_KEY_PREFIX` — `recording.ts` 참조).
+ *
+ *   ★★ **C→S 메시지는 없다. 이 스트림은 단방향이다.** ★★
+ *   코드 실행 화면은 **보기만** 한다. 원격 조작(`RecorderClientMessageSchema` 의 mouse/key/ime)을
+ *   붙이면 사용자 입력이 테스트를 깨뜨린다 (01-clarify "폐기하지 않는 것" 절).
+ *   그래서 이 union 에는 **서버→클라이언트 방향만** 있고, `Live*` 이름의 클라이언트 메시지 타입은
+ *   **일부러 존재하지 않는다.** 필요해 보이거든 먼저 이 주석을 지우는 PR 을 내라.
+ *
+ *   프레임은 **기존 25바이트 봉투 바이너리 그대로**다. 새 포맷을 만들지 않는다
+ *   (웹 `frame.ts` 디코더를 무수정 재사용한다).
+ * ════════════════════════════════════════════════════════════ */
+
+/**
+ * 스트림의 상태.
+ *
+ * | 값 | 화면 처리 |
+ * |---|---|
+ * | `live` | 프레임이 흐른다 |
+ * | `between-tests` | **테스트 전환 구간의 공백**(page 닫힘 ~ 새 page 첫 프레임). "다음 테스트 준비 중" 오버레이. 안 띄우면 "멈췄다"로 오인된다 — PoC 가 명시적으로 넘긴 항목 |
+ * | `ended` | 실행 종료. **마지막 프레임을 유지하고 그 위에 상태 배지를 덮는다.** 캔버스를 비우지 않는다 — 마지막 프레임은 실패 직전 화면이라 정보가 가장 많다 |
+ */
+export const LIVE_STREAM_STATES = ["live", "between-tests", "ended"] as const;
+export const LiveStreamStateSchema = z.enum(LIVE_STREAM_STATES);
+export type LiveStreamState = z.infer<typeof LiveStreamStateSchema>;
+
+export const LiveStreamStateMessageSchema = z.object({
+  t: z.literal("state"),
+  state: LiveStreamStateSchema,
+  /** `ended` 일 때만 의미가 있다. 배지 문구가 이 값으로 갈린다. */
+  runStatus: RunStatusSchema.optional(),
+});
+export type LiveStreamStateMessage = z.infer<typeof LiveStreamStateMessageSchema>;
+
+export const LiveStreamErrorMessageSchema = z.object({
+  t: z.literal("error"),
+  code: z.string(),
+  message: z.string(),
+});
+export type LiveStreamErrorMessage = z.infer<typeof LiveStreamErrorMessageSchema>;
+
+/**
+ * S→C **텍스트** 메시지. 바이너리 프레임은 이 union 밖(25바이트 봉투)이다.
+ *
+ * 판별 필드는 녹화 WS 와 같은 `t` 를 쓴다 — 웹의 메시지 디스패처 모양이 하나로 유지된다.
+ */
+export const LiveStreamServerMessageSchema = z.discriminatedUnion("t", [
+  LiveStreamStateMessageSchema,
+  LiveStreamErrorMessageSchema,
+]);
+export type LiveStreamServerMessage = z.infer<typeof LiveStreamServerMessageSchema>;
+
 /* ────────────────────────────────────────────────────────────
  * Runner heartbeat (health 판정용)
  * ──────────────────────────────────────────────────────────── */

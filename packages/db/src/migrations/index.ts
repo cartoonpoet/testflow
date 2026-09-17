@@ -8,6 +8,7 @@ import { CreateArtifacts1758000000007 } from "./007-create-artifacts.js";
 import { CreateRecordingSessions1758000000008 } from "./008-create-recording-sessions.js";
 import { SeedDefaultProject1758000000009, DEFAULT_PROJECT_ID } from "./009-seed-default-project.js";
 import { AddRunListIndexes1758000000010 } from "./010-add-run-list-indexes.js";
+import { AddScenarioSource1758000000011 } from "./011-add-scenario-source.js";
 
 export {
   CreateProjects1758000000001,
@@ -21,6 +22,7 @@ export {
   SeedDefaultProject1758000000009,
   DEFAULT_PROJECT_ID,
   AddRunListIndexes1758000000010,
+  AddScenarioSource1758000000011,
 };
 
 /**
@@ -41,4 +43,6 @@ export const migrations = [
   CreateRecordingSessions1758000000008,
   SeedDefaultProject1758000000009,
   AddRunListIndexes1758000000010,
+  // 라운드 2 — scenarios.source_type · scenario_codes · runs.source_type
+  AddScenarioSource1758000000011,
 ] as const;

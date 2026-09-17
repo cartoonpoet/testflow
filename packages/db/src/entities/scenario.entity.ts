@@ -10,8 +10,8 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 import type { Relation } from "typeorm";
-import { SCENARIO_STATUSES } from "@testflow/contracts";
-import type { ScenarioStatus } from "@testflow/contracts";
+import { SCENARIO_SOURCE_TYPES, SCENARIO_STATUSES } from "@testflow/contracts";
+import type { ScenarioSourceType, ScenarioStatus } from "@testflow/contracts";
 import type { ProjectEntity } from "./project.entity.js";
 import type { TestStepEntity } from "./test-step.entity.js";
 
@@ -42,6 +42,15 @@ export class ScenarioEntity {
 
   @Column({ name: "status", type: "enum", enum: SCENARIO_STATUSES, default: "draft" })
   status!: ScenarioStatus;
+
+  /**
+   * 원본 종류. `steps`(녹화 → `test_steps`) / `code`(코드 → `scenario_codes`).
+   *
+   * 마이그레이션 011 이 기존 행을 전부 `steps` 로 백필한다.
+   * ★ 생성 후 변경하지 않는다 — 스텝과 코드가 동시에 존재하면 실행 규칙이 두 벌이 된다.
+   */
+  @Column({ name: "source_type", type: "enum", enum: SCENARIO_SOURCE_TYPES, default: "steps" })
+  sourceType!: ScenarioSourceType;
 
   @Column({ name: "version", type: "int", unsigned: true, default: 1 })
   version!: number;

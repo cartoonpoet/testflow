@@ -15,6 +15,7 @@ import type {
   Scenario,
   ScenarioListQuery,
   ScenarioListResponse,
+  ScenarioSourceType,
   ScenarioStatus,
 } from "@testflow/contracts";
 import { toApiSteps, toTestStep } from "./step.mapper.js";
@@ -28,6 +29,7 @@ interface ScenarioListRow {
   name: string;
   feature: string | null;
   status: ScenarioStatus;
+  source_type: ScenarioSourceType;
   author_name: string | null;
   updated_at: Date;
   step_count: number | string;
@@ -90,7 +92,7 @@ export class ScenariosService {
     const total = Number(countRows[0]?.total ?? 0);
 
     const rows = (await this.dataSource.query(
-      `SELECT s.id, s.code, s.name, s.feature, s.status, s.author_name, s.updated_at,
+      `SELECT s.id, s.code, s.name, s.feature, s.status, s.source_type, s.author_name, s.updated_at,
               (SELECT COUNT(*) FROM test_steps ts WHERE ts.scenario_id = s.id) AS step_count,
               r.id          AS run_id,
               r.run_code    AS run_code,
@@ -111,6 +113,7 @@ export class ScenariosService {
         name: row.name,
         feature: row.feature,
         status: row.status,
+        sourceType: row.source_type,
         lastResult:
           row.run_id === null || row.run_code === null || row.run_status === null
             ? null
@@ -249,6 +252,7 @@ export function toScenario(entity: ScenarioEntity): Scenario {
     name: entity.name,
     feature: entity.feature,
     status: entity.status,
+    sourceType: entity.sourceType,
     version: entity.version,
     authorName: entity.authorName,
     lastRunId: entity.lastRunId,
