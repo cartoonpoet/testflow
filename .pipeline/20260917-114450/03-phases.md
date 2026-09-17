@@ -81,48 +81,48 @@ total_gen_phases: 12
 - **작업**: zod 4로 `ActionType` enum(`goto|click|fill|select|check|uncheck|press|hover|assert_visible|assert_text|assert_url|wait`), `LocatorTargetSchema`(`primary` + `fallbacks[]` + `frameUrl` + `snapshot`, `by: role|label|text|testid|css`), `TestStepInputSchema`(`{value, isSecret}`), `TestStepOptionsSchema`(`{timeoutMs, optional}`), `TestStepSchema`를 정의한다. **`css` fallback에는 "고급 설정 전용" 주석을 단다.** 추론 타입(`export type TestStep = z.infer<...>`)을 함께 내보낸다.
 - **참고**: 02-context "DB 스키마 초안"의 `test_steps.target_json` 주석 블록이 정확한 형태. "설계상 반드시 지켜야 할 제약" — 이 파일을 가장 먼저 확정.
 - **완료 기준**: `packages/contracts`에서 `yarn typecheck` 통과. `TestStepSchema.parse()` 단위 테스트가 target_json 예시(02-context의 role+4 fallback 예시)를 그대로 통과시키고, `by: "unknown"`은 거부한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.2: 시나리오·스위트 계약
 - **파일**: `packages/contracts/src/scenario.ts`, `packages/contracts/src/suite.ts` (신규 생성)
 - **작업**: `ScenarioStatus`(`draft|published|archived`), `ScenarioSchema`, 목록 응답(`ScenarioListItemSchema` — 시안 6열: 시나리오/기능/상태/최근 결과/수정일/작성자), `CreateScenarioDto`/`PatchScenarioDto`/`PutStepsDto` 스키마. `suite.ts`는 `SuiteSchema` + `CreateSuiteDto`(`{name, scenarioIds}`).
 - **참고**: 02-context "API 스펙 초안" 시나리오·스위트 절, 01-clarify 화면 2 테이블 6열.
 - **완료 기준**: `yarn typecheck` 통과 + 목록 응답 스키마 필드가 시안 6열과 1:1 대응함을 주석으로 확인 가능.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.3: 실행(run) 계약 — **변수 인라인 전달 경로 포함**
 - **파일**: `packages/contracts/src/run.ts` (신규 생성)
 - **작업**: `RunStatus`(`queued|running|passed|failed|cancelled|timeout|error`), `StepResultStatus`, `RunSchema`, `RunListItemSchema`(대시보드 최근 실행), `RunDetailSchema`(다크 요약바용 `summary`), `ArtifactSchema`. **`CreateRunDto`는 `{scenarioId?, suiteId?, baseUrl: string(url, 필수), envLabel, browser:'chromium', variables: Record<string,string>}`** 로 정의한다 — 02-context "★ 최종 결정" (a)(c)에 따라 `baseUrl`·계정·비밀번호는 **실행 요청 body가 주 경로**다. `variables` 중 Secret 키 판별 규칙(`password`·`pwd`·`secret` 접미/접두 또는 명시 `secretKeys: string[]`)도 여기서 정의한다.
 - **참고**: 02-context "★ 최종 결정" (a)(c) 및 "(c) 결정의 파생 영향".
 - **완료 기준**: `CreateRunDto.parse({scenarioId, baseUrl:'https://x', envLabel:'스테이징', browser:'chromium', variables:{}})` 통과. `scenarioId`·`suiteId` **둘 다 없으면 refine으로 거부**하는 테스트가 통과한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.4: 녹화·이벤트·스토리지 계약
 - **파일**: `packages/contracts/src/recording.ts`, `packages/contracts/src/events.ts`, `packages/contracts/src/storage.ts` (신규 생성)
 - **작업**: `recording.ts` — 세션 생성 요청/응답(`{sessionId, wsUrl, expiresAt, viewport}`), 세션 상태. `events.ts` — **SSE 이벤트 5종**(`run.status`/`step.started`/`step.finished`/`run.finished`/`artifact.ready`)과 **WS 메시지**(C→S `{t:'mouse'|'key'|'wheel'|'ime'|'resize'}`, S→C `{t:'frame'}`/`{t:'step'}`/`{t:'nav'}`)를 discriminated union으로 정의. `storage.ts` — `StorageKey` 규약(`runs/<runId>/step-<seq>.png`)과 `ArtifactType`.
 - **참고**: 02-context "API 스펙 초안"의 SSE·WS 행, "원격 브라우저 녹화 기술 조사 > 입력 역주입" 표.
 - **완료 기준**: WS 메시지 union이 `t` 필드로 판별되고, `frame` 메시지의 payload 타입이 **바이너리(`Uint8Array`) 전송을 전제**함이 타입으로 표현된다(base64 금지 — 02-context). `yarn typecheck` 통과.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.5: contracts barrel + 패키지 설정
 - **파일**: `packages/contracts/{package.json,tsconfig.json,src/index.ts}` (신규 생성)
 - **작업**: 1폴더 1책임 + barrel `index.ts` 재노출(websystem-design-system 배치 규율 차용 — 02-context "재사용 판단"). `exports` 필드로 `@testflow/contracts` 진입점 노출.
 - **완료 기준**: `apps/api`에서 `import { TestStepSchema } from '@testflow/contracts'` 가 타입 해석된다(`yarn typecheck` 통과).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.6: `packages/db` DataSource + 엔티티 9종
 - **파일**: `packages/db/src/data-source.ts`, `packages/db/src/entities/*.entity.ts` (신규 생성, 9개 파일 + barrel)
 - **작업**: MySQL 8 DataSource(`synchronize:false`, `migrationsRun:false`, 마이그레이션 **명시 import 배열 등록** — glob 금지, ERDify 규약). 엔티티: `project`, `scenario`, `test-step`, `suite`, `suite-scenario`, `run`, `step-result`, `artifact`, `recording-session`. **`project-variable` 엔티티는 만들지 않는다**(02-context "★ 최종 결정" (c) 파생 영향).
 - **참고**: 02-context "DB 스키마 초안" 전체 + "마이그레이션" 절(Postgres→MySQL 타입 치환: `JSONB`→`JSON`, `TIMESTAMPTZ`→`DATETIME(3)`, `now()`→`CURRENT_TIMESTAMP(3)`).
 - **완료 기준**: 엔티티 파일이 정확히 **9개**이고 `project-variable.entity.ts`가 존재하지 않는다. `yarn workspace @testflow/db typecheck` 통과.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 2.7: 마이그레이션 8종 + 시드
 - **파일**: `packages/db/src/migrations/001_create_projects.ts` ~ `008_create_recording_sessions.ts`, `009_seed_default_project.ts` (신규 생성)
 - **작업**: 02-context DDL을 원시 `queryRunner.query()`로 그대로 옮긴다. **단 `project_variables` CREATE TABLE은 제외**한다. `009`는 기본 프로젝트 1건 INSERT(`base_url`은 **placeholder 기본값**일 뿐 주 경로가 아님 — 실행 다이얼로그 입력이 주 경로). 각 마이그레이션에 `down()` 필수.
 - **참고**: 02-context "DB 스키마 초안" 001~009 + "★ 최종 결정" (a)(c).
 - **완료 기준**: `yarn workspace @testflow/db migration:run` 이 성공하고, MySQL에서 `SHOW TABLES` 가 **9개 테이블**(projects, scenarios, test_steps, suites, suite_scenarios, runs, step_results, artifacts, recording_sessions)을 반환하며 `project_variables`는 **없다**. `migration:revert` 를 8회 실행하면 테이블이 모두 사라진다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

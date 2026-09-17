@@ -10,11 +10,12 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
     "@tanstack/react-query": "5.102.8",
+    "@testflow/contracts": "workspace:^",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.5"

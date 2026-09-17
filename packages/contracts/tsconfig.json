@@ -1,0 +1,16 @@
+{
+  "extends": "@testflow/config-typescript/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+
+    // contracts 는 web(브라우저) 에서도 import 된다. Node 전역에 의존하지 않는다.
+    "types": [],
+
+    // 데코레이터는 db/api 쪽 관심사다. 순수 zod 패키지에는 필요 없다.
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

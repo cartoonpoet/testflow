@@ -1,0 +1,11 @@
+{
+  // node.json 은 nest.json 과 마찬가지로 experimentalDecorators + emitDecoratorMetadata 가 켜져 있다.
+  // TypeORM 엔티티 데코레이터에 필요한 것은 그게 전부라 nest.json 을 쓸 이유가 없다.
+  "extends": "@testflow/config-typescript/node.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

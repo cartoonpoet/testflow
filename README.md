@@ -19,7 +19,35 @@ packages/
   config-eslint/      ESLint 9 flat config (base / react / nest)
 ```
 
-> `packages/contracts` 와 `packages/db` 는 Gen-Phase 2 에서 생성된다.
+## 공유 계약 (`packages/contracts`)
+
+`TestStepSchema` 가 이 프로젝트의 중심 계약이다. web(편집 폼) · api(검증) · runner(해석)
+**세 런타임이 동시에 의존**하므로 타입을 각 앱에서 재정의하지 않는다.
+
+- Locator 는 단일 값이 아니라 **순위 배열**이다 — `{ primary, fallbacks[] }`,
+  후보 판별자는 `by: role | label | text | testid | css` (FR-004 우선순위 순서).
+- `by: "css"` 후보는 **고급 설정 전용**이다. API 응답 직전에 `toPublicLocatorTarget()` 로 제거한다.
+- 계정·비밀번호는 DB 에 저장하지 않는다. 스텝에는 `{{변수}}` 참조 + `isSecret: true` 만 남는다.
+
+## DB (`packages/db`)
+
+```bash
+yarn build                 # contracts → db 순으로 빌드 (마이그레이션은 컴파일된 JS 로 돌린다)
+yarn db:migrate            # 마이그레이션 실행
+yarn db:revert             # 마지막 1건 되돌리기
+```
+
+> ⚠️ 셸에 회사 공용 `DB_HOST` / `DB_PW` 가 export 돼 있으면 **그 값이 `.env` 보다 우선한다**
+> (Node 의 `--env-file` 은 기존 환경변수를 덮어쓰지 않는다). 마이그레이션 CLI 에 로컬 호스트
+> 가드를 넣어 두었으며, 걸리면 아래처럼 지우고 실행한다.
+>
+> ```bash
+> env -u DB_HOST -u DB_USER -u DB_PW -u DB_PORT -u DB_NAME yarn db:migrate
+> ```
+
+테이블은 **9개**다 — projects / scenarios / test_steps / suites / suite_scenarios /
+runs / step_results / artifacts / recording_sessions.
+`project_variables` 는 **의도적으로 없다**(실행 요청 body 로 변수를 받고 저장하지 않는 결정).
 
 ## 요구 사항
 
