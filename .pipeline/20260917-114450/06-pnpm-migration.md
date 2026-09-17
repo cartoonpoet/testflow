@@ -221,4 +221,4 @@ pnpm 은 기본 isolated(symlink) 구조라, yarn 의 평면 `node_modules` 에�
 
 - 브랜치: `chore/pnpm-migration` → `main`
 - 제목: `[chore] 패키지 매니저 yarn → pnpm 전환`
-- URL: https://github.com/cartoonpoet/testflow/pull/16
+- URL: https://github.com/cartoonpoet/testflow/pull/1
