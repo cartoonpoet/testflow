@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>TestFlow PoC-1 · 스트리밍 캔버스 클라이언트</title>
+    <!--
+      ⚠️ PoC 전용 임시물 (Gen-Phase 3 / Task 3.4). 제품 코드가 아니다.
+         Gen-Phase 10(Task 10.1 `StreamCanvas.tsx` · Task 10.2 `useInputBridge.ts`)에서
+         React 컴포넌트로 승격된다. 승격 시 아래 두 가지가 그대로 옮겨간다:
+           ① 프레임 드롭 정책(렌더 중이면 최신 프레임만 남기고 버린다)
+           ② 좌표 역변환 공식 (clientX - rect.left) * (remoteW / rect.width)
+    -->
+    <style>
+      html, body { margin: 0; padding: 0; background: #15211e; color: #e8efec;
+                   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      #wrap { padding: 12px; }
+      #canvas { display: block; background: #000; image-rendering: auto; cursor: crosshair; }
+      #hud { font-size: 12px; padding: 6px 0; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div id="hud">connecting…</div>
+      <canvas id="canvas" width="1280" height="800"></canvas>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+
+        var FRAME_HEADER_BYTES = 25;
+        var params = new URLSearchParams(location.search);
+        var wsUrl = params.get("ws") || "ws://" + location.host + "/rec/poc";
+        var initialScale = parseFloat(params.get("scale") || "1") || 1;
+
+        var canvas = document.getElementById("canvas");
+        var hud = document.getElementById("hud");
+        var ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+
+        var remoteW = 1280;
+        var remoteH = 800;
+        var scale = initialScale;
+
+        /** 최신 프레임 1장만 들고 있는다. 렌더 중에 새 프레임이 오면 **이전 것을 버린다**. */
+        var pending = null;
+        var rendering = false;
+
+        var st = null;
+        function resetStats() {
+          st = {
+            startedAtMs: nowMs(),
+            received: 0,
+            rendered: 0,
+            droppedClient: 0, // 렌더가 못 따라가서 버린 프레임
+            bytes: 0,
+            latencyDraw: [], // capturedAt → drawImage 완료
+            latencyPaint: [], // capturedAt → 다음 rAF(화면에 반영된 시점의 상한)
+            wsErrors: 0,
+            sentMessages: 0,
+            maxBufferedAmount: 0,
+          };
+        }
+        resetStats();
+
+        function nowMs() {
+          // epoch 기준 고해상도 시각. 서버(Node)의 Date.now() 와 같은 기준점이다(동일 머신).
+          return performance.timeOrigin + performance.now();
+        }
+
+        function applyScale() {
+          canvas.width = remoteW;
+          canvas.height = remoteH;
+          canvas.style.width = remoteW * scale + "px";
+          canvas.style.height = remoteH * scale + "px";
+        }
+        applyScale();
+
+        var ws = new WebSocket(wsUrl);
+        ws.binaryType = "arraybuffer";
+
+        ws.onopen = function () {
+          hud.textContent = "connected " + wsUrl;
+        };
+        ws.onerror = function () {
+          st.wsErrors += 1;
+          hud.textContent = "ws error";
+        };
+        ws.onclose = function () {
+          hud.textContent = "ws closed";
+        };
+
+        ws.onmessage = function (ev) {
+          if (typeof ev.data === "string") {
+            // NavMessage / RecorderErrorMessage (contracts 포맷)
+            hud.textContent = ev.data.slice(0, 200);
+            return;
+          }
+          var buf = ev.data;
+          if (buf.byteLength < FRAME_HEADER_BYTES) return;
+          var dv = new DataView(buf);
+          if (dv.getUint8(0) !== 0x01) return;
+          var frame = {
+            id: dv.getUint32(1),
+            capturedAtMs: dv.getFloat64(5),
+            serverSendAtMs: dv.getFloat64(13),
+            w: dv.getUint16(21),
+            h: dv.getUint16(23),
+            blob: new Blob([new Uint8Array(buf, FRAME_HEADER_BYTES)], { type: "image/jpeg" }),
+            recvAtMs: nowMs(),
+            bytes: buf.byteLength,
+          };
+          st.received += 1;
+          st.bytes += frame.bytes;
+
+          if (frame.w !== remoteW || frame.h !== remoteH) {
+            remoteW = frame.w;
+            remoteH = frame.h;
+            applyScale();
+          }
+
+          // ★ 드롭 정책 — 렌더 중이면 이전에 대기 중이던 프레임을 버리고 최신 것만 남긴다.
+          if (pending !== null) st.droppedClient += 1;
+          pending = frame;
+          pump();
+        };
+
+        function pump() {
+          if (rendering || pending === null) return;
+          var frame = pending;
+          pending = null;
+          rendering = true;
+          createImageBitmap(frame.blob)
+            .then(function (bitmap) {
+              ctx.drawImage(bitmap, 0, 0, remoteW, remoteH);
+              bitmap.close();
+              var drawnAt = nowMs();
+              st.rendered += 1;
+              st.latencyDraw.push(drawnAt - frame.capturedAtMs);
+              requestAnimationFrame(function () {
+                st.latencyPaint.push(nowMs() - frame.capturedAtMs);
+              });
+              rendering = false;
+              pump();
+            })
+            .catch(function () {
+              rendering = false;
+              pump();
+            });
+        }
+
+        /* ── 좌표 역변환 + 입력 송신 ────────────────────────────
+           ★ 이 공식이 틀리면 클릭이 엉뚱한 요소에 꽂혀 녹화 스텝이 전부 오염된다.
+             캔버스의 **CSS 표시 크기**(rect.width)로 나눈다 — canvas.width(내부 해상도) 가 아니다.
+             pageScaleFactor 보정은 서버(input-bridge)가 한다(클라이언트는 그 값을 모른다). */
+        function toRemote(clientX, clientY) {
+          var rect = canvas.getBoundingClientRect();
+          return {
+            x: (clientX - rect.left) * (remoteW / rect.width),
+            y: (clientY - rect.top) * (remoteH / rect.height),
+          };
+        }
+
+        function send(msg) {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          if (ws.bufferedAmount > st.maxBufferedAmount) st.maxBufferedAmount = ws.bufferedAmount;
+          // 입력이 밀리면 이동 이벤트부터 버린다(클릭은 절대 버리지 않는다).
+          if (msg.t === "mouse" && msg.kind === "move" && ws.bufferedAmount > 64 * 1024) return;
+          ws.send(JSON.stringify(msg));
+          st.sentMessages += 1;
+        }
+
+        var lastMove = 0;
+        canvas.addEventListener("mousemove", function (e) {
+          var t = performance.now();
+          if (t - lastMove < 30) return; // 스로틀 30ms
+          lastMove = t;
+          var p = toRemote(e.clientX, e.clientY);
+          send({ t: "mouse", kind: "move", x: p.x, y: p.y, button: "left", clickCount: 0, modifiers: 0 });
+        });
+        canvas.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          var p = toRemote(e.clientX, e.clientY);
+          send({ t: "mouse", kind: "down", x: p.x, y: p.y, button: "left", clickCount: 1, modifiers: 0 });
+        });
+        canvas.addEventListener("mouseup", function (e) {
+          e.preventDefault();
+          var p = toRemote(e.clientX, e.clientY);
+          send({ t: "mouse", kind: "up", x: p.x, y: p.y, button: "left", clickCount: 1, modifiers: 0 });
+        });
+        canvas.addEventListener("wheel", function (e) {
+          e.preventDefault();
+          var p = toRemote(e.clientX, e.clientY);
+          send({ t: "wheel", x: p.x, y: p.y, deltaX: e.deltaX, deltaY: e.deltaY });
+        }, { passive: false });
+        window.addEventListener("keydown", function (e) {
+          send({ t: "key", kind: "down", key: e.key, code: e.code, text: e.key.length === 1 ? e.key : undefined, modifiers: 0 });
+        });
+        window.addEventListener("keyup", function (e) {
+          send({ t: "key", kind: "up", key: e.key, code: e.code, modifiers: 0 });
+        });
+
+        /* ── 측정 스크립트(measure.ts)가 쓰는 제어면 ── */
+        function percentile(sorted, p) {
+          if (sorted.length === 0) return null;
+          var idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+          return sorted[idx];
+        }
+        window.__poc = {
+          ready: function () {
+            return ws.readyState === WebSocket.OPEN && st.rendered > 0;
+          },
+          reset: resetStats,
+          setScale: function (s) {
+            scale = s;
+            applyScale();
+            return { scale: scale, cssWidth: canvas.getBoundingClientRect().width };
+          },
+          canvasRect: function () {
+            var r = canvas.getBoundingClientRect();
+            return { left: r.left, top: r.top, width: r.width, height: r.height, remoteW: remoteW, remoteH: remoteH };
+          },
+          /** 원격 뷰포트 좌표 → 이 문서의 CSS 좌표. 클라이언트 변환 공식의 **역함수**(기하학적 정의). */
+          toClientPoint: function (rx, ry) {
+            var r = canvas.getBoundingClientRect();
+            return { x: r.left + (rx * r.width) / remoteW, y: r.top + (ry * r.height) / remoteH };
+          },
+          stats: function () {
+            var d = st.latencyDraw.slice().sort(function (a, b) { return a - b; });
+            var p = st.latencyPaint.slice().sort(function (a, b) { return a - b; });
+            var elapsed = (nowMs() - st.startedAtMs) / 1000;
+            return {
+              elapsedSeconds: elapsed,
+              received: st.received,
+              rendered: st.rendered,
+              droppedClient: st.droppedClient,
+              bytes: st.bytes,
+              sentMessages: st.sentMessages,
+              maxBufferedAmount: st.maxBufferedAmount,
+              wsErrors: st.wsErrors,
+              fps: elapsed > 0 ? st.rendered / elapsed : 0,
+              latencyDrawMs: {
+                n: d.length,
+                min: d.length ? d[0] : null,
+                p50: percentile(d, 50),
+                p95: percentile(d, 95),
+                max: d.length ? d[d.length - 1] : null,
+              },
+              latencyPaintMs: {
+                n: p.length,
+                p50: percentile(p, 50),
+                p95: percentile(p, 95),
+              },
+            };
+          },
+        };
+      })();
+    </script>
+  </body>
+</html>

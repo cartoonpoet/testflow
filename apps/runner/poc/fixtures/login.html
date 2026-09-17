@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>TestFlow PoC-1 · 좌표 정확도 더미 페이지</title>
+    <!--
+      ★ PoC 전용 임시물 (Gen-Phase 3 / Task 3.1). 제품 코드가 아니다.
+        - 3×3 그리드 버튼 9개를 **알려진 절대 좌표**에 둔다 → 캔버스 클릭 좌표 역변환 검증용.
+        - 클릭이 버튼을 빗나가도 어디에 꽂혔는지 알 수 있도록 document 캡처 단계에서
+          모든 클릭의 좌표를 기록한다(빗나감을 "타임아웃"으로만 알면 원인 분석이 불가능하다).
+        - 화면이 정지해 있으면 screencast 가 프레임을 만들지 않으므로(변경분만 송출)
+          실효 fps 측정을 위한 rAF 애니메이션 막대를 둔다.
+    -->
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        width: 1280px; height: 800px; overflow: hidden;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: #f5f7f6; color: #15211e;
+      }
+      h1 { position: absolute; left: 40px; top: 24px; font-size: 20px; margin: 0; }
+      .creds { position: absolute; left: 40px; top: 68px; display: flex; gap: 12px; align-items: center; }
+      .creds input {
+        width: 200px; height: 40px; padding: 0 10px; font-size: 14px;
+        border: 1px solid #c9d4d0; border-radius: 6px; background: #fff;
+      }
+      #login-submit {
+        height: 40px; padding: 0 20px; font-size: 14px; border: 0; border-radius: 6px;
+        background: #087f5b; color: #fff; cursor: pointer;
+      }
+      /* ── 3×3 그리드: left = 80 + col*400, top = 200 + row*180, 크기 320×140 ── */
+      .cell {
+        position: absolute; width: 320px; height: 140px;
+        font-size: 28px; font-weight: 600; cursor: pointer;
+        border: 2px solid #15211e; border-radius: 10px; background: #fff; color: #15211e;
+      }
+      .cell[data-hit="yes"] { background: #087f5b; color: #fff; }
+      #anim {
+        position: absolute; left: 0; top: 780px; width: 60px; height: 20px;
+        background: #087f5b; border-radius: 4px;
+      }
+      #status {
+        position: absolute; right: 40px; top: 24px; font-size: 13px; font-family: ui-monospace, monospace;
+        color: #4a5a55;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>TestFlow PoC-1 — 좌표 정확도 더미 페이지</h1>
+
+    <div class="creds">
+      <input id="username" name="username" type="text" placeholder="아이디" aria-label="아이디" />
+      <input id="password" name="password" type="password" placeholder="비밀번호" aria-label="비밀번호" />
+      <button id="login-submit" type="button">로그인</button>
+    </div>
+
+    <div id="status">hit: (none)</div>
+    <div id="anim"></div>
+
+    <script>
+      (function () {
+        const COLS = 3;
+        const ROWS = 3;
+        const ORIGIN_X = 80;
+        const ORIGIN_Y = 200;
+        const STEP_X = 400;
+        const STEP_Y = 180;
+
+        const statusEl = document.getElementById("status");
+
+        /** 마지막으로 눌린 버튼 id. 측정 스크립트가 이 값을 읽는다. */
+        window.__lastHit = null;
+        /** 버튼을 빗나간 클릭까지 포함한 마지막 클릭의 좌표·실제 타깃. 오차 진단용. */
+        window.__lastClick = null;
+        window.__resetHit = function () {
+          window.__lastHit = null;
+          window.__lastClick = null;
+          document.body.removeAttribute("data-hit");
+        };
+        /** 각 버튼의 뷰포트 좌표(중심). 측정 스크립트가 캔버스 좌표를 계산하는 근거값. */
+        window.__targets = function () {
+          return Array.from(document.querySelectorAll(".cell")).map(function (el) {
+            const r = el.getBoundingClientRect();
+            return {
+              id: el.id,
+              cx: r.left + r.width / 2,
+              cy: r.top + r.height / 2,
+              left: r.left, top: r.top, width: r.width, height: r.height,
+            };
+          });
+        };
+
+        for (let row = 0; row < ROWS; row += 1) {
+          for (let col = 0; col < COLS; col += 1) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "cell";
+            btn.id = "cell-" + row + "-" + col;
+            btn.textContent = "R" + row + "C" + col;
+            btn.style.left = ORIGIN_X + col * STEP_X + "px";
+            btn.style.top = ORIGIN_Y + row * STEP_Y + "px";
+            btn.addEventListener("click", function () {
+              // 각 버튼은 클릭 시 data-hit 에 자기 id 를 기록한다 (Task 3.1 완료 기준).
+              btn.setAttribute("data-hit", "yes");
+              document.body.setAttribute("data-hit", btn.id);
+              window.__lastHit = btn.id;
+              statusEl.textContent = "hit: " + btn.id;
+            });
+            document.body.appendChild(btn);
+          }
+        }
+
+        document.getElementById("login-submit").addEventListener("click", function () {
+          document.body.setAttribute("data-hit", "login-submit");
+          window.__lastHit = "login-submit";
+          statusEl.textContent = "hit: login-submit";
+        });
+
+        // 캡처 단계에서 모든 클릭을 본다 — 빗나간 클릭의 착지 좌표를 남기기 위해서다.
+        document.addEventListener(
+          "click",
+          function (e) {
+            const t = e.target;
+            window.__lastClick = {
+              x: e.clientX,
+              y: e.clientY,
+              targetId: t && t.id ? t.id : null,
+              targetTag: t && t.tagName ? t.tagName.toLowerCase() : null,
+            };
+          },
+          { capture: true },
+        );
+
+        // 실효 fps 측정을 위한 상시 변경. screencast 는 "바뀐 프레임"만 만든다.
+        const anim = document.getElementById("anim");
+        let x = 0;
+        function tick() {
+          x = (x + 6) % 1220;
+          anim.style.transform = "translateX(" + x + "px)";
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      })();
+    </script>
+  </body>
+</html>

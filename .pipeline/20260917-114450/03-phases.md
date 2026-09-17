@@ -135,42 +135,42 @@ total_gen_phases: 12
 - **작업**: 좌표 정확도 측정용 더미 페이지를 만든다 — **알려진 절대 좌표에 배치된 버튼 9개(3×3 그리드)** + 아이디/비밀번호 input + 로그인 버튼. 각 버튼은 클릭 시 `data-hit` 속성에 자기 id를 기록한다. `poc1.ts`는 이 페이지와 `https://playwright.dev` 두 대상을 모두 측정 대상으로 받는다(`--target` 인자).
 - **참고**: 오케스트레이터 지시 — 사내 스테이징 대신 공개 사이트 + 로컬 더미로 우선 검증.
 - **완료 기준**: `npx serve apps/runner/poc/fixtures` 로 띄운 페이지에서 9개 버튼을 브라우저로 직접 클릭하면 `data-hit`이 각각 갱신된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.2: `screencast.ts` — 프레임 송출 계층
 - **파일**: `apps/runner/src/record/screencast.ts` (신규 생성)
 - **작업**: `page.screencast.start({ onFrame, quality: 60, size: { width: 1280, height: 800 } })` 를 감싸는 얇은 어댑터. **`size`를 반드시 명시**한다(미지정 시 800×800으로 축소되어 좌표 변환이 깨진다 — 02-context). `onFrame` 시그니처(`{data: Buffer, timestamp, viewportWidth, viewportHeight}`)를 인터페이스로 고정해 **2안(CDP `Page.startScreencast`)으로 교체해도 시그니처가 동일**하도록 만든다. `pageScaleFactor`·`scrollOffset`이 필요하면 보조 CDP 세션을 병행할 수 있는 훅을 남긴다.
 - **참고**: 02-context "화면 스트리밍" 1안/2안 및 권고.
 - **완료 기준**: 파일이 `startScreencast(page, opts): Promise<Dispose>` 단일 export를 가지며, 내부 구현을 CDP로 바꿔도 **export 시그니처가 변하지 않음**이 타입으로 보장된다(인터페이스 타입을 별도 선언).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.3: `input-bridge.ts` — 좌표/키 역주입 계층
 - **파일**: `apps/runner/src/record/input-bridge.ts` (신규 생성)
 - **작업**: CDP `Input.dispatchMouseEvent`(mouseMoved/mousePressed/mouseReleased/mouseWheel)와 `Input.dispatchKeyEvent`를 감싼다. **IME 경로는 인터페이스만 뚫어 두고**(`insertText(text)` / `setComposition(...)` / `commitComposition()`) A안(`Input.insertText`)만 구현한다 — B안 승급 시 이 파일 안에서만 바뀌도록 가둔다. PoC에서 `page.mouse.move/down/up`(좌표 기반 고수준 API)과 CDP 직접 호출을 **둘 다 시도해 정확도를 비교**한다.
 - **참고**: 02-context "입력 역주입" 표 + "권고: A안으로 MVP, PoC에서 실패 시 B안 승급".
 - **완료 기준**: 두 경로(Playwright mouse / CDP Input)가 같은 인터페이스 뒤에 있고 환경변수 또는 인자로 전환 가능하다. `yarn typecheck` 통과.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.4: PoC용 WS 서버 + 캔버스 클라이언트
 - **파일**: `apps/runner/poc/poc-ws-server.ts`, `apps/runner/poc/client/index.html` (신규 생성)
 - **작업**: `ws` 8.x 서버가 Task 3.2의 프레임을 **JPEG 바이너리 그대로**(base64 금지) 푸시하고, 클라이언트 메시지(`mouse`/`wheel`/`key`)를 Task 3.3에 전달한다. 클라이언트는 `createImageBitmap(blob)` → `canvas.drawImage`로 렌더하고, **좌표 역변환** `(clientX - rect.left) * (remoteW / rect.width)` 를 적용해 클릭을 송신한다. **프레임 드롭 정책 필수** — `ws.bufferedAmount` 감시 + 렌더 중이면 최신 프레임만 남기고 버린다.
 - **참고**: 02-context "전송" 절 + "좌표 변환 주의".
 - **완료 기준**: 브라우저에서 클라이언트 페이지를 열면 원격 페이지 화면이 캔버스에 계속 갱신되고, 캔버스를 클릭하면 원격 페이지가 반응한다(눈으로 확인 가능).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.5: 지연·fps·좌표 정확도 자동 측정
 - **파일**: `apps/runner/poc/measure.ts` (신규 생성)
 - **작업**: ① **왕복 지연** — 프레임 `timestamp`와 클라이언트 렌더 완료 시각 차이를 100프레임 이상 수집해 p50/p95를 낸다. ② **실효 fps** — 30초간 렌더된 프레임 수 / 30. ③ **클릭 적중률** — Task 3.1의 3×3 버튼 9개 각각에 대해 캔버스 좌표를 계산해 클릭을 쏘고, `data-hit` 값이 의도한 id와 일치하는지 검사한다. **캔버스 표시 크기를 3가지(원본 100% / 축소 70% / 확대 130%)로 바꿔 각각 9회씩 총 27회** 측정한다(좌표 변환 버그는 스케일이 1이 아닐 때만 드러난다).
 - **참고**: 02-context "PoC 우선 검증 3가지 > PoC-1" 합격 기준.
 - **완료 기준**: 측정 결과가 JSON으로 출력되고, **27/27 적중**이면 좌표 항목 합격. 지연 p95와 실효 fps 수치가 숫자로 기록된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 3.6: PoC-1 결과 보고서
 - **파일**: `.pipeline/20260917-114450/poc1-result.md` (신규 생성)
 - **작업**: 측정값을 합격 기준(지연 200ms 이하 / 10fps 이상 / 적중률 100%)과 대조해 표로 정리한다. 대상별(로컬 더미 / `playwright.dev`)·스케일별 수치를 모두 싣는다. 불합격 항목이 있으면 **원인 가설과 후퇴 옵션**(quality 하향, `everyNthFrame`, size 축소, CDP 2안 전환, 최종적으로 1번 별도 창 방식)을 명시한다. 또한 `recording-options.html`이 추정한 "녹화 개발량 2~3배"를 실측 기반으로 **재추정**한다.
 - **참고**: 02-context "일정 리스크" — `page.screencast` 도입으로 과대평가 가능성 지적.
 - **완료 기준**: 보고서에 3개 합격 기준 각각에 대한 **PASS/FAIL 판정**과 근거 수치가 있다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### ★ 사용자 확인 게이트 (Gen-Phase 3 종료 시점)
 - **게이트 내용**: `poc1-result.md`를 사용자에게 제시하고 다음 중 하나의 결정을 받는다.

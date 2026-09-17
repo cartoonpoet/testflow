@@ -1,0 +1,846 @@
+{
+  "generatedAt": "2026-09-17T05:46:23.847Z",
+  "env": {
+    "node": "v22.22.2",
+    "platform": "linux x64",
+    "playwright": "1.63.0",
+    "quality": 60,
+    "seconds": 30,
+    "size": {
+      "width": 1280,
+      "height": 800
+    },
+    "clientViewport": {
+      "width": 1800,
+      "height": 1200
+    },
+    "scales": [
+      1,
+      0.7,
+      1.3
+    ]
+  },
+  "criteria": {
+    "latencyP95Ms": 200,
+    "fps": 10,
+    "hitRatePercent": 100
+  },
+  "verdict": {
+    "latency": {
+      "p95Ms": 18.7041015625,
+      "criterion": 200,
+      "pass": true
+    },
+    "fps": {
+      "value": 59.88981853589506,
+      "criterion": 10,
+      "pass": true
+    },
+    "hitRate": {
+      "percent": 100,
+      "criterion": 100,
+      "pass": true
+    }
+  },
+  "throughput": [
+    {
+      "label": "local/playwright/q60",
+      "target": "local",
+      "screencastDriver": "playwright",
+      "quality": 60,
+      "seconds": 30,
+      "timestampKind": "epoch-millis",
+      "pageScaleFactor": 1,
+      "client": {
+        "elapsedSeconds": 30.00510009765625,
+        "received": 1798,
+        "rendered": 1797,
+        "droppedClient": 0,
+        "bytes": 54795739,
+        "sentMessages": 0,
+        "maxBufferedAmount": 0,
+        "wsErrors": 0,
+        "fps": 59.88981853589506,
+        "latencyDrawMs": {
+          "n": 1797,
+          "min": 8.2080078125,
+          "p50": 10.201904296875,
+          "p95": 18.7041015625,
+          "max": 60.563720703125
+        },
+        "latencyPaintMs": {
+          "n": 1797,
+          "p50": 11.759033203125,
+          "p95": 26.296875
+        }
+      },
+      "server": {
+        "framesProduced": 1798,
+        "framesSent": 1798,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoClient": 0,
+        "bytesSent": 54795739,
+        "contractCheck": "ok",
+        "contractError": null
+      }
+    },
+    {
+      "label": "local/cdp/q60",
+      "target": "local",
+      "screencastDriver": "cdp",
+      "quality": 60,
+      "seconds": 30,
+      "timestampKind": "epoch-seconds",
+      "pageScaleFactor": 1,
+      "client": {
+        "elapsedSeconds": 30.0035,
+        "received": 1788,
+        "rendered": 1786,
+        "droppedClient": 2,
+        "bytes": 54490919,
+        "sentMessages": 0,
+        "maxBufferedAmount": 0,
+        "wsErrors": 0,
+        "fps": 59.52638858799807,
+        "latencyDrawMs": {
+          "n": 1786,
+          "min": 8.130126953125,
+          "p50": 13.413330078125,
+          "p95": 21.05615234375,
+          "max": 103.100341796875
+        },
+        "latencyPaintMs": {
+          "n": 1786,
+          "p50": 15.318359375,
+          "p95": 28.733154296875
+        }
+      },
+      "server": {
+        "framesProduced": 1788,
+        "framesSent": 1788,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoClient": 0,
+        "bytesSent": 54490919,
+        "contractCheck": "ok",
+        "contractError": null
+      }
+    },
+    {
+      "label": "playwright-dev/playwright/q60",
+      "target": "playwright-dev",
+      "screencastDriver": "playwright",
+      "quality": 60,
+      "seconds": 30,
+      "timestampKind": "epoch-millis",
+      "pageScaleFactor": 1,
+      "client": {
+        "elapsedSeconds": 30.005199951171875,
+        "received": 1789,
+        "rendered": 1787,
+        "droppedClient": 3,
+        "bytes": 124050260,
+        "sentMessages": 0,
+        "maxBufferedAmount": 0,
+        "wsErrors": 0,
+        "fps": 59.55634366403239,
+        "latencyDrawMs": {
+          "n": 1787,
+          "min": 11.5751953125,
+          "p50": 16.248046875,
+          "p95": 29.841064453125,
+          "max": 85.6611328125
+        },
+        "latencyPaintMs": {
+          "n": 1786,
+          "p50": 25.916015625,
+          "p95": 36.14990234375
+        }
+      },
+      "server": {
+        "framesProduced": 1789,
+        "framesSent": 1789,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoClient": 0,
+        "bytesSent": 124050260,
+        "contractCheck": "ok",
+        "contractError": null
+      }
+    }
+  ],
+  "accuracy": [
+    {
+      "label": "local/input:cdp",
+      "target": "local",
+      "inputDriver": "cdp",
+      "screencastDriver": "playwright",
+      "pageScaleFactor": 1,
+      "cases": [
+        {
+          "scale": 1,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        }
+      ],
+      "hits": 27,
+      "total": 27,
+      "hitRatePercent": 100,
+      "maxErrorPx": 0
+    },
+    {
+      "label": "local/input:playwright",
+      "target": "local",
+      "inputDriver": "playwright",
+      "screencastDriver": "playwright",
+      "pageScaleFactor": 1,
+      "cases": [
+        {
+          "scale": 1,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 0.7,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-0",
+          "actual": "cell-0-0",
+          "hit": true,
+          "landedOn": "cell-0-0",
+          "clickXRemote": 240,
+          "clickYRemote": 270,
+          "expectedXRemote": 240,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-1",
+          "actual": "cell-0-1",
+          "hit": true,
+          "landedOn": "cell-0-1",
+          "clickXRemote": 640,
+          "clickYRemote": 270,
+          "expectedXRemote": 640,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-0-2",
+          "actual": "cell-0-2",
+          "hit": true,
+          "landedOn": "cell-0-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 270,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 270,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-0",
+          "actual": "cell-1-0",
+          "hit": true,
+          "landedOn": "cell-1-0",
+          "clickXRemote": 240,
+          "clickYRemote": 450,
+          "expectedXRemote": 240,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-1",
+          "actual": "cell-1-1",
+          "hit": true,
+          "landedOn": "cell-1-1",
+          "clickXRemote": 640,
+          "clickYRemote": 450,
+          "expectedXRemote": 640,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-1-2",
+          "actual": "cell-1-2",
+          "hit": true,
+          "landedOn": "cell-1-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 450,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 450,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-0",
+          "actual": "cell-2-0",
+          "hit": true,
+          "landedOn": "cell-2-0",
+          "clickXRemote": 240,
+          "clickYRemote": 630,
+          "expectedXRemote": 240,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-1",
+          "actual": "cell-2-1",
+          "hit": true,
+          "landedOn": "cell-2-1",
+          "clickXRemote": 640,
+          "clickYRemote": 630,
+          "expectedXRemote": 640,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        },
+        {
+          "scale": 1.3,
+          "expected": "cell-2-2",
+          "actual": "cell-2-2",
+          "hit": true,
+          "landedOn": "cell-2-2",
+          "clickXRemote": 1040,
+          "clickYRemote": 630,
+          "expectedXRemote": 1040,
+          "expectedYRemote": 630,
+          "errorPx": 0
+        }
+      ],
+      "hits": 27,
+      "total": 27,
+      "hitRatePercent": 100,
+      "maxErrorPx": 0
+    }
+  ]
+}

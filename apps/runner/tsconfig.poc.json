@@ -1,0 +1,13 @@
+{
+  // PoC-1(Gen-Phase 3) 전용 빌드.
+  // `poc/` 는 제품 산출물(`dist/`)에 들어가면 안 되므로 tsconfig 를 분리하고 outDir 도 나눈다.
+  // 화면 전달 계층 2개 파일(`src/record/*.ts`)만 함께 컴파일한다 — 이 둘은 제품 코드다.
+  "extends": "@testflow/config-typescript/node.json",
+  "compilerOptions": {
+    "outDir": "dist-poc",
+    "rootDir": ".",
+    "tsBuildInfoFile": "dist-poc/.tsbuildinfo"
+  },
+  "include": ["poc/**/*.ts", "src/record/screencast.ts", "src/record/input-bridge.ts"],
+  "exclude": ["node_modules", "dist", "dist-poc"]
+}
