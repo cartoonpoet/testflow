@@ -8,3 +8,6 @@ export * from "./MetricCard";
 export * from "./RunRow";
 export * from "./NoticeBox";
 export * from "./ProjectGate";
+export * from "./StepCard";
+export * from "./AddStepButton";
+export * from "./RecordBadge";

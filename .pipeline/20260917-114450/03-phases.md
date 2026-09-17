@@ -504,55 +504,55 @@ total_gen_phases: 12
 - **작업**: 그리드 **`34px 1fr auto`** = 번호칩(**28×28, 반경 9**) · 이름+동작설명 · 드래그 핸들(`••`). 카드 반경 **12px**, hover `border-color:#9db1aa; box-shadow:0 5px 18px rgba(21,48,41,.06)`, transition `.15s`. **선택 상태**는 `border-color:#74ad99; background:#f6fbf8`. 동작 유형은 `<code>` 칩(**이동/입력/클릭/확인**), 값은 `{{baseUrl}}/login`·`{{testUser.email}}` 변수 표기, **비밀번호는 `••••••••` 마스킹**.
 - **참고**: **01-clarify "화면 4종" 3번 + "컴포넌트 스펙" step-card 항목**.
 - **완료 기준**: 선택된 카드만 `#74ad99` 테두리 + `#f6fbf8` 배경으로 렌더된다. `isSecret:true` 스텝의 값이 `••••••••`로 표시되고 원본 값이 DOM에 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.2: 스텝 목록 + 순서 변경 + `AddStepButton`
 - **파일**: `apps/web/src/pages/scenarios/builder/StepList.tsx`, `apps/web/src/components/AddStepButton.tsx` (신규 생성)
 - **작업**: 드래그로 순서 변경(변경 시 `PUT /api/scenarios/:id/steps` 전량 치환). `AddStepButton`은 **`1px dashed #aebbb6` + 배경 `#f9fbfa` + 텍스트 `--brand`**, 라벨 "＋ 다음 스텝 추가". `prefers-reduced-motion`에서 드래그 애니메이션 비활성.
 - **참고**: **01-clarify "컴포넌트 스펙" `.add-step` 항목**.
 - **완료 기준**: 스텝을 드래그해 순서를 바꾸면 PUT 요청 1건이 나가고 새로고침 후에도 순서가 유지된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.3: `Inspector.tsx` — 우측 인스펙터 (sticky)
 - **파일**: `apps/web/src/pages/scenarios/builder/Inspector.tsx` (신규 생성)
 - **작업**: `grid: 1fr 330px` 의 우측 패널, **sticky `top: 88px`**, `h2` **15px**. 필드: 업무 단계 이름 / 동작 select(**화면에 표시되는지 확인 · 텍스트 값 확인 · URL 확인**) / 확인할 대상 / 최대 대기 시간 select(**5초·10초·30초**). **힌트박스** 문구 그대로: "요소를 찾을 때 접근성 역할과 표시 텍스트를 우선 사용합니다. CSS 선택자는 고급 설정에서만 노출됩니다." 하단 삭제/적용 버튼. 폼은 react-hook-form + zod(`TestStepSchema` 파생). **CSS 선택자는 화면에 절대 노출하지 않는다.** 적용 시 `PATCH /api/steps/:stepId` + 토스트.
 - **참고**: **01-clarify "화면 4종" 3번 인스펙터 서술** / 02-context "설계상 반드시 지켜야 할 제약".
 - **완료 기준**: 인스펙터가 스크롤 시 `top:88px`에 고정되고, 1050px 미만에서 static으로 바뀐다. 렌더된 DOM 어디에도 CSS selector 문자열이 **없다**(고급 설정 플래그 off 기준).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.4: 빌더 헤더 — 제목 인라인 편집 + `RecordBadge`
 - **파일**: `apps/web/src/pages/scenarios/builder/BuilderHeader.tsx`, `apps/web/src/components/RecordBadge.tsx` (신규 생성)
 - **작업**: 제목 인라인 input(**18px / font-weight 800**). `RecordBadge`는 기록 상태를 **항상 노출**한다 — 녹화 중 `● 기록 중`(danger 계열 점 + pulse), 종료 시 `● 기록 종료`. 옆에 임시 저장 / 발행 버튼.
 - **참고**: **01-clarify "화면 4종" 3번 + "UX 결정사항"**.
 - **완료 기준**: 녹화 시작/종료에 따라 배지 텍스트와 색이 전환된다. 발행 버튼 클릭 시 `POST /api/scenarios/:id/publish` 호출 + 토스트 표시.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.5: `StreamCanvas.tsx` — 프레임 렌더
 - **파일**: `apps/web/src/features/recorder/StreamCanvas.tsx` (신규 생성)
 - **작업**: WS 바이너리 프레임을 `createImageBitmap(blob)` → `canvas.drawImage`로 렌더. **프레임 드롭 정책** — 렌더 중이면 최신 프레임만 남기고 버린다. `ws.bufferedAmount` 감시. 캔버스 표시 크기와 원격 뷰포트 크기를 함께 상태로 보유해 좌표 변환에 넘긴다. Gen-Phase 3 PoC 클라이언트 코드를 React 컴포넌트로 승격.
 - **참고**: 02-context "전송" 절, Gen-Phase 3 Task 3.4 산출물.
 - **완료 기준**: 녹화 세션 시작 후 캔버스에 원격 화면이 10fps 이상으로 갱신된다(PoC-1 측정값 기준).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.6: `useInputBridge.ts` — 좌표 변환 + 입력 송신
 - **파일**: `apps/web/src/features/recorder/useInputBridge.ts` (신규 생성)
 - **작업**: 마우스 이동/클릭/휠/키 이벤트를 캡처해 **`(clientX - canvasRect.left) * (remoteViewportW / canvasRect.width)`** 로 역변환한 뒤 WS로 송신한다. `pageScaleFactor`가 1이 아니면 한 번 더 나눈다. **이 계산이 틀리면 클릭이 엉뚱한 요소에 꽂혀 녹화 스텝이 전부 오염된다** — Gen-Phase 3에서 검증한 공식을 그대로 이식한다. 마우스 이동은 스로틀(예: 30ms).
 - **참고**: 02-context "좌표 변환 주의".
 - **완료 기준**: 캔버스를 CSS로 70%·130% 크기로 바꿔도 클릭이 의도한 요소에 정확히 꽂힌다(Gen-Phase 3 Task 3.5와 동일한 27케이스 수동 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.7: `useImeBridge.ts` — 한글 IME 브리지 (A안)
 - **파일**: `apps/web/src/features/recorder/useImeBridge.ts` (신규 생성)
 - **작업**: 화면에 보이지 않는 `<input>`에 포커스를 잡아 **로컬 IME가 거기서 조합**하게 하고, `compositionend`에서 최종 문자열만 꺼내 `{t:'ime', text}` 로 1회 송신한다(A안). **조합이 없는 입력(영문·숫자)은 `{t:'key'}` 경로로 보낸다** — `isComposing` 여부로 경로를 가른다. B안(`imeSetComposition` 중계) 승급이 필요해질 경우를 대비해 **경로 전환 플래그를 이 파일 안에 둔다**.
 - **참고**: 02-context "한글 IME 처리" A안/B안 + "추가 권고".
 - **완료 기준**: 캔버스에 포커스한 상태로 "안녕하세요"를 입력하면 원격 입력란에 **자모 분리·중복·누락 없이** 그대로 들어간다. 영문 "abc" 입력 시 원격에서 `keydown` 이벤트가 발생한다(콘솔로 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 10.8: 녹화 세션 제어 + 빌더 페이지 조립
 - **파일**: `apps/web/src/pages/scenarios/builder/index.tsx`, `apps/web/src/hooks/useRecording.ts` (신규 생성)
 - **작업**: 녹화 시작 다이얼로그(시작 URL 입력) → `POST /api/scenarios/:id/recordings` → `wsUrl`로 WS 연결 → `StreamCanvas` + 스텝 목록 실시간 증가(S→C `{t:'step'}` 수신 시 좌측에 append) → 녹화 종료 → `POST .../stop` → 확정 스텝 반영. 해피패스(01-clarify "UX 결정사항")를 화면에서 완결시킨다.
 - **완료 기준**: 녹화 시작 → 원격 브라우저에서 클릭·입력 → **좌측 스텝 목록이 실시간으로 늘어남** → 종료 → `GET /api/scenarios/:id` 에 스텝이 확정 저장됨, 이 전체 흐름이 수동으로 1회 성공한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

@@ -374,6 +374,25 @@
   }
 }
 
+/**
+ * 녹화 스트림 캔버스 — 시안에 없는 요소다(시안은 정적 "브라우저 목업"만 준다).
+ *
+ * ★ **표시 폭은 데이터다.** 배율 선택(맞춤/70/100/130%)에 따라 달라지므로 컴포넌트가
+ *   `--tf-canvas-width` **값 하나만** 넘기고, 나머지는 여기 남는다(`tf-bar-fill` 과 같은 규율).
+ * ★ `height: auto` — canvas 의 `width`/`height` 속성이 만드는 고유 종횡비를 그대로 쓴다.
+ *   CSS 로 높이를 따로 주면 이미지가 눌리고, **좌표 변환의 x·y 배율이 서로 달라진다.**
+ * ★ `max-width` 를 두지 않는다. 130% 배율에서 캔버스가 컨테이너보다 커져야 하고
+ *   그건 바깥 래퍼의 `overflow` 가 받는다. 여기서 clamp 하면 배율 검증 자체가 무의미해진다.
+ */
+@utility tf-stream-canvas {
+  display: block;
+  width: var(--tf-canvas-width, 100%);
+  height: auto;
+  background: var(--color-browser);
+  cursor: crosshair;
+  touch-action: none;
+}
+
 /** 인스펙터 — `.inspector` 의 sticky. 1050px 이하에서 static 으로 내려온다. */
 @utility tf-inspector-sticky {
   align-self: start;

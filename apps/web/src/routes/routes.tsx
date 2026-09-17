@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { DashboardPage } from "@/pages/dashboard";
 import { ScenariosPage } from "@/pages/scenarios";
+import { NewScenarioPage } from "@/pages/scenarios/NewScenarioPage";
+import { ScenarioBuilderPage } from "@/pages/scenarios/builder";
 import { AppShellRoute } from "./AppShellRoute";
 import { PagePlaceholder } from "./PagePlaceholder";
 
@@ -16,26 +18,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <DashboardPage /> },
       { path: "scenarios", element: <ScenariosPage /> },
-      {
-        path: "scenarios/new",
-        element: (
-          <PagePlaceholder
-            title="시나리오 만들기"
-            description="브라우저를 직접 조작해 테스트 단계를 기록합니다."
-            phase="Gen-Phase 10"
-          />
-        ),
-      },
-      {
-        path: "scenarios/:scenarioId",
-        element: (
-          <PagePlaceholder
-            title="시나리오 편집"
-            description="기록된 단계를 업무 용어로 다듬습니다."
-            phase="Gen-Phase 10"
-          />
-        ),
-      },
+      { path: "scenarios/new", element: <NewScenarioPage /> },
+      { path: "scenarios/:scenarioId", element: <ScenarioBuilderPage /> },
       {
         path: "runs",
         element: (

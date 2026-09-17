@@ -41,7 +41,14 @@ export const queryKeys = {
   /** 툴바 "기능" 선택지. 목록 필터와 달리 **필터 없이** 한 번만 읽는다. */
   scenarioFeatures: (projectId: string) =>
     ["projects", projectId, "scenario-features"] as const,
-  scenario: (id: string) => ["scenarios", id] as const,
+  /**
+   * 빌더가 읽는 시나리오 상세.
+   * `advanced` 가 키에 들어간다 — 같은 시나리오라도 **응답 모양이 다르기 때문**이다
+   * (기본 응답은 css 후보가 제거된 `PublicTestStep`, `?advanced=1` 은 원본 `TestStep`).
+   * 한 키에 두 모양을 섞으면 고급 설정을 껐다 켤 때 캐시가 서로를 덮어쓴다.
+   */
+  scenario: (id: string, advanced = false) =>
+    (advanced ? ["scenarios", id, "advanced"] : ["scenarios", id]) as readonly string[],
   suites: (projectId: string) => ["projects", projectId, "suites"] as const,
   suite: (id: string) => ["suites", id] as const,
   runs: (filters?: Readonly<Record<string, unknown>>) =>
