@@ -317,6 +317,41 @@
   }
 }
 
+/**
+ * 최근 실행 1행 — `.run-row`
+ * 34px 1fr 90px 100px 80px (상태심볼·이름/RUN-ID·브라우저태그·상태텍스트·경과시간).
+ * 브레이크포인트마다 **열 개수가 바뀐다**(태그·시간이 사라진다). 열 정의와 숨김 규칙이
+ * 서로 다른 파일에 흩어지면 반드시 어긋나므로, 열 정의는 여기 한 곳에만 둔다.
+ * 숨김은 컴포넌트에서 `max-compact:hidden` / `max-mobile:hidden` 으로 짝을 맞춘다.
+ */
+@utility tf-run-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 90px 100px 80px;
+  gap: 10px;
+  align-items: center;
+
+  @media (max-width: 1050px) {
+    grid-template-columns: 30px 1fr 80px 70px;
+  }
+  @media (max-width: 760px) {
+    grid-template-columns: 30px 1fr 75px;
+  }
+}
+
+/**
+ * 진행바 채움 — `.bar i`
+ * 폭은 데이터(`percent`)라서 CSS 에 상수로 둘 수 없다. 그렇다고 `style={{width}}` 로
+ * **스타일을 컴포넌트에 쓰지는 않는다** — 컴포넌트는 `--tf-bar-width` 라는 **값 하나만**
+ * 넘기고, 그 값을 어떻게 그릴지(높이·색·반경)는 전부 여기 남는다.
+ */
+@utility tf-bar-fill {
+  display: block;
+  height: 100%;
+  width: var(--tf-bar-width, 0%);
+  background: var(--color-brand);
+  border-radius: var(--radius-bar);
+}
+
 /** 시나리오 빌더 — `.builder` */
 @utility tf-builder {
   display: grid;

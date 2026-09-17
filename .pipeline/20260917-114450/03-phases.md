@@ -456,42 +456,42 @@ total_gen_phases: 12
 - **작업**: 4개 지표 카드(`grid: 1.2fr 1fr 1fr 1fr`), **첫 카드는 다크 `featured` 변형**(`#18302a`). 카드 반경 **14px**, 수치 `27px`/`letter-spacing:-.04em`(모바일 22px). 지표: 오늘 실행 / 성공률 / 자동화 시나리오 / 평균 실행 시간.
 - **참고**: **01-clarify "화면 4종" 1번**.
 - **완료 기준**: 4개 카드가 `1.2fr 1fr 1fr 1fr` 비율로 배치되고 첫 카드만 다크 배경이다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 9.2: `RunRow.tsx` + 최근 실행 패널
 - **파일**: `apps/web/src/components/RunRow.tsx`, `apps/web/src/pages/dashboard/RecentRunsPanel.tsx` (신규 생성)
 - **작업**: `run-row` 그리드 **`34px 1fr 90px 100px 80px`** = 상태심볼 · 이름/RUN-ID · 브라우저 태그 · 상태 텍스트 · 경과 시간. 클릭 시 해당 실행 현황 화면으로 이동.
 - **참고**: **01-clarify "화면 4종" 1번의 run-row 그리드 사양**.
 - **완료 기준**: `GET /api/runs?limit=8` 실데이터가 5열로 렌더되고 각 행 클릭 시 `/runs/:id` 로 라우팅된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 9.3: `ReadinessPanel.tsx` — 진행바 + amber notice
 - **파일**: `apps/web/src/pages/dashboard/ReadinessPanel.tsx`, `apps/web/src/components/NoticeBox.tsx` (신규 생성)
 - **작업**: "회귀 테스트 준비도" 진행바(**높이 6px, 반경 5px**) + amber notice 박스(배경 `#fff8e9`, 테두리 `#f1ddb4`, 텍스트 `#80520d`). 데이터는 `GET /api/dashboard/readiness`.
 - **참고**: **01-clarify "화면 4종" 1번 + "보조 색상" notice 항목**.
 - **완료 기준**: `percent` 값이 진행바 폭에 반영되고 `notices` 배열이 amber 박스로 렌더된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 9.4: 대시보드 페이지 조립 + 훅
 - **파일**: `apps/web/src/pages/dashboard/index.tsx`, `apps/web/src/hooks/useDashboard.ts` (신규 생성)
 - **작업**: 본문 `grid: 1.45fr .75fr` (좌 최근 실행 / 우 준비도). react-query 훅으로 `summary`·`readiness`·`runs`를 병렬 조회. `.ts` 커스텀 훅으로 분리하고 `useEffect` 사용을 자제한다.
 - **참고**: **01-clarify "화면 4종" 1번**, 02-context "새로 생성할 파일" 표의 hooks 행.
 - **완료 기준**: `/` 진입 시 API 3건이 호출되고 지표·최근 실행·준비도가 실데이터로 표시된다. 1050px 미만에서 1단으로 접힌다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 9.5: 시나리오 목록 툴바
 - **파일**: `apps/web/src/pages/scenarios/ScenarioToolbar.tsx` (신규 생성)
 - **작업**: 검색 input + 상태 select + 기능 select. toolbar 반경 **14px**. 변경 시 쿼리스트링에 반영해 새로고침해도 필터가 유지되게 한다.
 - **참고**: **01-clarify "화면 4종" 2번**.
 - **완료 기준**: 검색어 입력 후 URL이 `?q=...&status=...` 로 갱신되고 새로고침 시 필터가 복원된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 9.6: 시나리오 테이블 6열
 - **파일**: `apps/web/src/pages/scenarios/ScenarioTable.tsx`, `apps/web/src/pages/scenarios/index.tsx`, `apps/web/src/hooks/useScenarios.ts` (신규 생성)
 - **작업**: 6열(시나리오/기능/상태/최근 결과/수정일/작성자). 시나리오 셀에 **`TC-AUTH-001 · 5개 스텝`** 형태 보조 텍스트. 상태는 `.mini-status`(6px 점 + green/red/gray). `th` **10px**/`letter-spacing:.04em`, `td` **12px**, 헤더 배경 `#f5f7f6`, table-wrap 반경 16px. 행 클릭 → 빌더 화면.
 - **참고**: **01-clarify "화면 4종" 2번 + "타이포그래피" 테이블 값 + "보조 색상" 테이블 헤더**.
 - **완료 기준**: 6개 컬럼이 모두 렌더되고 보조 텍스트가 `TC-XXX-000 · N개 스텝` 형식으로 표시된다. 빈 목록일 때 빈 상태 UI가 시안 토큰 범위 안에서 표시된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

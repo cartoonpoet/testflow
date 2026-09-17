@@ -1,36 +1,21 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import { AppShell } from "@/components/layout";
+import { DashboardPage } from "@/pages/dashboard";
+import { ScenariosPage } from "@/pages/scenarios";
+import { AppShellRoute } from "./AppShellRoute";
 import { PagePlaceholder } from "./PagePlaceholder";
 
 /**
- * 라우터 골격만 둔다. 각 화면의 실제 내용은 후속 Gen-Phase 담당이다.
+ * 라우터 골격. 화면 1·2 는 Gen-Phase 9 에서 실제 화면으로 교체했고,
+ * 나머지는 여전히 후속 Gen-Phase 담당이다.
  * 경로는 `components/layout/Sidebar/navigation.ts` 의 `to` 값과 1:1 이어야 한다.
  */
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <AppShell />,
+    element: <AppShellRoute />,
     children: [
-      {
-        index: true,
-        element: (
-          <PagePlaceholder
-            title="대시보드"
-            description="오늘의 실행 상태와 확인이 필요한 테스트를 모았습니다."
-            phase="Gen-Phase 9"
-          />
-        ),
-      },
-      {
-        path: "scenarios",
-        element: (
-          <PagePlaceholder
-            title="테스트 시나리오"
-            description="등록된 시나리오를 검색하고 상태를 확인합니다."
-            phase="Gen-Phase 9"
-          />
-        ),
-      },
+      { index: true, element: <DashboardPage /> },
+      { path: "scenarios", element: <ScenariosPage /> },
       {
         path: "scenarios/new",
         element: (

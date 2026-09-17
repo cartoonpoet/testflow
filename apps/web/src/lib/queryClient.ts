@@ -38,6 +38,9 @@ export const queryKeys = {
   project: (id: string) => ["projects", id] as const,
   scenarios: (projectId: string, filters?: Readonly<Record<string, unknown>>) =>
     ["projects", projectId, "scenarios", filters ?? {}] as const,
+  /** 툴바 "기능" 선택지. 목록 필터와 달리 **필터 없이** 한 번만 읽는다. */
+  scenarioFeatures: (projectId: string) =>
+    ["projects", projectId, "scenario-features"] as const,
   scenario: (id: string) => ["scenarios", id] as const,
   suites: (projectId: string) => ["projects", projectId, "suites"] as const,
   suite: (id: string) => ["suites", id] as const,
@@ -45,8 +48,14 @@ export const queryKeys = {
     ["runs", filters ?? {}] as const,
   run: (id: string) => ["runs", id] as const,
   runArtifacts: (id: string) => ["runs", id, "artifacts"] as const,
-  dashboardSummary: (range: string) => ["dashboard", "summary", range] as const,
-  dashboardReadiness: () => ["dashboard", "readiness"] as const,
+  /**
+   * `projectId` 를 키에 넣는다 — 서버가 `?projectId` 로 집계를 좁히므로
+   * 프로젝트가 바뀌면 다른 값이다. (Gen-Phase 9 에서 인자 1개 → 2개로 넓혔다.)
+   */
+  dashboardSummary: (projectId: string | undefined, range: string) =>
+    ["dashboard", "summary", projectId ?? "all", range] as const,
+  dashboardReadiness: (projectId: string | undefined) =>
+    ["dashboard", "readiness", projectId ?? "all"] as const,
   recording: (sessionId: string) => ["recordings", sessionId] as const,
   health: () => ["health"] as const,
 } as const;
