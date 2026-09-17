@@ -89,6 +89,31 @@ export function formatDateLabel(
   return formatMonthDay(date);
 }
 
+/**
+ * 실행 요약바의 시작 시각 — 시안 `시작 15:42:08`.
+ * 초까지 보여 주는 곳은 실행 현황뿐이라 `formatDateLabel` 과 별도로 둔다.
+ */
+export function formatClockTime(iso: string | null | undefined): string {
+  const date = toDate(iso);
+  if (date === null) return EMPTY_MARK;
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+}
+
+/**
+ * 증적 파일 크기. `1.2MB` / `23B`.
+ * 1000 이 아니라 1024 로 나눈다(파일 크기 관례).
+ */
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes === null || bytes === undefined || Number.isNaN(bytes)) return EMPTY_MARK;
+  if (bytes < 1024) return `${String(Math.max(0, Math.round(bytes)))}B`;
+
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)}KB`;
+
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb < 10 ? 1 : 0)}MB`;
+}
+
 /** `9월 15일`. 해가 다르면 `2025년 9월 15일`. */
 export function formatMonthDay(date: Date, now: Date = new Date()): string {
   const month = String(date.getMonth() + 1);

@@ -12,6 +12,7 @@ import {
   useScenarioBuilderMutations,
   useScenarioDetail,
 } from "@/hooks/useScenarioBuilder";
+import { RunDialog } from "@/pages/runs/RunDialog";
 import { BuilderHeader } from "./BuilderHeader";
 import { Inspector } from "./Inspector";
 import { RecorderPanel } from "./RecorderPanel";
@@ -30,7 +31,8 @@ import { StepList } from "./StepList";
  * **녹화 시작 → 원격 브라우저 직접 조작 → 좌측에 스텝이 실시간으로 쌓임 →
  * 녹화 종료 → 인스펙터에서 다듬기 → 발행.**
  *
- * ★ 실행(Run)은 이 화면의 일이 아니다 — Gen-Phase 11.
+ * ★ 실행 요청(`RunDialog`)은 Gen-Phase 11 이 여기에 붙였다. 발행한 시나리오를
+ *   곧바로 돌려 보는 것이 해피패스의 마지막 칸이라, 목록으로 되돌아가지 않아도 되게 했다.
  */
 export function ScenarioBuilderPage() {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
@@ -42,6 +44,7 @@ export function ScenarioBuilderPage() {
 
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
   const advancedDetail = useAdvancedScenarioDetail(scenarioId, advanced);
 
   const recording = useRecording({
@@ -101,6 +104,16 @@ export function ScenarioBuilderPage() {
               임시 저장
             </Button>
             <Button
+              data-testid="run-open"
+              disabled={detail.data === undefined || steps.length === 0}
+              title={steps.length === 0 ? "단계가 있어야 실행할 수 있습니다" : undefined}
+              onClick={() => {
+                setRunOpen(true);
+              }}
+            >
+              ▶ 실행
+            </Button>
+            <Button
               variant="primary"
               data-testid="publish"
               disabled={detail.data === undefined || mutations.publishScenario.isPending}
@@ -119,6 +132,13 @@ export function ScenarioBuilderPage() {
             </Button>
           </div>
         }
+      />
+
+      <RunDialog
+        open={runOpen}
+        onOpenChange={setRunOpen}
+        target={{ scenarioId }}
+        targetName={detail.data?.name ?? ""}
       />
 
       <ProjectGate>

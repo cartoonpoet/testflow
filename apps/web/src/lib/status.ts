@@ -1,4 +1,4 @@
-import type { RunStatus, ScenarioStatus } from "@testflow/contracts";
+import type { ArtifactType, RunStatus, ScenarioStatus } from "@testflow/contracts";
 import type { StatusTone } from "@/components/ui";
 
 /**
@@ -50,6 +50,36 @@ export const SCENARIO_STATUS_TONE = {
   published: "green",
   archived: "gray",
 } as const satisfies Record<ScenarioStatus, StatusTone>;
+
+/**
+ * 증적 종류 표기.
+ *
+ * ★ 시안 실행 정보는 **4종만** 말한다(스크린샷·영상·Trace·콘솔 로그 — FR-008).
+ *   그런데 Runner 는 실제로 **5종**을 만든다(04-gen-6 실측: `network_log` 추가).
+ *   화면에서 빼면 디스크에는 있는데 받을 길이 없는 증적이 되므로 목록에 넣는다.
+ *   순서는 시안 4종을 먼저 두고 네트워크 로그를 마지막에 붙였다.
+ */
+export const ARTIFACT_TYPE_LABEL = {
+  screenshot: "실패 스크린샷",
+  video: "실행 영상",
+  trace: "Playwright Trace",
+  console_log: "콘솔 로그",
+  network_log: "네트워크 로그",
+} as const satisfies Record<ArtifactType, string>;
+
+export const ARTIFACT_TYPE_ORDER: readonly ArtifactType[] = [
+  "screenshot",
+  "video",
+  "trace",
+  "console_log",
+  "network_log",
+];
+
+/** 목록 정렬용 — 시안 순서 → 그 외. */
+export function artifactTypeRank(type: ArtifactType): number {
+  const index = ARTIFACT_TYPE_ORDER.indexOf(type);
+  return index === -1 ? ARTIFACT_TYPE_ORDER.length : index;
+}
 
 /** `chromium` → 시안 태그 표기 `Chrome`. MVP 는 chromium 하나뿐이다. */
 export const BROWSER_LABEL = { chromium: "Chrome" } as const;

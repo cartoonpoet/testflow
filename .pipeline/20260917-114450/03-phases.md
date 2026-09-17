@@ -565,55 +565,55 @@ total_gen_phases: 12
 - **작업**: ★ 최종 결정 (a)(c)의 **주 경로**. 필드: **baseUrl(직접 입력, `projects.base_url`을 placeholder 기본값으로 채워 두되 수정 가능)**, 환경 라벨, 브라우저(chromium 고정), **계정 / 비밀번호(직접 입력)**. 비밀번호 필드는 `type="password"`. 제출 시 `POST /api/runs` body의 `variables`로 전달. **입력값을 localStorage·쿠키·react-query 캐시에 남기지 않는다**(제출 후 폼 상태 즉시 초기화). 폼은 react-hook-form + zod(`CreateRunDto`).
 - **참고**: 02-context "★ 최종 결정" (a)(c) + "(c) 결정의 파생 영향" 2번째 항목.
 - **완료 기준**: 다이얼로그에 baseUrl·계정·비밀번호 입력 필드가 존재한다. 제출 후 브라우저 DevTools의 Application > Local Storage / Session Storage 어디에도 비밀번호가 **남지 않는다**. 제출 응답이 202이고 실행 현황 화면으로 이동한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.2: `RunSummaryBar.tsx` — 상단 다크 요약바
 - **파일**: `apps/web/src/pages/runs/RunSummaryBar.tsx` (신규 생성)
 - **작업**: 배경 `#18302a`, 반경 **17px**. 좌측: 환경 · 브라우저 · Runner · 시작시각. 우측: **`pulse` 점 애니메이션 + `4 / 5 단계`** 진행 표시. `prefers-reduced-motion`에서 pulse 제거.
 - **참고**: **01-clarify "화면 4종" 4번 + "보조 색상" 다크 패널**.
 - **완료 기준**: SSE로 스텝이 진행될 때마다 `N / M 단계` 숫자가 갱신되고, 실행 종료 시 pulse가 멈춘다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.3: `RunStepList.tsx` — 3-상태 스텝 리스트
 - **파일**: `apps/web/src/pages/runs/RunStepList.tsx`, `apps/web/src/components/StepStatusIcon.tsx` (신규 생성)
 - **작업**: 그리드 **`32px 1fr 70px`** = 상태체크(**25px 원형**) · 스텝명+부가정보 · 소요시간(모노). **3-상태**: 완료 `✓` / 실행 중 스피너(`border-top-color:transparent` + **0.9s 회전**) / 대기 스텝 번호. 실패 스텝은 `--danger` + `--danger-soft` 배경.
 - **참고**: **01-clarify "화면 4종" 4번 + "UX 결정사항"의 3-상태 표현**.
 - **완료 기준**: 실행 중 화면에서 완료·실행중·대기 스텝이 각각 `✓`·회전 스피너·숫자로 동시에 보인다. `prefers-reduced-motion`에서 스피너가 회전하지 않고 정적 표시로 대체된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.4: SSE 연결 훅 + 실시간 반영
 - **파일**: `apps/web/src/hooks/useRunEvents.ts` (신규 생성)
 - **작업**: `lib/sse.ts`로 `GET /api/runs/:id/events` 구독. 이벤트 5종을 react-query 캐시에 반영(`setQueryData`)한다. 연결 끊김 시 `Last-Event-ID`로 재연결. 실행 종료(`run.finished`) 시 연결 닫고 증적 목록을 재조회.
 - **참고**: 02-context "API 스펙 초안" SSE 행, 성능 목표(상태 이벤트 지연 2초 이내).
 - **완료 기준**: 실행 중 네트워크를 잠시 끊었다 복구하면 **누락 없이** 스텝 상태가 이어진다. 스텝 완료 후 화면 반영까지 **2초 이내**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.5: 우측 패널 — 브라우저 목업 + 실행 정보 + 증적
 - **파일**: `apps/web/src/pages/runs/RunSidePanel.tsx` (신규 생성)
 - **작업**: `grid: 1fr 360px` 의 우측. 상단 브라우저 목업(**`aspect-ratio:16/10`**, 다크 크롬 바 `#232d2a` / URL 바 `#34403d` / 본문 `#17201e`) — 실행 중에는 최신 스크린샷 증적이 있으면 그것을 표시하고 없으면 시안의 정적 목업. 하단 kv 리스트(**환경 / 테스트 데이터 / 영상 녹화 / 실패 시 Trace**). **테스트 데이터 항목의 비밀번호는 `••••••••`**. 증적 링크(스크린샷·영상·Trace·콘솔 로그) 다운로드 버튼.
 - **참고**: **01-clarify "화면 4종" 4번 + "보조 색상" 브라우저 목업** / FR-008.
 - **완료 기준**: 실패한 실행의 상세에서 스크린샷·영상·Trace·콘솔 로그 4종 링크가 모두 표시되고 각각 다운로드된다. kv 리스트 어디에도 비밀번호 평문이 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.6: 실행 현황 페이지 조립 + 취소
 - **파일**: `apps/web/src/pages/runs/index.tsx`, `apps/web/src/pages/runs/RunDetail.tsx` (신규 생성)
 - **작업**: `/runs` 목록 + `/runs/:id` 상세를 조립. 실행 중이면 "취소" 버튼(`.btn-danger` 텍스트 스타일) → `POST /api/runs/:id/cancel`. 대기(`queued`) 상태일 때 큐 위치 표시.
 - **완료 기준**: 실행 중 취소 버튼을 누르면 2초 이내에 상태가 `cancelled`로 바뀌고 Runner 컨테이너가 종료된다(`docker ps`로 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.7: 스위트 화면 (시안 미제공 — 신규 설계)
 - **파일**: `apps/web/src/pages/suites/{index.tsx,SuiteDetail.tsx}`, `apps/web/src/hooks/useSuites.ts` (신규 생성)
 - **작업**: 시안이 없는 화면이므로 **기존 4화면의 패턴(패널·테이블·툴바)과 토큰만 재사용**해 설계한다. 목록은 시나리오 목록과 동일한 table-wrap + 헤더 스타일(`#f5f7f6`), 상세는 시나리오 선택 체크박스 + 순서 변경 + "스위트 실행" 버튼(→ `RunDialog`를 `suiteId`로 재사용). **새 색·새 반경을 만들지 않는다.**
 - **참고**: **01-clarify "시안 미제공 화면"** + 02-context "주요 제약" 마지막 항목.
 - **완료 기준**: 이 화면의 어떤 파일에도 `globals.css`에 없는 HEX 리터럴이 등장하지 않는다(grep 확인). 스위트 실행 시 runs 3건이 같은 `batch_id`로 생성되고 목록에 묶여 표시된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 11.8: 라우터 + 빈 상태 / 로딩 / 에러 화면
 - **파일**: `apps/web/src/router.tsx`, `apps/web/src/components/{EmptyState.tsx,ErrorState.tsx,LoadingState.tsx}` (신규 생성)
 - **작업**: 5개 화면 라우팅(`/`, `/scenarios`, `/scenarios/:id`, `/runs`, `/runs/:id`, `/suites`). 01-clarify가 "시안이 제공하지 않아 다음 Phase에서 설계"로 넘긴 **로딩·빈 상태·에러 화면을 시안 토큰 범위 안에서** 설계한다 — 스켈레톤은 `--line` 기반, 빈 상태는 `--muted` 텍스트 + `--brand` CTA, 에러는 `--danger-soft` 배경 + `--danger` 텍스트.
 - **참고**: **01-clarify "UX 결정사항" 마지막 항목**.
 - **완료 기준**: 데이터가 0건인 상태에서 각 화면이 빈 화면이 아니라 빈 상태 UI를 보여준다. API를 내린 상태에서 에러 화면이 표시되고 재시도 버튼이 동작한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

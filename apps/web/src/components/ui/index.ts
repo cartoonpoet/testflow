@@ -10,3 +10,4 @@ export * from "./StatusDot";
 export * from "./Skeleton";
 export * from "./StateView";
 export * from "./PageHead";
+export * from "./Modal";

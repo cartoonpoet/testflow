@@ -11,3 +11,4 @@ export * from "./ProjectGate";
 export * from "./StepCard";
 export * from "./AddStepButton";
 export * from "./RecordBadge";
+export * from "./StepStatusIcon";
