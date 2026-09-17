@@ -394,56 +394,56 @@ total_gen_phases: 12
 - **작업**: Vite 8 + React 19 + TS. Tailwind 4(CSS-first) 설정. shadcn/ui `components.json`은 **css variables 모드 + baseColor 커스텀**으로 설정해 시안 토큰이 그대로 먹게 한다. 폰트는 `"Pretendard","SUIT","Apple SD Gothic Neo", sans-serif`, 모노는 `ui-monospace, SFMono-Regular, Menlo, monospace`.
 - **참고**: 01-clarify "타이포그래피", 02-context "UI" 행 — Tailwind 4의 `@theme`가 시안 `:root`와 구조가 같아 이식 비용이 거의 0.
 - **완료 기준**: `yarn workspace @testflow/web dev` 로 개발 서버가 뜨고 빈 화면이 렌더된다. `yarn workspace @testflow/web build` 통과.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.2: `globals.css` — 시안 토큰 1:1 이식 (단일 지점)
 - **파일**: `apps/web/src/styles/globals.css` (신규 생성)
 - **작업**: **01-clarify "디자인 토큰" 표 15개 토큰**(`--bg #f2f4f2`, `--panel #ffffff`, `--ink #17211f`, `--muted #68736f`, `--line #dde3e0`, `--brand #087f5b`, `--brand-dark #086044`, `--soft #e5f3ed`, `--success #16825f`, `--warn #c57814`, `--danger #c34343`, `--danger-soft #fff0ef`, `--nav #15211e`, `--shadow`, `--radius 16px`)을 Tailwind 4 `@theme` 블록으로 옮긴다. **시안이 하드코딩한 보조색 20여 개**(사이드바 hover `#1f302b` / active 배경 `#29413a` / active 텍스트 `#71d4ae` / 사이드바 텍스트 `#aebbb7` / 로고마크 `#49c493` / nav-label `#71827c` / 다크 패널 `#18302a` / 브라우저 목업 `#17201e`·바 `#232d2a`·URL `#34403d` / 테이블 헤더 `#f5f7f6` / notice `#fff8e9`·`#f1ddb4`·`#80520d` / 아바타 `#e8c471`·`#4b3503` / toast `#16241f`·`#6dd0aa`)는 **primitives 계층**으로 내려 별도 변수로 정의한다(websystem-design-system의 2계층 토큰 분리 방법론 차용). body `14px`/`letter-spacing:-.018em` 등 타이포 기본값도 여기서.
 - **참고**: **01-clarify "디자인 토큰" 표 + "보조 색상" 문단 + "타이포그래피" 절** / 02-context "재사용 판단" — 토큰 계층 구조만 차용.
 - **완료 기준**: 이 파일에 01-clarify 토큰 표의 **15개 HEX가 전부** 등장한다. 다른 어떤 `.tsx`/`.css` 파일에도 `#087f5b`·`#15211e` 같은 HEX 리터럴이 **직접 등장하지 않는다**(grep으로 확인). `@media (prefers-reduced-motion: reduce)` 블록에서 전 애니메이션·트랜지션을 제거한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.3: `Sidebar.tsx` — 232px 고정 사이드바
 - **파일**: `apps/web/src/components/layout/Sidebar.tsx` (신규 생성)
 - **작업**: `position:fixed`, 폭 **232px**, 배경 `--nav`, padding `22px 14px`, z-index 20. 구성: 로고(TF 마크 30×30 반경9, 마크색 `#49c493`) → 프로젝트 스위처(`#21302c` 배경 + `#34443f` 테두리, 반경12) → `WORKSPACE` 그룹(대시보드·테스트 시나리오·시나리오 만들기·실행 현황) → `MANAGE` 그룹(테스트 스위트·실행 환경·테스트 데이터·프로젝트 설정) → 하단 사용자 정보. nav-label은 `10px`/`letter-spacing:.12em`/`font-weight:800`. **MANAGE 그룹 중 실행 환경·테스트 데이터·프로젝트 설정은 MVP 제외 화면이므로 비활성 표시**한다. 하단 "사용자 정보"는 비회원제이므로 고정 텍스트(예: "공용 워크스페이스")로 대체.
 - **참고**: **01-clarify "공통 UI 요소" 사이드바 항목 + "보조 색상" 문단** / 01-clarify "MVP 범위 > 제외".
 - **완료 기준**: 렌더된 사이드바 폭이 정확히 232px이고, 현재 경로에 해당하는 항목이 `#29413a` 배경 + `#71d4ae` 텍스트로 표시된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.4: `Topbar.tsx` + `Breadcrumb.tsx` + `AppShell`
 - **파일**: `apps/web/src/components/layout/{Topbar.tsx,Breadcrumb.tsx,AppShell.tsx}` (신규 생성)
 - **작업**: Topbar 높이 **68px**, `rgba(255,255,255,.93)` + `backdrop-filter: blur(12px)`, 하단 1px `--line`, `position:sticky; top:0`, padding `0 28px`. Breadcrumb은 `프로젝트명 / 현재 페이지`. `AppShell`은 `.app = grid-template-columns: 232px 1fr` 레이아웃 + 콘텐츠 영역 `padding:30px; max-width:1500px; margin:0 auto`.
 - **참고**: **01-clarify "전역 레이아웃"**.
 - **완료 기준**: 스크롤해도 Topbar가 상단에 고정되고 blur가 적용된다. 콘텐츠 최대 폭이 1500px를 넘지 않는다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.5: 반응형 브레이크포인트 (1050px / 760px)
 - **파일**: `apps/web/src/components/layout/AppShell.tsx` (수정), `apps/web/src/styles/globals.css` (수정)
 - **작업**: **1050px** — 2단 그리드가 1단으로, 인스펙터가 sticky → static. **760px** — 사이드바 오프캔버스 + 오버레이 `rgba(0,0,0,.3)`, 탑바 60px, 콘텐츠 패딩 `18px 13px`, h1 23px, metric 수치 22px.
 - **참고**: **01-clarify "공통 UI 요소" 반응형 브레이크포인트 + "타이포그래피" 모바일 값**.
 - **완료 기준**: 브라우저 폭 1049px에서 2단 레이아웃이 1단이 되고, 759px에서 사이드바가 화면 밖으로 나가며 햄버거로 열린다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.6: `Toaster.tsx` — 우하단 토스트
 - **파일**: `apps/web/src/components/layout/Toaster.tsx`, `apps/web/src/hooks/useToast.ts` (신규 생성)
 - **작업**: 고정 위치 `right:26px; bottom:26px`, 배경 `#16241f`, 반경 12, 강조색 `#6dd0aa`. 진입 애니메이션 `translateY(90px)→0` + opacity, **2.2초 후 자동 소멸**. 저장·적용·발행 결과 알림 경로 단일화.
 - **참고**: **01-clarify "공통 UI 요소" toast 항목 + "UX 결정사항"**.
 - **완료 기준**: `toast('저장되었습니다')` 호출 시 우하단에서 올라오고 정확히 2.2초 후 사라진다. `prefers-reduced-motion` 에서는 애니메이션 없이 즉시 표시/제거된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.7: 공용 프리미티브 — Button / Input / Select / Panel / StatusDot
 - **파일**: `apps/web/src/components/ui/*` (shadcn 생성물 + 커스터마이즈), `apps/web/src/components/{Panel.tsx,StatusDot.tsx}` (신규 생성)
 - **작업**: shadcn button/input/select/dialog/table을 추가한 뒤 시안 스펙으로 조정 — `.btn`: `border:1px solid var(--line)`, 반경 **10px**, padding `9px 13px`, `min-height:38px`, `font-weight:700`, hover `border-color:#aeb8b4; background:#fafbfa`. `.btn-primary` 배경 `--brand`/hover `--brand-dark`. `.btn-danger`는 **텍스트만** `--danger`. 입력 필드: 반경 **9px**, `min-height:39px`, padding `0 10px`, focus `border-color:var(--brand)` + `box-shadow:0 0 0 3px var(--soft)`. `Panel`: 반경 16px + `1px solid var(--line)`, 헤더 `padding:18px 20px` + 하단 라인, `h2` 16px. `StatusDot`: 6px 점 + green/red/gray (`.mini-status`).
 - **참고**: **01-clarify "컴포넌트 스펙" 절 전체**.
 - **완료 기준**: Button/Input의 렌더 결과 `min-height`가 각각 38px/39px이고, Input focus 시 3px `--soft` 링이 나타난다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 8.8: `lib/api.ts` + `lib/sse.ts` + `lib/mask.ts` + react-query 설정
 - **파일**: `apps/web/src/lib/{api.ts,sse.ts,mask.ts}`, `apps/web/src/main.tsx` (수정) (신규 생성)
 - **작업**: `api.ts` — fetch 래퍼(`/api` prefix, 에러 시 Nest 기본 포맷 `{statusCode,message,error}` 파싱). `sse.ts` — `EventSource` 래퍼, **`Last-Event-ID` 기반 재연결**과 지수 백오프. `mask.ts` — 화면 표시용 `••••••••` 마스킹(서버 마스킹과 별개로 UI 레벨). `QueryClientProvider` 설정(staleTime 등). **서버 상태는 전부 react-query, 로컬 상태는 편집 중 임시값만.**
 - **참고**: 02-context "경로 표 > apps/web" 행, "새로 생성할 파일" 표.
 - **완료 기준**: `yarn workspace @testflow/web typecheck` 통과. `sse.ts`가 연결 끊김 후 재연결 시 `Last-Event-ID` 헤더를 실제로 보낸다(개발자도구 네트워크로 확인 가능).
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

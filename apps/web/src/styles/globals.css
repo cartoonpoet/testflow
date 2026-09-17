@@ -1,11 +1,441 @@
 @import "tailwindcss";
 
 /*
- * 시안 :root 토큰 → Tailwind 4 @theme 이식 단일 지점.
- * primitives → semantic 2계층 분리는 Gen-Phase 8 에서 완성한다.
- * 여기 있는 값은 스캐폴딩 검증용 최소 집합이다.
+ * Tailwind 4 의 자동 소스 탐지는 CSS 파일이 속한 git 루트부터 훑는다.
+ * 이 레포는 모노레포라 그대로 두면 apps/api·apps/runner 까지 스캔한다.
+ * 스캔 범위를 apps/web/src 로 못박는다.
  */
-@theme {
+@source "../";
+
+/*
+ * 시안 레이아웃 프리셋은 아직 쓰는 화면이 없다(Gen-Phase 9~11 담당).
+ * 유틸은 사용처가 있어야 생성되므로, 디자인 레이어의 계약으로 남기기 위해
+ * 강제로 포함시킨다. 이 덕에 Gen-Phase 8 단계에서 1050px 브레이크포인트를
+ * 실제로 렌더 검증할 수 있다.
+ */
+@source inline(
+  "tf-metrics tf-main-grid tf-builder tf-run-layout tf-inspector-sticky"
+);
+
+/* ==========================================================================
+ * TestFlow 디자인 토큰 — 시안(TestFlow_디자인시안.html) 1:1 이식 단일 지점
+ *
+ * 규율: 이 파일 밖(.tsx/.css)에 HEX 리터럴을 쓰지 않는다.
+ *       색이 필요하면 여기에 토큰을 만들고 유틸 클래스로 참조한다.
+ *
+ * 2계층 분리 (websystem-design-system 방법론 차용)
+ *   L1 primitives — 시안이 컴포넌트에 하드코딩했던 보조색. 역할 이름으로 승격.
+ *   L2 semantic   — 시안 `:root` 가 이미 이름을 붙여 둔 15개 토큰.
+ *   L3 compat     — shadcn/ui 생성물이 기대하는 별칭. L2 를 가리키기만 한다.
+ * ========================================================================== */
+
+/*
+ * `@theme static` 인 이유 ★
+ * 기본 `@theme` 는 **실제로 쓰인 유틸이 참조하는 변수만** `:root` 에 방출한다.
+ * 그러면 Gen-Phase 8 시점에 화면이 없는 토큰(테이블·notice·브라우저 목업 …)이
+ * `:root` 에서 통째로 사라져, 후속 Phase 가 `var(--color-notice)` 를 직접 참조하거나
+ * 임의값 유틸(`bg-[var(--color-notice)]`)을 쓰는 순간 조용히 무효가 된다.
+ * 디자인 토큰은 "쓰이는 것"이 아니라 "계약"이므로 전량 방출한다.
+ */
+@theme static {
+  /* ------------------------------------------------------------------
+   * L1 · primitives — 시안 하드코딩 색 승격
+   * ------------------------------------------------------------------ */
+
+  /* 사이드바 (nav) */
+  --color-nav-hover: #1f302b;
+  --color-nav-active: #29413a;
+  --color-nav-active-ink: #71d4ae;
+  --color-nav-ink: #aebbb7;
+  --color-nav-label-ink: #71827c;
+  --color-nav-line: #2d3b37;
+  --color-nav-foot-ink: #7e918a;
+  --color-logo-mark: #49c493;
+  --color-logo-mark-ink: #10201b;
+  --color-switch-bg: #21302c;
+  --color-switch-line: #34443f;
+  --color-switch-ink: #93a39e;
+  --color-avatar: #e8c471;
+  --color-avatar-ink: #4b3503;
+
+  /* 다크 패널 (metric.featured / run-summary) */
+  --color-dark-panel: #18302a;
+  --color-dark-panel-ink: #9eb3ac;
+  --color-dark-panel-delta: #75d3af;
+  --color-run-summary-ink: #a8bbb5;
+  --color-run-state: #76d3b0;
+
+  /* 브라우저 목업 */
+  --color-browser: #17201e;
+  --color-browser-bar: #232d2a;
+  --color-browser-dot: #53605c;
+  --color-browser-url: #34403d;
+  --color-browser-url-ink: #9ca9a5;
+  --color-browser-screen: #f7f8f7;
+  --color-fake-line: #dfe4e1;
+  --color-fake-input-line: #d9dfdc;
+  --color-fake-ink: #9ca5a2;
+
+  /* 테이블 · 리스트 */
+  --color-table-head: #f5f7f6;
+  --color-table-head-ink: #68736f;
+  --color-row-hover: #fbfcfb;
+  --color-run-row-hover: #f7f9f8;
+  --color-hairline: #edf0ee;
+  --color-tag: #eef1ef;
+  --color-tag-ink: #59645f;
+  --color-ok-soft: #e5f4ee;
+  --color-dot-gray: #7d8985;
+
+  /* 알림 박스 (amber notice) */
+  --color-notice: #fff8e9;
+  --color-notice-line: #f1ddb4;
+  --color-notice-ink: #80520d;
+
+  /* 버튼 · 입력 hover */
+  --color-btn-hover-line: #aeb8b4;
+  --color-btn-hover-bg: #fafbfa;
+  --color-filter-ink: #4f5c58;
+
+  /* 빌더 스텝 카드 */
+  --color-step-hover-line: #9db1aa;
+  --color-step-selected-line: #74ad99;
+  --color-step-selected-bg: #f6fbf8;
+  --color-step-no: #eff3f1;
+  --color-step-no-ink: #64716d;
+  --color-add-step-line: #aebbb6;
+  --color-add-step-bg: #f9fbfa;
+  --color-drag: #a3aca9;
+  --color-hint: #f3f7f5;
+  --color-hint-ink: #51615c;
+
+  /* 실행 현황 */
+  --color-exec-active: #f0f7f4;
+  --color-wait: #eef1ef;
+  --color-wait-ink: #8c9692;
+
+  /* 토스트 */
+  --color-toast: #16241f;
+  --color-toast-accent: #6dd0aa;
+
+  /* 투명 계열 — 알파가 있어 HEX 로 표현되지 않는 것 */
+  --color-topbar: rgba(255, 255, 255, 0.93);
+  --color-overlay: rgba(0, 0, 0, 0.3);
+
+  /* ------------------------------------------------------------------
+   * L2 · semantic — 시안 `:root` 15개 토큰 (값 변경 금지)
+   * ------------------------------------------------------------------ */
+  --color-bg: #f2f4f2;
+  --color-panel: #ffffff;
+  --color-ink: #17211f;
+  --color-muted: #68736f;
+  --color-line: #dde3e0;
   --color-brand: #087f5b;
-  --color-soft: #e6f4ef;
+  --color-brand-dark: #086044;
+  --color-soft: #e5f3ed;
+  --color-success: #16825f;
+  --color-warn: #c57814;
+  --color-danger: #c34343;
+  --color-danger-soft: #fff0ef;
+  --color-nav: #15211e;
+  --shadow-panel: 0 16px 45px rgba(19, 40, 34, 0.11);
+  --radius-panel: 16px;
+
+  /* ------------------------------------------------------------------
+   * L3 · shadcn/ui 호환 별칭
+   * shadcn CLI 가 새로 찍어 내는 컴포넌트는 이 이름들을 참조한다.
+   * L2 를 가리키기만 하므로 색의 출처는 여전히 한 곳이다.
+   * ------------------------------------------------------------------ */
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-panel);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-brand);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-soft);
+  --color-secondary-foreground: var(--color-brand-dark);
+  --color-muted-foreground: var(--color-muted);
+  --color-accent: var(--color-soft);
+  --color-accent-foreground: var(--color-brand-dark);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-brand);
+
+  /* ------------------------------------------------------------------
+   * 타이포그래피
+   * 한국어 UI 라 750/850 가변 웨이트를 쓴다 → 가변 폰트 번들이 전제다.
+   * ------------------------------------------------------------------ */
+  --font-sans: "Pretendard", "SUIT", "Apple SD Gothic Neo", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --font-weight-750: 750;
+  --font-weight-850: 850;
+
+  --tracking-body: -0.018em;
+  --tracking-h1: -0.045em;
+  --tracking-metric: -0.04em;
+  --tracking-logo: -0.04em;
+  --tracking-caps: 0.04em;
+  --tracking-nav: 0.12em;
+  --tracking-drag: -2px;
+
+  --text-body: 14px;
+  --text-h1: 28px;
+  --text-h1--letter-spacing: -0.045em;
+  --text-h1-sm: 23px;
+  --text-h1-sm--letter-spacing: -0.045em;
+  --text-panel-title: 16px;
+  --text-inspector-title: 15px;
+  --text-metric: 27px;
+  --text-metric--letter-spacing: -0.04em;
+  --text-metric-sm: 22px;
+  --text-metric-sm--letter-spacing: -0.04em;
+  --text-th: 10px;
+  --text-th--letter-spacing: 0.04em;
+  --text-td: 12px;
+  --text-label: 10px;
+  --text-label--font-weight: 750;
+  --text-nav-label: 10px;
+  --text-nav-label--letter-spacing: 0.12em;
+  --text-nav-label--font-weight: 800;
+
+  /* ------------------------------------------------------------------
+   * 반경 — 시안 컴포넌트별 실측값
+   * ------------------------------------------------------------------ */
+  --radius-metric: 14px;
+  --radius-toolbar: 14px;
+  --radius-step: 12px;
+  --radius-table: 16px;
+  --radius-run-summary: 17px;
+  --radius-btn: 10px;
+  --radius-input: 9px;
+  --radius-chip: 9px;
+  --radius-switch: 12px;
+  --radius-toast: 12px;
+  --radius-tag: 7px;
+  --radius-badge: 8px;
+  --radius-bar: 5px;
+  --radius-avatar: 10px;
+
+  /* ------------------------------------------------------------------
+   * 레이아웃 치수
+   * ------------------------------------------------------------------ */
+  --spacing-sidebar: 232px;
+  --spacing-topbar: 68px;
+  --spacing-topbar-sm: 60px;
+  --spacing-content-max: 1500px;
+  --spacing-inspector-top: 88px;
+
+  /* ------------------------------------------------------------------
+   * 그림자
+   * ------------------------------------------------------------------ */
+  --shadow-step-hover: 0 5px 18px rgba(21, 48, 41, 0.06);
+  --shadow-focus-ring: 0 0 0 3px var(--color-soft);
+
+  /* ------------------------------------------------------------------
+   * 브레이크포인트
+   * 시안은 max-width 기준이라 여기에 +1px 한 min-width 를 등록하고
+   * Tailwind 의 `max-*` 변형으로 쓴다.
+   *   max-compact:  width < 1051px  ⇔  시안 @media(max-width:1050px)
+   *   max-mobile :  width <  761px  ⇔  시안 @media(max-width: 760px)
+   * ------------------------------------------------------------------ */
+  --breakpoint-compact: 1051px;
+  --breakpoint-mobile: 761px;
+
+  /* ------------------------------------------------------------------
+   * 애니메이션
+   * ------------------------------------------------------------------ */
+  --animate-pulse-dot: pulse-dot 1.5s infinite;
+  --animate-spin-check: spin-check 0.9s linear infinite;
+  --animate-toast-in: toast-in 0.25s ease-out;
+
+  @keyframes toast-in {
+    from {
+      transform: translateY(90px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes pulse-dot {
+    0% {
+      box-shadow: 0 0 0 0 rgba(118, 211, 176, 0.6);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(118, 211, 176, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(118, 211, 176, 0);
+    }
+  }
+
+  @keyframes spin-check {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+/* ==========================================================================
+ * 시안 레이아웃 프리셋 (@utility)
+ *
+ * 시안의 2단 그리드는 전부 1050px 에서 1단으로 접힌다. 화면마다 열 비율만
+ * 다르고 접히는 규칙이 같아서, Gen-Phase 9~11 이 매번 임의 값으로 다시
+ * 쓰지 않도록 여기에 유틸로 고정한다. 값은 시안 원본 그대로다.
+ * ========================================================================== */
+
+/** 대시보드 지표 4개 — `.metrics` */
+@utility tf-metrics {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+  gap: 14px;
+
+  @media (max-width: 1050px) {
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 760px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+}
+
+/** 대시보드 본문 — `.main-grid` */
+@utility tf-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
+  gap: 18px;
+
+  @media (max-width: 1050px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/** 시나리오 빌더 — `.builder` */
+@utility tf-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 18px;
+
+  @media (max-width: 1050px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/** 실행 현황 — `.run-layout` */
+@utility tf-run-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+
+  @media (max-width: 1050px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/** 인스펙터 — `.inspector` 의 sticky. 1050px 이하에서 static 으로 내려온다. */
+@utility tf-inspector-sticky {
+  align-self: start;
+  position: sticky;
+  top: var(--spacing-inspector-top);
+
+  @media (max-width: 1050px) {
+    position: static;
+  }
+}
+
+/* ==========================================================================
+ * 폰트 조달 — 로컬 번들 (사내망 배포 전제로 CDN 불가)
+ * 가변 폰트여야 font-weight 750/850 이 실제로 렌더된다.
+ * 사내 PC 에 이미 설치돼 있으면 local() 이 먼저 잡혀 네트워크 요청이 없다.
+ * ========================================================================== */
+@font-face {
+  font-family: "Pretendard";
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src:
+    local("Pretendard Variable"),
+    local("Pretendard"),
+    url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+}
+
+/* ==========================================================================
+ * base — 시안 전역 스타일
+ * ========================================================================== */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    letter-spacing: var(--tracking-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  /* 시안은 h1 만 28px/-.045em 이고 모바일에서 23px 로 줄인다. */
+  h1 {
+    font-size: var(--text-h1);
+    letter-spacing: var(--tracking-h1);
+  }
+
+  h2 {
+    font-size: var(--text-panel-title);
+  }
+
+  @media (max-width: 760px) {
+    h1 {
+      font-size: var(--text-h1-sm);
+    }
+  }
+}
+
+/* ==========================================================================
+ * 접근성 — 시안의 prefers-reduced-motion 블록을 그대로 옮긴다.
+ * ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

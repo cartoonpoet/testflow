@@ -1,5 +1,11 @@
 {
   "extends": "@testflow/config-typescript/react.json",
+  "compilerOptions": {
+    // baseUrl 은 TS 6 에서 deprecated 다. paths 는 tsconfig 위치 기준으로 해석된다.
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

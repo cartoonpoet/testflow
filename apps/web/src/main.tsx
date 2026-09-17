@@ -1,15 +1,15 @@
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { App } from "./App";
 import "./styles/globals.css";
 
-/**
- * 화면 구현은 Gen-Phase 8 이후에 채운다.
- * 시안 토큰은 styles/globals.css 의 @theme 블록 한 곳에서만 정의한다.
- */
-function App() {
-  return <div className="p-6 text-brand">TestFlow</div>;
+const rootEl = document.getElementById("root");
+if (rootEl === null) {
+  throw new Error('#root 엘리먼트를 찾을 수 없습니다 (index.html 확인)');
 }
 
-const rootEl = document.getElementById("root");
-if (rootEl) {
-  createRoot(rootEl).render(<App />);
-}
+createRoot(rootEl).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
