@@ -7,6 +7,7 @@ import { CreateStepResults1758000000006 } from "./006-create-step-results.js";
 import { CreateArtifacts1758000000007 } from "./007-create-artifacts.js";
 import { CreateRecordingSessions1758000000008 } from "./008-create-recording-sessions.js";
 import { SeedDefaultProject1758000000009, DEFAULT_PROJECT_ID } from "./009-seed-default-project.js";
+import { AddRunListIndexes1758000000010 } from "./010-add-run-list-indexes.js";
 
 export {
   CreateProjects1758000000001,
@@ -19,6 +20,7 @@ export {
   CreateRecordingSessions1758000000008,
   SeedDefaultProject1758000000009,
   DEFAULT_PROJECT_ID,
+  AddRunListIndexes1758000000010,
 };
 
 /**
@@ -38,4 +40,5 @@ export const migrations = [
   CreateArtifacts1758000000007,
   CreateRecordingSessions1758000000008,
   SeedDefaultProject1758000000009,
+  AddRunListIndexes1758000000010,
 ] as const;

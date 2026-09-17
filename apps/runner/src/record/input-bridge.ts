@@ -82,6 +82,12 @@ const WINDOWS_VIRTUAL_KEY: Readonly<Record<string, number>> = {
   Delete: 46,
 };
 
+/**
+ * IME 조합 중임을 알리는 관례적 가상 키코드(`key: "Process"`).
+ * 실제 한글 IME 는 조합 중 매 키마다 이 keydown 을 보낸다 — 페이지들이 이미 이 값을 전제로 짜여 있다.
+ */
+const IME_PROCESS_KEY_CODE = 229;
+
 function virtualKeyCode(key: string): number {
   const mapped = WINDOWS_VIRTUAL_KEY[key];
   if (mapped !== undefined) return mapped;
@@ -193,9 +199,31 @@ export async function createInputBridge(
 
   const insertText = async (text: string): Promise<void> => {
     counters.ime += 1;
+
+    // ★ PoC-2(Gen-Phase 12 Task 12.1) 실측 결과로 추가된 경로 — "A안+".
+    //
+    //   `Input.insertText` 단독은 `keydown`/`keypress`/`keyup` 을 **전혀** 만들지 않는다
+    //   (`beforeinput`/`input` 만). 그래서 `keydown` 에 의존하는 위젯이 통째로 죽는다:
+    //     - 입력 중 실시간 자동완성 → 목록이 한 번도 안 뜬다 (실측 suggestions 0건)
+    //     - keydown 에서 preventDefault 하는 마스킹 input → 핸들러가 아예 안 돈다 (blocked 0건)
+    //
+    //   해법은 B안(`imeSetComposition`)이 **아니다** — 그것도 keydown 을 만들지 않는다
+    //   (실측: composition 이벤트만 생기고 keydown 은 여전히 0). 실제 IME 가 조합 중
+    //   매 키마다 보내는 **`keyCode 229`(key="Process") keydown** 을 앞뒤로 붙이는 것이
+    //   유일하게 효과가 있었다 (실측: suggestions 0→2, numericKeydown 0→1).
+    //
+    //   ⚠️ 한계: `preventDefault()` 로 `insertText` 를 **취소할 수는 없다.** 마스킹 input 의
+    //      핸들러는 돌지만 값은 들어간다. 이는 실제 IME 조합 입력의 동작과 같은 부류의
+    //      제약이며, 완전 해소는 B안 조합 중계가 필요하다(05-eval "미해결" 참조).
+    const imeKeyEvent = {
+      key: "Process",
+      windowsVirtualKeyCode: IME_PROCESS_KEY_CODE,
+      nativeVirtualKeyCode: IME_PROCESS_KEY_CODE,
+    } as const;
+    await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...imeKeyEvent });
     // Playwright 에 `insertText` 대응 API 가 없어 드라이버와 무관하게 CDP 를 쓴다.
-    // ⚠️ keydown/keypress/keyup 이 발생하지 않는다(beforeinput/input 만) — A안의 알려진 한계 1.
     await cdp.send("Input.insertText", { text });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...imeKeyEvent });
   };
 
   const notImplemented = (name: string): Promise<void> =>

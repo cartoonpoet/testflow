@@ -14,6 +14,7 @@ import type {
   RunListQuery,
 } from "@testflow/contracts";
 import { ProjectEntity, RunEntity, StepResultEntity } from "@testflow/db";
+import { maskSecrets } from "../../common/utils/mask.js";
 import { RunEventsService } from "./runs.sse.js";
 import { planRunBatch } from "./runs.plan.js";
 import type { PlannedRun, RunTarget } from "./runs.plan.js";
@@ -136,7 +137,16 @@ export class RunsService {
     return rows.map(toRunListItem);
   }
 
-  /** `GET /api/runs/:id` — 다크 요약바 + 스텝 목록. */
+  /**
+   * `GET /api/runs/:id` — 다크 요약바 + 스텝 목록.
+   *
+   * ★ 마스킹 3경로 중 **① API 응답**(03-phases Task 12.4).
+   *   `runs.error_message` / `step_results.error_message` 는 Runner 가 쓰기 전에 이미
+   *   마스킹하지만(경로 ③), 그것이 **유일한 방어선이면 Runner 쪽 누락 하나로 평문이 샌다.**
+   *   그래서 나가기 직전에 SSE 와 **같은 값 목록**(BullMQ job 페이로드)으로 한 번 더 건다.
+   *   job 이 만료된 뒤에는 값 목록이 비고 키 기반 마스킹만 남는다 — 그때는 이미
+   *   DB 에 마스킹된 값만 있다.
+   */
   async findOne(id: string): Promise<RunDetail> {
     const run = await this.mustFind(id);
     const steps = await this.stepResults.find({
@@ -144,11 +154,14 @@ export class RunsService {
       order: { sequence: "ASC" },
     });
 
-    return {
+    const detail: RunDetail = {
       ...toRun(run),
       summary: toRunSummary(run, steps),
       steps: steps.map(toStepResult),
     };
+
+    const secretValues = await this.events.secretValuesOf(id);
+    return maskSecrets(detail, secretValues) as RunDetail;
   }
 
   /**

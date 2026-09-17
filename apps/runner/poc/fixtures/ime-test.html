@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>PoC-2 — 한글 IME 입력 정확도 측정용 fixture</title>
+    <style>
+      body {
+        font-family: system-ui, "Malgun Gothic", sans-serif;
+        margin: 24px;
+        max-width: 720px;
+      }
+      fieldset {
+        margin-bottom: 18px;
+        padding: 12px 14px;
+      }
+      legend {
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 15px;
+        padding: 7px 9px;
+      }
+      .out {
+        margin-top: 6px;
+        font-size: 13px;
+        color: #444;
+        min-height: 18px;
+        white-space: pre-wrap;
+      }
+      ul.ac {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PoC-2 IME fixture</h1>
+
+    <!--
+      ★ 이 페이지의 목적은 "A안(Input.insertText)이 keydown 에 의존하는 위젯을 깨뜨리는가" 를
+        실제로 재현하는 것이다. 그래서 위젯 ②③④ 는 **일부러 keydown 만 듣는다.**
+        (실무에서 흔한 패턴이다 — 자동완성·입력 마스킹·단축키.)
+        ① 만 input 이벤트를 듣는다 = A안으로도 정상 동작해야 하는 대조군.
+    -->
+
+    <fieldset>
+      <legend>① 일반 텍스트 input — `input` 이벤트 기반 (대조군)</legend>
+      <input id="plain" type="text" aria-label="일반 입력" />
+      <div class="out" id="plain-out">value=""</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>② 실시간 자동완성 — `keydown` 의존</legend>
+      <input id="autocomplete" type="text" aria-label="자동완성 입력" autocomplete="off" />
+      <ul class="ac" id="ac-list"></ul>
+      <div class="out" id="ac-out">keydown=0 suggestions=0</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>③ 숫자만 허용하는 마스킹 input — `keydown` 에서 preventDefault</legend>
+      <input id="numeric" type="text" inputmode="numeric" aria-label="숫자만 입력" />
+      <div class="out" id="numeric-out">value="" blocked=0</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>④ 단축키 핸들러 — `keydown` 의존 (Enter 로 제출)</legend>
+      <input id="shortcut" type="text" aria-label="단축키 입력" />
+      <div class="out" id="shortcut-out">submitted=0 lastSubmitted=""</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>⑤ composition 이벤트 관측 — B안 검증용</legend>
+      <input id="composition" type="text" aria-label="조합 관측 입력" />
+      <div class="out" id="comp-out">start=0 update=0 end=0 value=""</div>
+    </fieldset>
+
+    <script>
+      // 측정 스크립트가 읽는 단일 집계 객체. 모든 카운터가 여기 모인다.
+      window.__ime = {
+        plain: { input: 0, keydown: 0, beforeinput: 0, value: "" },
+        autocomplete: { keydown: 0, input: 0, suggestions: 0, lastQuery: "" },
+        numeric: { keydown: 0, blocked: 0, input: 0, value: "" },
+        shortcut: { keydown: 0, submitted: 0, lastSubmitted: "" },
+        composition: { start: 0, update: 0, end: 0, input: 0, value: "", lastData: "" },
+      };
+
+      window.__imeReset = function () {
+        for (const key of Object.keys(window.__ime)) {
+          for (const k of Object.keys(window.__ime[key])) {
+            window.__ime[key][k] = typeof window.__ime[key][k] === "number" ? 0 : "";
+          }
+        }
+        for (const id of ["plain", "autocomplete", "numeric", "shortcut", "composition"]) {
+          document.getElementById(id).value = "";
+        }
+        document.getElementById("ac-list").innerHTML = "";
+        render();
+      };
+
+      // 측정 스크립트가 문자열 evaluate 로 부르는 단일 스냅샷 함수.
+      // (PoC tsconfig 에 DOM lib 이 없어 `page.evaluate(fn)` 대신 문자열을 쓴다.)
+      window.__imeSnapshot = function () {
+        const s = window.__ime;
+        return {
+          autocompleteKeydown: s.autocomplete.keydown,
+          autocompleteInput: s.autocomplete.input,
+          autocompleteSuggestions: s.autocomplete.suggestions,
+          numericKeydown: s.numeric.keydown,
+          numericBlocked: s.numeric.blocked,
+          numericValue: document.getElementById("numeric").value,
+          shortcutKeydown: s.shortcut.keydown,
+          shortcutSubmitted: s.shortcut.submitted,
+          shortcutLastSubmitted: s.shortcut.lastSubmitted,
+          compositionStart: s.composition.start,
+          compositionUpdate: s.composition.update,
+          compositionEnd: s.composition.end,
+          compositionValue: document.getElementById("composition").value,
+          plainKeydown: s.plain.keydown,
+          plainBeforeinput: s.plain.beforeinput,
+          plainInput: s.plain.input,
+        };
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      function render() {
+        const s = window.__ime;
+        $("plain-out").textContent =
+          `value="${$("plain").value}" input=${s.plain.input} keydown=${s.plain.keydown} beforeinput=${s.plain.beforeinput}`;
+        $("ac-out").textContent =
+          `keydown=${s.autocomplete.keydown} suggestions=${s.autocomplete.suggestions} query="${s.autocomplete.lastQuery}"`;
+        $("numeric-out").textContent =
+          `value="${$("numeric").value}" blocked=${s.numeric.blocked} keydown=${s.numeric.keydown}`;
+        $("shortcut-out").textContent =
+          `submitted=${s.shortcut.submitted} lastSubmitted="${s.shortcut.lastSubmitted}"`;
+        $("comp-out").textContent =
+          `start=${s.composition.start} update=${s.composition.update} end=${s.composition.end} value="${$("composition").value}"`;
+      }
+
+      /* ── ① 일반 input (대조군) ── */
+      $("plain").addEventListener("beforeinput", () => {
+        window.__ime.plain.beforeinput += 1;
+      });
+      $("plain").addEventListener("input", (e) => {
+        window.__ime.plain.input += 1;
+        window.__ime.plain.value = e.target.value;
+        render();
+      });
+      $("plain").addEventListener("keydown", () => {
+        window.__ime.plain.keydown += 1;
+      });
+
+      /* ── ② 자동완성 — keydown 에서만 목록을 갱신한다 ──
+         실제 사내 검색창에서 흔한 형태다. `input` 이 아니라 `keydown` 을 듣기 때문에
+         insertText(A안)로 값을 넣으면 **목록이 절대 뜨지 않는다.** */
+      const DICT = ["계약서", "계약서 검토", "계약 해지", "안녕하세요", "안전관리", "테스트"];
+      $("autocomplete").addEventListener("keydown", () => {
+        window.__ime.autocomplete.keydown += 1;
+        // keydown 시점의 값은 아직 이번 글자가 반영되기 전이므로 한 틱 미룬다.
+        setTimeout(() => {
+          const q = $("autocomplete").value;
+          window.__ime.autocomplete.lastQuery = q;
+          const hits = q === "" ? [] : DICT.filter((d) => d.startsWith(q));
+          window.__ime.autocomplete.suggestions = hits.length;
+          $("ac-list").innerHTML = hits.map((h) => `<li>${h}</li>`).join("");
+          render();
+        }, 0);
+      });
+      $("autocomplete").addEventListener("input", () => {
+        window.__ime.autocomplete.input += 1;
+      });
+
+      /* ── ③ 숫자만 허용 — keydown 에서 preventDefault ──
+         "숫자 이외의 키는 아예 눌리지 않는다" 를 keydown 으로 구현한 마스킹 input.
+         insertText 는 keydown 을 만들지 않으므로 **한글이 그대로 들어간다**(마스킹 무력화). */
+      $("numeric").addEventListener("keydown", (e) => {
+        window.__ime.numeric.keydown += 1;
+        const allowed =
+          /^[0-9]$/.test(e.key) ||
+          ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key);
+        if (!allowed) {
+          e.preventDefault();
+          window.__ime.numeric.blocked += 1;
+          render();
+        }
+      });
+      $("numeric").addEventListener("input", (e) => {
+        window.__ime.numeric.input += 1;
+        window.__ime.numeric.value = e.target.value;
+        render();
+      });
+
+      /* ── ④ 단축키 (Enter 제출) — keydown 의존 ── */
+      $("shortcut").addEventListener("keydown", (e) => {
+        window.__ime.shortcut.keydown += 1;
+        if (e.key === "Enter") {
+          window.__ime.shortcut.submitted += 1;
+          window.__ime.shortcut.lastSubmitted = $("shortcut").value;
+          render();
+        }
+      });
+
+      /* ── ⑤ composition 관측 (B안이 실제로 조합 이벤트를 만드는지 확인용) ── */
+      const c = $("composition");
+      c.addEventListener("compositionstart", () => {
+        window.__ime.composition.start += 1;
+        render();
+      });
+      c.addEventListener("compositionupdate", (e) => {
+        window.__ime.composition.update += 1;
+        window.__ime.composition.lastData = e.data ?? "";
+        render();
+      });
+      c.addEventListener("compositionend", () => {
+        window.__ime.composition.end += 1;
+        window.__ime.composition.value = c.value;
+        render();
+      });
+      c.addEventListener("input", (e) => {
+        window.__ime.composition.input += 1;
+        window.__ime.composition.value = e.target.value;
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

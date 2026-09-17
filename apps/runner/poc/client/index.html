@@ -22,6 +22,15 @@
     <div id="wrap">
       <div id="hud">connecting…</div>
       <canvas id="canvas" width="1280" height="800"></canvas>
+      <!-- ★ IME 버퍼 (Gen-Phase 12 Task 12.2 에서 추가).
+           제품 웹 클라이언트(`apps/web/src/features/recorder/useImeBridge.ts`)와 **같은 구조**다.
+           이게 없으면 한글이 `{t:"key"}` 경로로 나가 원격에서 통째로 유실된다
+           (PoC-1 시절 클라이언트에는 이 경로가 없었다). -->
+      <input
+        id="imebuf"
+        autocomplete="off"
+        style="position: fixed; left: -9999px; top: 0; width: 10px; opacity: 0"
+      />
     </div>
     <script>
       (function () {
@@ -191,11 +200,56 @@
           var p = toRemote(e.clientX, e.clientY);
           send({ t: "wheel", x: p.x, y: p.y, deltaX: e.deltaX, deltaY: e.deltaY });
         }, { passive: false });
-        window.addEventListener("keydown", function (e) {
-          send({ t: "key", kind: "down", key: e.key, code: e.code, text: e.key.length === 1 ? e.key : undefined, modifiers: 0 });
+        /* ── 키 · IME 경로 ─────────────────────────────────────
+           제품 클라이언트(`useImeBridge.ts`)와 **같은 규칙**이다:
+             - 조합 중(한글 등) → keydown 을 보내지 않고 `{t:"ime", kind:"commit"}` 로 확정 문자열만
+             - 조합 없음(영문·숫자·기능키) → `{t:"key"}`
+             - 조합 없이 통째로 삽입되는 경로(붙여넣기 / 자동화의 insertText)도 `input` 에서 받는다
+           숨은 input 을 두는 이유: **로컬 IME 가 조합할 자리**가 필요하다. window 레벨 keydown 만으로는
+           조합이 시작되지 않아 한글이 그대로 사라진다. */
+        var imebuf = document.getElementById("imebuf");
+        var composing = false;
+        var keyHandled = false;
+
+        function isImeKey(e) {
+          return e.isComposing || e.key === "Process" || e.keyCode === 229;
+        }
+        function clearBuf() {
+          imebuf.value = "";
+        }
+        // 캔버스를 누르면 IME 버퍼로 포커스를 옮긴다(원격으로는 이미 mousedown 이 갔다).
+        canvas.addEventListener("mousedown", function () {
+          imebuf.focus({ preventScroll: true });
         });
-        window.addEventListener("keyup", function (e) {
+
+        imebuf.addEventListener("keydown", function (e) {
+          if (e.key === "Tab") e.preventDefault();
+          if (isImeKey(e)) return;
+          var text = e.key === "Enter" ? "\r" : e.key.length === 1 ? e.key : undefined;
+          if (text !== undefined) keyHandled = true;
+          send({ t: "key", kind: "down", key: e.key, code: e.code, text: text, modifiers: 0 });
+        });
+        imebuf.addEventListener("keyup", function (e) {
+          if (isImeKey(e)) return;
           send({ t: "key", kind: "up", key: e.key, code: e.code, modifiers: 0 });
+        });
+        imebuf.addEventListener("compositionstart", function () {
+          composing = true;
+        });
+        imebuf.addEventListener("compositionend", function (e) {
+          composing = false;
+          if (e.data !== "") send({ t: "ime", kind: "commit", text: e.data });
+          clearBuf();
+        });
+        imebuf.addEventListener("input", function (e) {
+          if (composing) return;
+          var data = e.data || "";
+          var composed = e.inputType === "insertCompositionText";
+          if (!composed && !keyHandled && data !== "") {
+            send({ t: "ime", kind: "commit", text: data });
+          }
+          keyHandled = false;
+          clearBuf(); // 비밀번호가 이 DOM 에 남지 않게 즉시 비운다.
         });
 
         /* ── 측정 스크립트(measure.ts)가 쓰는 제어면 ── */

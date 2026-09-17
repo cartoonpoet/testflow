@@ -626,49 +626,77 @@ total_gen_phases: 12
 - **작업**: `ime-test.html`에 ① 일반 텍스트 input, ② **입력 중 실시간 자동완성**(keydown 의존), ③ **숫자만 허용하는 마스킹 input**(keydown 의존) 3종을 둔다. "안녕하세요 테스트"를 A안(`Input.insertText`)으로 주입해 왕복 정확도를 측정하고, ②③에서 A안이 깨지는지 확인한다. 깨지면 **B안(`imeSetComposition`) 승급 필요성을 확정**하고 `useImeBridge.ts`의 전환 플래그로 B안을 구현한다.
 - **참고**: 02-context "PoC-2" 합격 기준 + "한글 IME 처리" A안 한계 1·3.
 - **완료 기준**: `poc2-result.md`에 한글 왕복 정확도(목표 100%)와 keydown 의존 위젯 2종의 PASS/FAIL이 기록된다. FAIL이면 B안 구현 후 재측정 결과까지 포함한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 12.2: PoC-3 — 녹화 → 재생 왕복 (공개 사이트)
 - **파일**: `apps/runner/poc/poc3-roundtrip.ts` (신규 생성) / `.pipeline/20260917-114450/poc3-result.md` (신규 생성)
 - **작업**: Task 3.1의 더미 로그인 페이지에서 **이동→입력→입력→클릭→확인 5스텝을 실제 UI로 녹화**하고, 저장 후 **headless Runner로 재생해 5/5 통과**하는지 확인한다. 검증 포인트 4가지: ① role/label 우선순위가 실제로 뽑히는가, ② 고유성 검증이 동작하는가, ③ `input` 디바운스가 "아이디 입력"을 스텝 1개로 합치는가, ④ 비밀번호가 `{{변수}}`로 승격되고 평문이 어디에도 안 남는가.
 - **참고**: 02-context "PoC-3" 절 전체 — "녹화와 실행은 별개 코드 경로. 왕복이 안 되는 경우가 가장 흔한 실패."
 - **완료 기준**: `poc3-result.md`에 **5/5 통과** 여부와 검증 포인트 4가지 각각의 PASS/FAIL이 기록된다. ④는 DB·로그·SSE 3곳을 grep한 결과를 근거로 제시한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 12.3: 사내 스테이징 대상 검증 (분리된 Task)
 - **파일**: `.pipeline/20260917-114450/internal-verification.md` (신규 생성)
 - **작업**: **사내 스테이징 주소를 사용자로부터 받은 뒤** 실제 로그인 화면에서 PoC-1(지연·좌표)·PoC-2(한글 IME)·PoC-3(왕복) 3종을 재측정한다. 공개 사이트 대비 차이(사내망 지연, 실제 로그인 폼의 keydown 의존 여부, iframe·SPA 라우팅 유무)를 기록한다. **주소를 받지 못하면 이 Task는 블록 상태로 남기고 나머지를 진행한다.**
 - **참고**: 오케스트레이터 지시 — 사내 대상 검증은 별도 Task로 분리.
 - **완료 기준**: 사내 URL에 대해 3개 PoC의 재측정 수치가 기록되거나, 주소 미제공 시 "블록 — 사내 스테이징 URL 대기"로 명시된다. **사내 실데이터 스크린샷이 증적으로 남을 수 있으므로 검증 후 artifact를 삭제**한 사실도 기록한다.
-- **상태**: [ ]
+- **상태**: [ ] ← **블록 — 사내 스테이징 URL 대기. 주소 확보 후 별도 실행한다** (Gen-Phase 12 / 사용자 지시로 이번 범위에서 제외)
+- **★ 주소 확보 후 재현 절차** (Gen-Phase 12 에서 배선만 미리 깔아 두었다):
+
+  1. **PoC-1 (지연 · fps · 좌표 정확도)** — `poc1.ts` 의 `TARGETS` 에 `custom` 타깃을 추가해 두었다.
+     **사내 주소는 소스에 박지 않는다.** 환경변수로만 넘긴다(레포·PR·로그에 사내 URL 이 남지 않게).
+     ```bash
+     yarn workspace @testflow/runner build:poc
+     POC_CUSTOM_URL="https://staging.사내도메인/login" \
+       node apps/runner/dist-poc/poc/measure.js --target custom --seconds 30
+     ```
+     `POC_CUSTOM_URL` 이 비어 있으면 `customTargetUrl()` 이 즉시 에러를 던진다
+     (조용히 다른 곳을 재는 것보다 낫다).
+
+  2. **PoC-2 (한글 IME)** — 사내 로그인 폼이 **`keydown` 에 의존하는지**가 핵심이다.
+     `apps/runner/poc/poc2-ime.ts` 의 `FIXTURE` 상수를 사내 URL 로 바꾸고, 대상 폼의
+     입력란 선택자에 맞게 `measureMethod()` 안의 `#plain` 등을 교체한 뒤 실행한다.
+     판정 기준은 [`poc2-result.md`](./poc2-result.md) 의 표와 같다.
+
+  3. **PoC-3 (녹화 → 재생 왕복)** — `poc3-roundtrip.ts` 의 `targetPublic()` 을 본떠
+     `SITE` 를 사내 주소로 두고, `referencePoints()` 에 사내 폼의 role/name 을 넣어
+     좌표를 뽑은 뒤 같은 흐름으로 녹화·재생한다.
+
+  4. **검증 후 증적 삭제** — 사내 실데이터가 스크린샷·영상·trace 에 남는다.
+     ```bash
+     rm -rf "$ARTIFACT_ROOT"/runs/<runId>
+     # DB 에서도 지운다 (artifacts 는 ON DELETE CASCADE 로 함께 사라진다)
+     # DELETE FROM runs WHERE id = '<runId>';
+     ```
+     삭제했다는 사실을 `internal-verification.md` 에 반드시 기록한다.
 
 ### Task 12.4: 마스킹 3경로 전수 점검
 - **파일**: `apps/api/src/common/utils/mask.spec.ts` (신규 생성) / 관련 호출 지점 (수정)
 - **작업**: `mask.ts`가 **① API 응답 ② 서버 로그 ③ `step_results.error_message`** 3경로 모두에서 호출되는지 코드 grep으로 전수 확인하고, 누락 지점을 보강한다. 추가로 **SSE 이벤트** 경로도 포함(★ 최종 결정 (c) 파생 영향은 SSE를 3경로 중 하나로 명시). 비밀번호를 틀리게 넣어 Playwright 에러를 유발한 뒤 DB·로그 파일·SSE 스트림 3곳을 grep한다.
 - **참고**: 02-context "설계상 반드시 지켜야 할 제약" — 한 곳이라도 빠지면 비밀번호가 샌다.
 - **완료 기준**: 의도적 실패 실행 후 `grep -r "<테스트비밀번호>" $ARTIFACT_ROOT logs/` 와 `SELECT error_message FROM step_results` 양쪽에서 **0건**이 나온다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 12.5: 성능 목표 측정
 - **파일**: `.pipeline/20260917-114450/perf-result.md` (신규 생성)
 - **작업**: 문서에 명시된 3개 목표를 측정한다 — ① **일반 API p95 500ms 이내**(주요 GET 6개에 대해 100회씩), ② **실행 요청 후 1초 이내 Queue 등록**, ③ **상태 이벤트 지연 2초 이내**(Runner publish → 브라우저 수신).
 - **참고**: 01-clarify "비기능 요구사항 > Performance", 02-context "기타" — 문서 명시값이므로 유지.
 - **완료 기준**: 3개 항목의 실측값이 표로 기록되고 각각 PASS/FAIL 판정이 있다. FAIL 항목에는 원인과 개선안이 적힌다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 12.6: README + 실행 가이드
 - **파일**: `README.md` (신규 생성)
 - **작업**: 로컬 구동 순서(`docker compose up` → `.env` 작성 → `yarn install` → `migration:run` → `yarn dev`), 3개 런타임(web/api/runner)의 역할과 포트, **Runner와 API는 같은 호스트에서 `ARTIFACT_ROOT` 볼륨을 공유해야 한다**는 제약, nginx `/rec/` 프록시 설정 예시, **"사내망 제한이 전제"**라는 보안 경고(접근 제어가 없어 URL을 아는 누구나 모든 증적을 열람 가능), FR-005 미충족 기록.
 - **참고**: 02-context "(b) 부가 제약", "구조상 쟁점 1건", "회원제 전환 시 부채로 남는 지점" / 01-clarify "주요 제약" 2번째 항목.
 - **완료 기준**: README만 보고 신규 개발자가 로컬 환경을 구동해 시나리오 1건을 실행할 수 있다. 보안 경고와 FR-005 미충족 기록이 명시적으로 포함된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 12.7: 최종 검증 + PR
 - **파일**: — (PR 생성)
 - **작업**: 루트에서 `yarn lint && yarn typecheck && yarn build && yarn test` 전량 통과 확인. PR 제목 `[feat] TestFlow 비회원제 MVP 구현`, 본문에 변경 이유 / 변경 내용 / 테스트 방법 + PoC 1·2·3 결과 요약. **민감 정보 노출 여부 확인 후 푸시**(`.env` 미커밋, 증적 파일 미커밋).
 - **참고**: CLAUDE.md "작업 완료 시", "보안 수칙".
 - **완료 기준**: 4개 명령이 모두 exit 0. `git log -p` 에 `.env`·비밀번호·사내 URL이 포함되지 않는다. PR URL이 생성된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

@@ -8,12 +8,14 @@ import {
   RUN_QUEUE_NAME,
   RUNNER_HEARTBEAT_TTL_SEC,
   RunJobDataSchema,
+  collectSecretValues,
   runCancelChannel,
   runnerHeartbeatKey,
 } from "@testflow/contracts";
 import type { RunJobData } from "@testflow/contracts";
 import { createDataSourceOptions } from "@testflow/db";
 import { RunAbortHandle, executeRun } from "./execute/executor.js";
+import { maskSecretText } from "./mask.js";
 import { loadConfig } from "./env.js";
 import type { RunnerConfig } from "./env.js";
 import { startRecordingWsServer } from "./record/ws-server.js";
@@ -128,7 +130,12 @@ async function main(): Promise<void> {
 
   worker.on("failed", (job, error) => {
     // ★ job.data 를 통째로 찍지 않는다 — variables 평문이 로그로 샌다.
-    log(`job 실패 (runId=${job?.id ?? "unknown"}): ${error.message.split("\n")[0] ?? error.message}`);
+    //   에러 **메시지 자체**에도 입력값이 실려 나오므로(Playwright) 그 job 의 Secret 값으로
+    //   마스킹한 뒤 찍는다 — 마스킹 3경로 중 ② 서버 로그 (03-phases Task 12.4).
+    const secretValues =
+      job === undefined ? [] : collectSecretValues(job.data.variables, job.data.secretKeys);
+    const first = error.message.split("\n")[0] ?? error.message;
+    log(`job 실패 (runId=${job?.id ?? "unknown"}): ${maskSecretText(first, secretValues)}`);
   });
   worker.on("error", (error) => {
     log(`worker 오류: ${error.message}`);

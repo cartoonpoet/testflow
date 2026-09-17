@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>PoC-3 iframe 내부</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, "Malgun Gothic", sans-serif;
+        background: #f6f8f7;
+      }
+      .abs {
+        position: absolute;
+        box-sizing: border-box;
+      }
+      input {
+        font-size: 14px;
+        padding: 6px 8px;
+      }
+      button {
+        font-size: 14px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ★ iframe 안의 요소. 좌표는 **iframe 기준**이고, PoC 스크립트가 iframe 의
+         페이지 내 위치를 더해 원격 뷰포트 좌표로 만든다. -->
+    <label class="abs" for="owner" style="left: 16px; top: 16px; font-size: 13px">담당자</label>
+    <input class="abs" id="owner" style="left: 16px; top: 38px; width: 220px; height: 32px" />
+
+    <button class="abs" id="frame-confirm" style="left: 16px; top: 86px; width: 110px; height: 32px">
+      프레임 확인
+    </button>
+
+    <div class="abs" id="frame-out" style="left: 140px; top: 92px; font-size: 13px">confirmed=0</div>
+
+    <script>
+      let n = 0;
+      document.getElementById("frame-confirm").addEventListener("click", () => {
+        n += 1;
+        document.getElementById("frame-out").textContent = "confirmed=" + n;
+      });
+    </script>
+  </body>
+</html>

@@ -95,3 +95,66 @@ describe("maskSecrets — Error 객체", () => {
     expect(result.stack ?? "").not.toContain("hunter2");
   });
 });
+
+/**
+ * ★ Gen-Phase 12 Task 12.4 — Playwright 에러 메시지 전수 형태.
+ *
+ * 입력값이 에러에 실려 나오는 형태가 **하나가 아니다.** 아래는 Playwright 1.63 에서
+ * 실제로 관측되는 문자열 모양을 그대로 옮긴 것이다. 하나라도 빠지면 그 경로로 평문이 샌다.
+ * (여기 있는 문자열은 `poc-mask.ts` 실측으로 확인한 실제 에러 원문과 같은 형태다.)
+ */
+describe("maskSecrets — Playwright 에러 메시지 형태 전수", () => {
+  const PW = "Tf!SecretPw#2026";
+
+  const CASES: readonly { name: string; raw: string }[] = [
+    {
+      name: "locator.fill 타임아웃 — call log 에 value 가 박힌다",
+      raw:
+        `locator.fill: Timeout 10000ms exceeded.\n` +
+        `Call log:\n  - waiting for locator("input[value='${PW}']")\n`,
+    },
+    {
+      name: "expect().toHaveValue() — 기대/실제 양쪽에 값이 나온다",
+      raw:
+        `expect(locator).toHaveValue(expected)\n` +
+        `Expected string: "${PW}"\nReceived string: "${PW}x"\n`,
+    },
+    {
+      name: "waiting for locator(...) — getByRole 이름에 값이 들어간 경우",
+      raw: `Error: strict mode violation: waiting for getByRole('textbox', { name: '${PW}' })`,
+    },
+    {
+      name: "assert_text 불일치 — 우리 인터프리터가 만드는 문장",
+      raw: `텍스트가 기대값과 다릅니다. 기대(포함): "${PW}" / 실제: ""`,
+    },
+    {
+      name: "page.goto — URL 에 자격증명이 실린 경우",
+      raw: `page.goto: net::ERR_ABORTED at https://user:${PW}@staging.example.com/login`,
+    },
+    {
+      name: "JSON 직렬화된 요청 body 가 에러에 딸려 온 경우",
+      raw: `Request failed: {"username":"qa-tester","password":"${PW}"}`,
+    },
+  ];
+
+  it.each(CASES)("$name", ({ raw }) => {
+    const masked = maskErrorMessage(raw, [PW]);
+    expect(masked).not.toContain(PW);
+    expect(masked).toContain(SECRET_MASK);
+  });
+
+  it("객체로 감싸 들어와도(SSE payload·API 응답 형태) 전부 잡는다", () => {
+    const payload = {
+      event: "step.finished",
+      step: { sequence: 3, errorMessage: CASES[0]!.raw },
+      steps: [{ errorMessage: CASES[1]!.raw }],
+    };
+    expect(JSON.stringify(maskSecrets(payload, [PW]))).not.toContain(PW);
+  });
+
+  it("값 목록이 비면(job 만료) 키 기반만 남는다 — 이때 error 문자열은 못 잡는다", () => {
+    // 사실대로 고정해 두는 테스트다. 그래서 Runner 가 **쓰기 전에** 마스킹해야 한다(경로 ③).
+    expect(maskErrorMessage(CASES[0]!.raw, [])).toContain(PW);
+    expect(maskByKey({ password: PW })).toEqual({ password: SECRET_MASK });
+  });
+});

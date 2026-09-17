@@ -240,7 +240,11 @@ export async function executeRun(params: {
     // "실행 환경이 깨졌다"는 뜻이다 — 둘을 구분해야 원인 추적이 된다.
     status = "error";
     errorMessage = error instanceof Error ? error.message : String(error);
-    log(`run ${job.runId} 실행 환경 오류: ${errorMessage}`);
+    // ★ 마스킹 3경로 중 **② 서버 로그**(03-phases Task 12.4).
+    //   DB 로 가는 값은 reporter 가 마스킹하지만 **로그는 그 경로를 타지 않는다.**
+    //   여기서 원문을 찍으면 `runner` 프로세스 stdout(= 배포 환경의 로그 파일)에
+    //   Playwright 에러에 실린 입력값이 그대로 남는다.
+    log(`run ${job.runId} 실행 환경 오류: ${reporter.mask(errorMessage)}`);
   } finally {
     if (session) {
       // 이미 kill 된 뒤(취소·타임아웃)면 trace 저장은 실패한다 — 그래도 실행은 끝나야 한다.

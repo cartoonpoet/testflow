@@ -86,8 +86,13 @@ export class RunEventsService implements OnApplicationShutdown {
    * 평문 변수가 존재하는 유일한 장소인 BullMQ job 페이로드에서 읽는다. job 이 이미
    * 만료됐으면 빈 배열이고, 그 경우 마스킹은 키 기반만 남는다(그때는 실행이 끝난 뒤라
    * 새 이벤트도 더 오지 않는다). **읽기만 한다 — 어디에도 다시 저장하지 않는다.**
+   *
+   * ★ Gen-Phase 12 Task 12.4 에서 `public` 으로 열었다. SSE 뿐 아니라
+   *   **`GET /api/runs/:id` 응답 경로**(`runs.service.findOne`)도 같은 값 목록으로
+   *   마스킹해야 하기 때문이다 — 전수 점검에서 그 경로가 `mask.ts` 를 전혀 부르지 않고
+   *   Runner 가 DB 에 쓰기 전 마스킹한 것에만 의존하고 있었다(단일 방어선).
    */
-  private async secretValuesOf(runId: string): Promise<string[]> {
+  async secretValuesOf(runId: string): Promise<string[]> {
     try {
       const job = await this.queue.getJob(runId);
       if (!job) return [];

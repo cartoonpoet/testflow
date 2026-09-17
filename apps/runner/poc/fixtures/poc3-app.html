@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>PoC-3 — SPA · iframe · 동적 리스트</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, "Malgun Gothic", sans-serif;
+        background: #fff;
+      }
+      .abs {
+        position: absolute;
+      }
+      input {
+        font-size: 14px;
+        padding: 6px 9px;
+      }
+      button {
+        font-size: 14px;
+        cursor: pointer;
+      }
+      nav button {
+        background: #eef2f0;
+        border: 1px solid #cdd8d3;
+        border-radius: 6px;
+      }
+      nav button[aria-current="page"] {
+        background: #087f5b;
+        color: #fff;
+      }
+      iframe {
+        border: 1px solid #cdd8d3;
+        background: #f6f8f7;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      ★ PoC-3 용 fixture (03-phases Task 12.2 / 오케스트레이터 지시).
+        04-gen-7 의 왕복 측정에서 **빠져 있던 3가지**를 여기에 모두 넣는다.
+          ① iframe 안의 요소          → `target_json.frameUrl` 경로
+          ② SPA 라우팅               → pushState(같은 문서) + 전체 이동(새 문서) 둘 다
+          ③ 동적 리스트              → 같은 이름의 버튼이 여러 개 = Locator 고유성 검증
+        좌표는 PoC 스크립트가 캔버스로 클릭을 쏘기 위해 **절대 배치**한다.
+        (fixture 를 고치면 `poc3-roundtrip.ts` 의 `REMOTE` 표도 같이 고쳐야 한다.)
+    -->
+
+    <nav>
+      <button class="abs" id="nav-home" style="left: 40px; top: 24px; width: 90px; height: 34px" aria-current="page">
+        홈
+      </button>
+      <button class="abs" id="nav-contract" style="left: 142px; top: 24px; width: 90px; height: 34px">
+        계약
+      </button>
+      <a
+        class="abs"
+        id="go-page2"
+        href="./poc3-page2.html"
+        style="
+          left: 254px;
+          top: 24px;
+          width: 120px;
+          height: 34px;
+          line-height: 34px;
+          text-align: center;
+          font-size: 14px;
+          border: 1px solid #cdd8d3;
+          border-radius: 6px;
+        "
+        >다음 페이지</a
+      >
+    </nav>
+
+    <!-- ── 홈 뷰 ── -->
+    <section id="view-home" class="abs" style="left: 0; top: 76px; width: 100%">
+      <label class="abs" for="search" style="left: 40px; top: 4px; font-size: 13px">검색어</label>
+      <input class="abs" id="search" style="left: 40px; top: 26px; width: 300px; height: 34px" />
+      <button class="abs" id="add-row" style="left: 360px; top: 26px; width: 110px; height: 34px">
+        항목 추가
+      </button>
+      <ul id="rows" class="abs" style="left: 40px; top: 76px; width: 600px; margin: 0; padding: 0; list-style: none"></ul>
+    </section>
+
+    <!-- ── 계약 뷰 (SPA 라우팅으로 전환. 같은 문서다) ── -->
+    <section id="view-contract" class="abs hidden" style="left: 0; top: 76px; width: 100%">
+      <label class="abs" for="contract-name" style="left: 40px; top: 4px; font-size: 13px">계약명</label>
+      <input class="abs" id="contract-name" style="left: 40px; top: 26px; width: 300px; height: 34px" />
+      <button class="abs" id="save-contract" style="left: 360px; top: 26px; width: 110px; height: 34px">
+        계약 저장
+      </button>
+      <div class="abs" id="contract-out" style="left: 40px; top: 76px; font-size: 13px">saved=0 name=""</div>
+    </section>
+
+    <!-- ── iframe (고정 위치. 뷰 전환과 무관하게 항상 보인다) ── -->
+    <iframe
+      class="abs"
+      id="inner"
+      src="./poc3-frame.html"
+      style="left: 40px; top: 400px; width: 560px; height: 160px"
+      title="담당자 지정"
+    ></iframe>
+
+    <div class="abs" id="app-out" style="left: 640px; top: 400px; font-size: 13px; white-space: pre">route=home</div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+
+      /* ── ③ 동적 리스트 ──
+         "항목 추가" 를 누를 때마다 **똑같은 이름의 삭제 버튼**이 하나씩 늘어난다.
+         Locator 고유성 검증이 없으면 재생 시 "strict mode violation" 으로 깨진다. */
+      let rowNo = 0;
+      function addRow() {
+        rowNo += 1;
+        const li = document.createElement("li");
+        li.style.cssText = "height:34px;display:flex;align-items:center;gap:10px;font-size:13px";
+        li.innerHTML =
+          `<span style="width:150px">계약 항목 ${rowNo}</span>` +
+          `<button class="row-del" data-row="${rowNo}" style="height:26px">삭제</button>`;
+        $("rows").appendChild(li);
+      }
+      $("add-row").addEventListener("click", addRow);
+      // 로드 직후가 아니라 **조금 뒤에** 3줄이 붙는다(동적 렌더 재현).
+      setTimeout(() => {
+        addRow();
+        addRow();
+        addRow();
+      }, 300);
+
+      document.getElementById("rows").addEventListener("click", (e) => {
+        const btn = e.target.closest(".row-del");
+        if (btn === null) return;
+        btn.closest("li").remove();
+      });
+
+      /* ── ② SPA 라우팅 — pushState. 문서는 바뀌지 않는다 ──
+         (이 경우 리스너가 살아 있는 것은 당연하다. 진짜 시험은 아래 "다음 페이지" 전체 이동이다.) */
+      function route(name) {
+        $("view-home").classList.toggle("hidden", name !== "home");
+        $("view-contract").classList.toggle("hidden", name !== "contract");
+        $("nav-home").toggleAttribute("aria-current", name === "home");
+        $("nav-contract").toggleAttribute("aria-current", name === "contract");
+        if (name === "home") $("nav-home").setAttribute("aria-current", "page");
+        if (name === "contract") $("nav-contract").setAttribute("aria-current", "page");
+        history.pushState({ route: name }, "", `?route=${name}`);
+        $("app-out").textContent = `route=${name}`;
+      }
+      $("nav-home").addEventListener("click", () => {
+        route("home");
+      });
+      $("nav-contract").addEventListener("click", () => {
+        route("contract");
+      });
+
+      let saved = 0;
+      $("save-contract").addEventListener("click", () => {
+        saved += 1;
+        $("contract-out").textContent = `saved=${saved} name="${$("contract-name").value}"`;
+      });
+    </script>
+  </body>
+</html>

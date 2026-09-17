@@ -23,9 +23,36 @@ export const TARGETS = {
   local: { kind: "static", path: "/fixtures/login.html" },
   /** 실제 공개 사이트 — 무거운 실페이지에서의 지연·fps 확인용. */
   "playwright-dev": { kind: "remote", url: "https://playwright.dev" },
+  /**
+   * ★ **사내 스테이징 대상** (03-phases Task 12.3 — 주소 미확보로 보류된 Task).
+   *
+   * 주소는 코드에 박지 않는다. 사내 URL 이 레포·PR·로그에 남으면 안 되기 때문이다.
+   * 주소를 확보하면 환경변수로만 넘긴다:
+   *
+   * ```bash
+   * yarn workspace @testflow/runner build:poc
+   * POC_CUSTOM_URL="https://staging.내부도메인/login" \
+   *   node apps/runner/dist-poc/poc/measure.js --target custom
+   * ```
+   *
+   * 값이 없으면 `startPoc()` 이 즉시 에러를 던진다(조용히 다른 곳을 재는 것보다 낫다).
+   */
+  custom: { kind: "remote", url: "" },
 } as const;
 
 export type TargetName = keyof typeof TARGETS;
+
+/** `custom` 타깃의 URL. 환경변수에서만 읽는다 — 사내 주소를 소스에 남기지 않기 위해서다. */
+export function customTargetUrl(): string {
+  const url = process.env["POC_CUSTOM_URL"] ?? "";
+  if (url === "") {
+    throw new Error(
+      "--target custom 을 쓰려면 POC_CUSTOM_URL 환경변수가 필요합니다. " +
+        '예: POC_CUSTOM_URL="https://staging.example.internal/login" node dist-poc/poc/measure.js --target custom',
+    );
+  }
+  return url;
+}
 
 export const DEFAULT_SIZE = { width: 1280, height: 800 } as const;
 
@@ -88,7 +115,12 @@ export async function startPoc(options: StartPocOptions = {}): Promise<PocHandle
   });
 
   const spec = TARGETS[target];
-  const url = spec.kind === "static" ? server.httpUrl(spec.path) : spec.url;
+  const url =
+    spec.kind === "static"
+      ? server.httpUrl(spec.path)
+      : target === "custom"
+        ? customTargetUrl()
+        : spec.url;
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
   if (spec.kind === "remote") {
     await page.evaluate<string>(MOTION_SCRIPT);
