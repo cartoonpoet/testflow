@@ -1,0 +1,1342 @@
+{
+  "generatedAt": "2026-09-17T15:32:20.450Z",
+  "env": {
+    "node": "v22.22.2",
+    "platform": "linux x64",
+    "playwright": "1.63.0",
+    "size": {
+      "width": 1280,
+      "height": 800
+    },
+    "quality": 60,
+    "maxFps": 15,
+    "measureSeconds": 20,
+    "workers": 1,
+    "specDir": "./specs-measure"
+  },
+  "criteria": {
+    "latencyP95Ms": 200,
+    "fps": 10
+  },
+  "outcomes": [
+    {
+      "mode": "c",
+      "label": "C. Reporter 만 (page 접근 가능성 판정)",
+      "specDir": "./specs-measure",
+      "testDir": "./specs-measure",
+      "workers": 1,
+      "maxFps": 15,
+      "exitCode": 0,
+      "pagesAttached": 0,
+      "attachError": null,
+      "enumeratedPageUrls": [],
+      "client": null,
+      "canvasSample": null,
+      "host": {
+        "framesProduced": 0,
+        "framesSent": 0,
+        "framesDroppedThrottle": 0,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoViewer": 0,
+        "bytesSent": 0
+      },
+      "eventKinds": {
+        "run.begin": 1,
+        "probe": 1,
+        "test.begin": 1,
+        "step.begin": 15,
+        "step.end": 15,
+        "test.end": 1,
+        "run.end": 1
+      },
+      "probe": {
+        "kind": "probe",
+        "seq": 2,
+        "atMs": 1789658884009,
+        "pageFoundAt": [],
+        "testKeys": [
+          "_only",
+          "_requireFile",
+          "title",
+          "results",
+          "type",
+          "expectedStatus",
+          "timeout",
+          "annotations",
+          "retries",
+          "repeatEachIndex",
+          "id",
+          "_poolDigest",
+          "_workerHash",
+          "_projectId",
+          "_tags",
+          "_locks",
+          "_planAnnotations",
+          "fn",
+          "_testType",
+          "location",
+          "parent"
+        ],
+        "resultKeys": [
+          "retry",
+          "parallelIndex",
+          "workerIndex",
+          "duration",
+          "startTime",
+          "stdout",
+          "stderr",
+          "attachments",
+          "status",
+          "steps",
+          "errors",
+          "annotations"
+        ],
+        "hasFixturesApi": false,
+        "attachmentNames": []
+      },
+      "mapped": {
+        "total": 10,
+        "invalid": 0,
+        "invalidErrors": []
+      },
+      "mappedSample": [
+        {
+          "sse": {
+            "event": "run.status",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "status": "running",
+            "runnerId": "r2-poc",
+            "at": "2026-09-17T15:28:01.475Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 1,
+            "name": "Navigate",
+            "totalSteps": 1,
+            "at": "2026-09-17T15:28:04.228Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 1,
+            "at": "2026-09-17T15:28:04.258Z",
+            "result": {
+              "id": "1fb5b05e-325e-4059-a804-ea454723da81",
+              "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+              "stepId": null,
+              "sequence": 1,
+              "nameSnapshot": "Navigate",
+              "actionType": "goto",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:04.228Z",
+              "durationMs": 31,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 2,
+            "name": "Expect \"toBeVisible\"",
+            "totalSteps": 2,
+            "at": "2026-09-17T15:28:04.274Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 2,
+            "at": "2026-09-17T15:28:04.299Z",
+            "result": {
+              "id": "ac0517df-1b54-474b-a5cb-c9820504c267",
+              "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+              "stepId": null,
+              "sequence": 2,
+              "nameSnapshot": "Expect \"toBeVisible\"",
+              "actionType": "assert_visible",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:04.274Z",
+              "durationMs": 25,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 3,
+            "name": "Fill \"***\"",
+            "totalSteps": 3,
+            "at": "2026-09-17T15:28:04.301Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 3,
+            "at": "2026-09-17T15:28:04.311Z",
+            "result": {
+              "id": "c6c223f6-4e21-486a-8d05-a43516c9c8a9",
+              "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+              "stepId": null,
+              "sequence": 3,
+              "nameSnapshot": "Fill \"***\"",
+              "actionType": "fill",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:04.301Z",
+              "durationMs": 11,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 4,
+            "name": "Wait for timeout",
+            "totalSteps": 4,
+            "at": "2026-09-17T15:28:04.312Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "sequence": 4,
+            "at": "2026-09-17T15:28:49.346Z",
+            "result": {
+              "id": "8452178a-01f5-4b4f-8eaa-e49569614adb",
+              "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+              "stepId": null,
+              "sequence": 4,
+              "nameSnapshot": "Wait for timeout",
+              "actionType": "wait",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:04.312Z",
+              "durationMs": 45033,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "run.finished",
+            "runId": "9fb848fd-e792-401b-9a79-3c7635f7c384",
+            "status": "passed",
+            "passedSteps": 4,
+            "totalSteps": 4,
+            "durationMs": 47933,
+            "errorMessage": null,
+            "at": "2026-09-17T15:28:49.408Z"
+          },
+          "valid": true,
+          "error": null
+        }
+      ],
+      "stdoutTail": "[R2EV] {\"kind\":\"step.end\",\"seq\":17,\"atMs\":1789658884225,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"Before Hooks\",\"depth\":0,\"durationMs\":145,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":18,\"atMs\":1789658884228,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"line\":13}\n[R2EV] {\"kind\":\"step.end\",\"seq\":19,\"atMs\":1789658884258,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"durationMs\":31,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":20,\"atMs\":1789658884274,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"line\":14}\n[R2EV] {\"kind\":\"step.end\",\"seq\":21,\"atMs\":1789658884299,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"durationMs\":25,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":22,\"atMs\":1789658884301,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"line\":15}\n[R2EV] {\"kind\":\"step.end\",\"seq\":23,\"atMs\":1789658884311,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"durationMs\":11,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":24,\"atMs\":1789658884312,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"line\":16}\n[R2EV] {\"kind\":\"step.end\",\"seq\":25,\"atMs\":1789658929346,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"durationMs\":45033,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":26,\"atMs\":1789658929347,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":27,\"atMs\":1789658929347,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":28,\"atMs\":1789658929347,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":0,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":29,\"atMs\":1789658929347,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":30,\"atMs\":1789658929353,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":31,\"atMs\":1789658929357,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"durationMs\":4,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":32,\"atMs\":1789658929358,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"durationMs\":10,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":33,\"atMs\":1789658929365,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"durationMs\":18,\"error\":null}\n[R2EV] {\"kind\":\"test.end\",\"seq\":34,\"atMs\":1789658929365,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"title\":\" › long-run.spec.ts › 측정 — 로그인 화면에 머문다\",\"status\":\"passed\",\"expectedStatus\":\"passed\",\"durationMs\":45194,\"error\":null,\"workerIndex\":0}\n[R2EV] {\"kind\":\"run.end\",\"seq\":35,\"atMs\":1789658929408,\"status\":\"passed\",\"durationMs\":47969.15700000001}\n  1 passed (48.0s)",
+      "userCodeModified": false
+    },
+    {
+      "mode": "a0",
+      "label": "A0. ★ 음성 대조군 — shim 없이 fixture 주입만 시도 (프레임 0장이어야 한다)",
+      "specDir": "./specs-measure",
+      "testDir": "./specs-measure",
+      "workers": 1,
+      "maxFps": 15,
+      "exitCode": 0,
+      "pagesAttached": 0,
+      "attachError": null,
+      "enumeratedPageUrls": [],
+      "client": null,
+      "canvasSample": null,
+      "host": {
+        "framesProduced": 0,
+        "framesSent": 0,
+        "framesDroppedThrottle": 0,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoViewer": 0,
+        "bytesSent": 0
+      },
+      "eventKinds": {
+        "run.begin": 1,
+        "probe": 1,
+        "test.begin": 1,
+        "step.begin": 15,
+        "step.end": 15,
+        "test.end": 1,
+        "run.end": 1
+      },
+      "probe": {
+        "kind": "probe",
+        "seq": 2,
+        "atMs": 1789658936457,
+        "pageFoundAt": [],
+        "testKeys": [
+          "_only",
+          "_requireFile",
+          "title",
+          "results",
+          "type",
+          "expectedStatus",
+          "timeout",
+          "annotations",
+          "retries",
+          "repeatEachIndex",
+          "id",
+          "_poolDigest",
+          "_workerHash",
+          "_projectId",
+          "_tags",
+          "_locks",
+          "_planAnnotations",
+          "fn",
+          "_testType",
+          "location",
+          "parent"
+        ],
+        "resultKeys": [
+          "retry",
+          "parallelIndex",
+          "workerIndex",
+          "duration",
+          "startTime",
+          "stdout",
+          "stderr",
+          "attachments",
+          "status",
+          "steps",
+          "errors",
+          "annotations"
+        ],
+        "hasFixturesApi": false,
+        "attachmentNames": []
+      },
+      "mapped": {
+        "total": 10,
+        "invalid": 0,
+        "invalidErrors": []
+      },
+      "mappedSample": [
+        {
+          "sse": {
+            "event": "run.status",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "status": "running",
+            "runnerId": "r2-poc",
+            "at": "2026-09-17T15:28:53.948Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 1,
+            "name": "Navigate",
+            "totalSteps": 1,
+            "at": "2026-09-17T15:28:56.653Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 1,
+            "at": "2026-09-17T15:28:56.686Z",
+            "result": {
+              "id": "152e43f5-cc1e-4fcf-a0ad-a765ac0b9cea",
+              "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+              "stepId": null,
+              "sequence": 1,
+              "nameSnapshot": "Navigate",
+              "actionType": "goto",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:56.653Z",
+              "durationMs": 34,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 2,
+            "name": "Expect \"toBeVisible\"",
+            "totalSteps": 2,
+            "at": "2026-09-17T15:28:56.703Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 2,
+            "at": "2026-09-17T15:28:56.728Z",
+            "result": {
+              "id": "e5e489fa-c908-4f73-99cc-b216746c02d6",
+              "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+              "stepId": null,
+              "sequence": 2,
+              "nameSnapshot": "Expect \"toBeVisible\"",
+              "actionType": "assert_visible",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:56.703Z",
+              "durationMs": 24,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 3,
+            "name": "Fill \"***\"",
+            "totalSteps": 3,
+            "at": "2026-09-17T15:28:56.729Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 3,
+            "at": "2026-09-17T15:28:56.738Z",
+            "result": {
+              "id": "fd35fe8e-b4c5-449e-9b23-eae48b36fa05",
+              "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+              "stepId": null,
+              "sequence": 3,
+              "nameSnapshot": "Fill \"***\"",
+              "actionType": "fill",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:56.729Z",
+              "durationMs": 9,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 4,
+            "name": "Wait for timeout",
+            "totalSteps": 4,
+            "at": "2026-09-17T15:28:56.738Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "sequence": 4,
+            "at": "2026-09-17T15:29:41.748Z",
+            "result": {
+              "id": "e09da5fc-ab46-4aa6-8804-e8d5423a7ae7",
+              "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+              "stepId": null,
+              "sequence": 4,
+              "nameSnapshot": "Wait for timeout",
+              "actionType": "wait",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:28:56.738Z",
+              "durationMs": 45009,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "run.finished",
+            "runId": "659a1c33-b9da-4b2f-827b-b3e780d2ed56",
+            "status": "passed",
+            "passedSteps": 4,
+            "totalSteps": 4,
+            "durationMs": 47859,
+            "errorMessage": null,
+            "at": "2026-09-17T15:29:41.807Z"
+          },
+          "valid": true,
+          "error": null
+        }
+      ],
+      "stdoutTail": "[R2EV] {\"kind\":\"step.end\",\"seq\":17,\"atMs\":1789658936652,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"Before Hooks\",\"depth\":0,\"durationMs\":140,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":18,\"atMs\":1789658936653,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"line\":13}\n[R2EV] {\"kind\":\"step.end\",\"seq\":19,\"atMs\":1789658936686,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"durationMs\":34,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":20,\"atMs\":1789658936703,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"line\":14}\n[R2EV] {\"kind\":\"step.end\",\"seq\":21,\"atMs\":1789658936728,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"durationMs\":24,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":22,\"atMs\":1789658936729,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"line\":15}\n[R2EV] {\"kind\":\"step.end\",\"seq\":23,\"atMs\":1789658936738,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"durationMs\":9,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":24,\"atMs\":1789658936738,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"line\":16}\n[R2EV] {\"kind\":\"step.end\",\"seq\":25,\"atMs\":1789658981748,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"durationMs\":45009,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":26,\"atMs\":1789658981749,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":27,\"atMs\":1789658981750,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":28,\"atMs\":1789658981750,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":0,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":29,\"atMs\":1789658981750,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":30,\"atMs\":1789658981756,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":31,\"atMs\":1789658981761,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"durationMs\":4,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":32,\"atMs\":1789658981761,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"durationMs\":11,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":33,\"atMs\":1789658981768,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"durationMs\":20,\"error\":null}\n[R2EV] {\"kind\":\"test.end\",\"seq\":34,\"atMs\":1789658981769,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"title\":\" › long-run.spec.ts › 측정 — 로그인 화면에 머문다\",\"status\":\"passed\",\"expectedStatus\":\"passed\",\"durationMs\":45169,\"error\":null,\"workerIndex\":0}\n[R2EV] {\"kind\":\"run.end\",\"seq\":35,\"atMs\":1789658981807,\"status\":\"passed\",\"durationMs\":47893.851}\n  1 passed (47.9s)",
+      "userCodeModified": false
+    },
+    {
+      "mode": "a",
+      "label": "A. 커스텀 fixture 주입 (@playwright/test 해석 가로채기)",
+      "specDir": "./specs-measure",
+      "testDir": "./shimroot/specs",
+      "workers": 1,
+      "maxFps": 15,
+      "exitCode": 0,
+      "pagesAttached": 0,
+      "attachError": null,
+      "enumeratedPageUrls": [],
+      "client": {
+        "elapsedSeconds": 20.002800048828124,
+        "received": 269,
+        "rendered": 269,
+        "droppedClient": 0,
+        "bytes": 5805119,
+        "wsErrors": 0,
+        "fps": 13.448117230755377,
+        "mbps": 2.3217225531742876,
+        "latencyDrawMs": {
+          "n": 269,
+          "min": 8.76611328125,
+          "p50": 9.966064453125,
+          "p95": 12.072021484375,
+          "max": 22.625244140625
+        },
+        "latencyPaintMs": {
+          "n": 269,
+          "p50": 11.070068359375,
+          "p95": 13.55712890625
+        }
+      },
+      "canvasSample": {
+        "distinctColors": 53,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "host": {
+        "framesProduced": 600,
+        "framesSent": 600,
+        "framesDroppedThrottle": 0,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoViewer": 0,
+        "bytesSent": 12948318
+      },
+      "eventKinds": {
+        "run.begin": 1,
+        "probe": 1,
+        "test.begin": 1,
+        "step.begin": 17,
+        "step.end": 17,
+        "test.end": 1,
+        "run.end": 1
+      },
+      "probe": {
+        "kind": "probe",
+        "seq": 2,
+        "atMs": 1789658989724,
+        "pageFoundAt": [],
+        "testKeys": [
+          "_only",
+          "_requireFile",
+          "title",
+          "results",
+          "type",
+          "expectedStatus",
+          "timeout",
+          "annotations",
+          "retries",
+          "repeatEachIndex",
+          "id",
+          "_poolDigest",
+          "_workerHash",
+          "_projectId",
+          "_tags",
+          "_locks",
+          "_planAnnotations",
+          "fn",
+          "_testType",
+          "location",
+          "parent"
+        ],
+        "resultKeys": [
+          "retry",
+          "parallelIndex",
+          "workerIndex",
+          "duration",
+          "startTime",
+          "stdout",
+          "stderr",
+          "attachments",
+          "status",
+          "steps",
+          "errors",
+          "annotations"
+        ],
+        "hasFixturesApi": false,
+        "attachmentNames": []
+      },
+      "mapped": {
+        "total": 10,
+        "invalid": 0,
+        "invalidErrors": []
+      },
+      "mappedSample": [
+        {
+          "sse": {
+            "event": "run.status",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "status": "running",
+            "runnerId": "r2-poc",
+            "at": "2026-09-17T15:29:46.695Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 1,
+            "name": "Navigate",
+            "totalSteps": 1,
+            "at": "2026-09-17T15:29:50.061Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 1,
+            "at": "2026-09-17T15:29:50.105Z",
+            "result": {
+              "id": "7a5981d2-8712-4936-98c5-f4e5c21bb3a2",
+              "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+              "stepId": null,
+              "sequence": 1,
+              "nameSnapshot": "Navigate",
+              "actionType": "goto",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:29:50.061Z",
+              "durationMs": 45,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 2,
+            "name": "Expect \"toBeVisible\"",
+            "totalSteps": 2,
+            "at": "2026-09-17T15:29:50.129Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 2,
+            "at": "2026-09-17T15:29:50.159Z",
+            "result": {
+              "id": "1a7c0a45-6dba-4354-af6f-070f31db3dcd",
+              "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+              "stepId": null,
+              "sequence": 2,
+              "nameSnapshot": "Expect \"toBeVisible\"",
+              "actionType": "assert_visible",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:29:50.129Z",
+              "durationMs": 31,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 3,
+            "name": "Fill \"***\"",
+            "totalSteps": 3,
+            "at": "2026-09-17T15:29:50.160Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 3,
+            "at": "2026-09-17T15:29:50.174Z",
+            "result": {
+              "id": "1e65b231-a55a-4055-bb21-9ba55b64bc74",
+              "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+              "stepId": null,
+              "sequence": 3,
+              "nameSnapshot": "Fill \"***\"",
+              "actionType": "fill",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:29:50.160Z",
+              "durationMs": 13,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 4,
+            "name": "Wait for timeout",
+            "totalSteps": 4,
+            "at": "2026-09-17T15:29:50.176Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "sequence": 4,
+            "at": "2026-09-17T15:30:35.175Z",
+            "result": {
+              "id": "801ab2c8-f859-4371-addf-65398aef656d",
+              "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+              "stepId": null,
+              "sequence": 4,
+              "nameSnapshot": "Wait for timeout",
+              "actionType": "wait",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:29:50.176Z",
+              "durationMs": 45000,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "run.finished",
+            "runId": "7306d308-76ad-4bfc-956a-0a4d9b8c606f",
+            "status": "passed",
+            "passedSteps": 4,
+            "totalSteps": 4,
+            "durationMs": 48527,
+            "errorMessage": null,
+            "at": "2026-09-17T15:30:35.222Z"
+          },
+          "valid": true,
+          "error": null
+        }
+      ],
+      "stdoutTail": "[R2EV] {\"kind\":\"step.end\",\"seq\":23,\"atMs\":1789658990159,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"durationMs\":31,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":24,\"atMs\":1789658990160,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"line\":15}\n[R2EV] {\"kind\":\"step.end\",\"seq\":25,\"atMs\":1789658990174,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"durationMs\":13,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":26,\"atMs\":1789658990176,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"line\":16}\n[R2EV] {\"kind\":\"step.end\",\"seq\":27,\"atMs\":1789659035175,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"durationMs\":45000,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":28,\"atMs\":1789659035176,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":29,\"atMs\":1789659035176,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":36}\nshimroot/specs/long-run.spec.ts:12:1 › 측정 — 로그인 화면에 머문다\n[R2FX] {\"test\":\"측정 — 로그인 화면에 머문다\",\"workerIndex\":0,\"timestampKind\":\"epoch-millis\",\"produced\":2705,\"sent\":602,\"bytes\":12975073}\n[R2EV] {\"kind\":\"step.end\",\"seq\":30,\"atMs\":1789659035180,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":5,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":31,\"atMs\":1789659035180,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":32,\"atMs\":1789659035180,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":0,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":33,\"atMs\":1789659035180,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":34,\"atMs\":1789659035182,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":35,\"atMs\":1789659035186,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"durationMs\":3,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":36,\"atMs\":1789659035186,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"durationMs\":6,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":37,\"atMs\":1789659035190,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"durationMs\":15,\"error\":null}\n[R2EV] {\"kind\":\"test.end\",\"seq\":38,\"atMs\":1789659035191,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"title\":\" › long-run.spec.ts › 측정 — 로그인 화면에 머문다\",\"status\":\"passed\",\"expectedStatus\":\"passed\",\"durationMs\":45225,\"error\":null,\"workerIndex\":0}\n[R2EV] {\"kind\":\"run.end\",\"seq\":39,\"atMs\":1789659035222,\"status\":\"passed\",\"durationMs\":48955.412}\n  1 passed (49.0s)",
+      "userCodeModified": false
+    },
+    {
+      "mode": "b",
+      "label": "B. launchServer + use.connectOptions + connectOverCDP",
+      "specDir": "./specs-measure",
+      "testDir": "./specs-measure",
+      "workers": 1,
+      "maxFps": 15,
+      "exitCode": 0,
+      "pagesAttached": 1,
+      "attachError": null,
+      "enumeratedPageUrls": [
+        "about:blank",
+        "http://127.0.0.1:37879/fixtures/record-login.html"
+      ],
+      "client": {
+        "elapsedSeconds": 20.002199951171875,
+        "received": 266,
+        "rendered": 266,
+        "droppedClient": 0,
+        "bytes": 5740162,
+        "wsErrors": 0,
+        "fps": 13.29853719337586,
+        "mbps": 2.2958122662557225,
+        "latencyDrawMs": {
+          "n": 266,
+          "min": 11.14013671875,
+          "p50": 13.02294921875,
+          "p95": 17.60595703125,
+          "max": 22.798095703125
+        },
+        "latencyPaintMs": {
+          "n": 266,
+          "p50": 14.3232421875,
+          "p95": 19.2060546875
+        }
+      },
+      "canvasSample": {
+        "distinctColors": 53,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "host": {
+        "framesProduced": 595,
+        "framesSent": 595,
+        "framesDroppedThrottle": 0,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoViewer": 0,
+        "bytesSent": 12840030
+      },
+      "eventKinds": {
+        "run.begin": 1,
+        "probe": 1,
+        "test.begin": 1,
+        "step.begin": 15,
+        "step.end": 15,
+        "test.end": 1,
+        "run.end": 1
+      },
+      "probe": {
+        "kind": "probe",
+        "seq": 2,
+        "atMs": 1789659041919,
+        "pageFoundAt": [],
+        "testKeys": [
+          "_only",
+          "_requireFile",
+          "title",
+          "results",
+          "type",
+          "expectedStatus",
+          "timeout",
+          "annotations",
+          "retries",
+          "repeatEachIndex",
+          "id",
+          "_poolDigest",
+          "_workerHash",
+          "_projectId",
+          "_tags",
+          "_locks",
+          "_planAnnotations",
+          "fn",
+          "_testType",
+          "location",
+          "parent"
+        ],
+        "resultKeys": [
+          "retry",
+          "parallelIndex",
+          "workerIndex",
+          "duration",
+          "startTime",
+          "stdout",
+          "stderr",
+          "attachments",
+          "status",
+          "steps",
+          "errors",
+          "annotations"
+        ],
+        "hasFixturesApi": false,
+        "attachmentNames": []
+      },
+      "mapped": {
+        "total": 10,
+        "invalid": 0,
+        "invalidErrors": []
+      },
+      "mappedSample": [
+        {
+          "sse": {
+            "event": "run.status",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "status": "running",
+            "runnerId": "r2-poc",
+            "at": "2026-09-17T15:30:39.505Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 1,
+            "name": "Navigate",
+            "totalSteps": 1,
+            "at": "2026-09-17T15:30:42.083Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 1,
+            "at": "2026-09-17T15:30:42.120Z",
+            "result": {
+              "id": "67ff5289-9cff-4da7-bb59-31e881feb3d2",
+              "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+              "stepId": null,
+              "sequence": 1,
+              "nameSnapshot": "Navigate",
+              "actionType": "goto",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:30:42.083Z",
+              "durationMs": 37,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 2,
+            "name": "Expect \"toBeVisible\"",
+            "totalSteps": 2,
+            "at": "2026-09-17T15:30:42.135Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 2,
+            "at": "2026-09-17T15:30:42.167Z",
+            "result": {
+              "id": "74718a4a-ca1e-42a5-adef-e74f68e25bbe",
+              "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+              "stepId": null,
+              "sequence": 2,
+              "nameSnapshot": "Expect \"toBeVisible\"",
+              "actionType": "assert_visible",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:30:42.135Z",
+              "durationMs": 32,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 3,
+            "name": "Fill \"***\"",
+            "totalSteps": 3,
+            "at": "2026-09-17T15:30:42.169Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 3,
+            "at": "2026-09-17T15:30:42.178Z",
+            "result": {
+              "id": "0eb8bb82-db97-468e-9ac4-1ba909f0dd43",
+              "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+              "stepId": null,
+              "sequence": 3,
+              "nameSnapshot": "Fill \"***\"",
+              "actionType": "fill",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:30:42.169Z",
+              "durationMs": 10,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 4,
+            "name": "Wait for timeout",
+            "totalSteps": 4,
+            "at": "2026-09-17T15:30:42.179Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "sequence": 4,
+            "at": "2026-09-17T15:31:27.181Z",
+            "result": {
+              "id": "3779aaaf-cf47-4fa9-bcb5-cfa685503e5b",
+              "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+              "stepId": null,
+              "sequence": 4,
+              "nameSnapshot": "Wait for timeout",
+              "actionType": "wait",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:30:42.179Z",
+              "durationMs": 45002,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "run.finished",
+            "runId": "5c8a4701-8535-4611-8497-26698389e36f",
+            "status": "passed",
+            "passedSteps": 4,
+            "totalSteps": 4,
+            "durationMs": 47722,
+            "errorMessage": null,
+            "at": "2026-09-17T15:31:27.227Z"
+          },
+          "valid": true,
+          "error": null
+        }
+      ],
+      "stdoutTail": "[R2EV] {\"kind\":\"step.end\",\"seq\":17,\"atMs\":1789659042083,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"Before Hooks\",\"depth\":0,\"durationMs\":109,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":18,\"atMs\":1789659042083,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"line\":13}\n[R2EV] {\"kind\":\"step.end\",\"seq\":19,\"atMs\":1789659042120,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"durationMs\":37,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":20,\"atMs\":1789659042135,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"line\":14}\n[R2EV] {\"kind\":\"step.end\",\"seq\":21,\"atMs\":1789659042167,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"durationMs\":32,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":22,\"atMs\":1789659042169,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"line\":15}\n[R2EV] {\"kind\":\"step.end\",\"seq\":23,\"atMs\":1789659042178,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"durationMs\":10,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":24,\"atMs\":1789659042179,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"line\":16}\n[R2EV] {\"kind\":\"step.end\",\"seq\":25,\"atMs\":1789659087181,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"durationMs\":45002,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":26,\"atMs\":1789659087182,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":27,\"atMs\":1789659087183,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":28,\"atMs\":1789659087183,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":0,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":29,\"atMs\":1789659087183,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":30,\"atMs\":1789659087190,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":31,\"atMs\":1789659087196,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"durationMs\":5,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":32,\"atMs\":1789659087196,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"durationMs\":13,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":33,\"atMs\":1789659087206,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"durationMs\":24,\"error\":null}\n[R2EV] {\"kind\":\"test.end\",\"seq\":34,\"atMs\":1789659087207,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"title\":\" › long-run.spec.ts › 측정 — 로그인 화면에 머문다\",\"status\":\"passed\",\"expectedStatus\":\"passed\",\"durationMs\":45172,\"error\":null,\"workerIndex\":0}\n[R2EV] {\"kind\":\"run.end\",\"seq\":35,\"atMs\":1789659087227,\"status\":\"passed\",\"durationMs\":47753.634999999995}\n  1 passed (47.8s)",
+      "userCodeModified": false
+    },
+    {
+      "mode": "d",
+      "label": "D. use.launchOptions --remote-debugging-port + connectOverCDP",
+      "specDir": "./specs-measure",
+      "testDir": "./specs-measure",
+      "workers": 1,
+      "maxFps": 15,
+      "exitCode": 0,
+      "pagesAttached": 1,
+      "attachError": null,
+      "enumeratedPageUrls": [
+        "http://127.0.0.1:42183/fixtures/record-login.html"
+      ],
+      "client": {
+        "elapsedSeconds": 20.002,
+        "received": 264,
+        "rendered": 264,
+        "droppedClient": 0,
+        "bytes": 5696758,
+        "wsErrors": 0,
+        "fps": 13.198680131986801,
+        "mbps": 2.2784753524647536,
+        "latencyDrawMs": {
+          "n": 264,
+          "min": 9.68115234375,
+          "p50": 12.56005859375,
+          "p95": 16.9189453125,
+          "max": 20.859130859375
+        },
+        "latencyPaintMs": {
+          "n": 264,
+          "p50": 13.937744140625,
+          "p95": 18.2470703125
+        }
+      },
+      "canvasSample": {
+        "distinctColors": 52,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "host": {
+        "framesProduced": 591,
+        "framesSent": 591,
+        "framesDroppedThrottle": 0,
+        "framesDroppedBackpressure": 0,
+        "framesDroppedNoViewer": 0,
+        "bytesSent": 12753325
+      },
+      "eventKinds": {
+        "run.begin": 1,
+        "probe": 1,
+        "test.begin": 1,
+        "step.begin": 15,
+        "step.end": 15,
+        "test.end": 1,
+        "run.end": 1
+      },
+      "probe": {
+        "kind": "probe",
+        "seq": 2,
+        "atMs": 1789659094462,
+        "pageFoundAt": [],
+        "testKeys": [
+          "_only",
+          "_requireFile",
+          "title",
+          "results",
+          "type",
+          "expectedStatus",
+          "timeout",
+          "annotations",
+          "retries",
+          "repeatEachIndex",
+          "id",
+          "_poolDigest",
+          "_workerHash",
+          "_projectId",
+          "_tags",
+          "_locks",
+          "_planAnnotations",
+          "fn",
+          "_testType",
+          "location",
+          "parent"
+        ],
+        "resultKeys": [
+          "retry",
+          "parallelIndex",
+          "workerIndex",
+          "duration",
+          "startTime",
+          "stdout",
+          "stderr",
+          "attachments",
+          "status",
+          "steps",
+          "errors",
+          "annotations"
+        ],
+        "hasFixturesApi": false,
+        "attachmentNames": []
+      },
+      "mapped": {
+        "total": 10,
+        "invalid": 0,
+        "invalidErrors": []
+      },
+      "mappedSample": [
+        {
+          "sse": {
+            "event": "run.status",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "status": "running",
+            "runnerId": "r2-poc",
+            "at": "2026-09-17T15:31:31.855Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 1,
+            "name": "Navigate",
+            "totalSteps": 1,
+            "at": "2026-09-17T15:31:34.669Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 1,
+            "at": "2026-09-17T15:31:34.704Z",
+            "result": {
+              "id": "4976c17d-5bb9-4b59-a6e4-56ff8ff78090",
+              "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+              "stepId": null,
+              "sequence": 1,
+              "nameSnapshot": "Navigate",
+              "actionType": "goto",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:31:34.669Z",
+              "durationMs": 36,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 2,
+            "name": "Expect \"toBeVisible\"",
+            "totalSteps": 2,
+            "at": "2026-09-17T15:31:34.722Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 2,
+            "at": "2026-09-17T15:31:34.754Z",
+            "result": {
+              "id": "dfd7aede-e5b9-4701-9ad7-316c5157c616",
+              "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+              "stepId": null,
+              "sequence": 2,
+              "nameSnapshot": "Expect \"toBeVisible\"",
+              "actionType": "assert_visible",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:31:34.722Z",
+              "durationMs": 31,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 3,
+            "name": "Fill \"***\"",
+            "totalSteps": 3,
+            "at": "2026-09-17T15:31:34.755Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 3,
+            "at": "2026-09-17T15:31:34.765Z",
+            "result": {
+              "id": "348ee744-c70c-4fa8-861d-ca92ad21cae4",
+              "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+              "stepId": null,
+              "sequence": 3,
+              "nameSnapshot": "Fill \"***\"",
+              "actionType": "fill",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:31:34.755Z",
+              "durationMs": 10,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.started",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 4,
+            "name": "Wait for timeout",
+            "totalSteps": 4,
+            "at": "2026-09-17T15:31:34.766Z"
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "step.finished",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "sequence": 4,
+            "at": "2026-09-17T15:32:19.764Z",
+            "result": {
+              "id": "2eea6c15-d1a8-456c-9107-fa4d60e6351a",
+              "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+              "stepId": null,
+              "sequence": 4,
+              "nameSnapshot": "Wait for timeout",
+              "actionType": "wait",
+              "status": "passed",
+              "startedAt": "2026-09-17T15:31:34.766Z",
+              "durationMs": 44997,
+              "errorMessage": null
+            }
+          },
+          "valid": true,
+          "error": null
+        },
+        {
+          "sse": {
+            "event": "run.finished",
+            "runId": "3bab4b44-b025-48bb-95af-37971844f122",
+            "status": "passed",
+            "passedSteps": 4,
+            "totalSteps": 4,
+            "durationMs": 47960,
+            "errorMessage": null,
+            "at": "2026-09-17T15:32:19.815Z"
+          },
+          "valid": true,
+          "error": null
+        }
+      ],
+      "stdoutTail": "[R2EV] {\"kind\":\"step.end\",\"seq\":17,\"atMs\":1789659094668,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"Before Hooks\",\"depth\":0,\"durationMs\":146,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":18,\"atMs\":1789659094669,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"line\":13}\n[R2EV] {\"kind\":\"step.end\",\"seq\":19,\"atMs\":1789659094704,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Navigate\",\"depth\":0,\"durationMs\":36,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":20,\"atMs\":1789659094722,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"line\":14}\n[R2EV] {\"kind\":\"step.end\",\"seq\":21,\"atMs\":1789659094754,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"expect\",\"title\":\"Expect \\\"toBeVisible\\\"\",\"depth\":0,\"durationMs\":31,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":22,\"atMs\":1789659094755,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"line\":15}\n[R2EV] {\"kind\":\"step.end\",\"seq\":23,\"atMs\":1789659094765,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Fill \\\"measure\\\"\",\"depth\":0,\"durationMs\":10,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":24,\"atMs\":1789659094766,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"line\":16}\n[R2EV] {\"kind\":\"step.end\",\"seq\":25,\"atMs\":1789659139764,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Wait for timeout\",\"depth\":0,\"durationMs\":44997,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":26,\"atMs\":1789659139765,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":27,\"atMs\":1789659139765,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":28,\"atMs\":1789659139765,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"page\\\"\",\"depth\":1,\"durationMs\":0,\"error\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":29,\"atMs\":1789659139765,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"line\":null}\n[R2EV] {\"kind\":\"step.begin\",\"seq\":30,\"atMs\":1789659139770,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"line\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":31,\"atMs\":1789659139774,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"pw:api\",\"title\":\"Close context\",\"depth\":2,\"durationMs\":4,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":32,\"atMs\":1789659139775,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"fixture\",\"title\":\"Fixture \\\"context\\\"\",\"depth\":1,\"durationMs\":9,\"error\":null}\n[R2EV] {\"kind\":\"step.end\",\"seq\":33,\"atMs\":1789659139780,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"workerIndex\":0,\"category\":\"hook\",\"title\":\"After Hooks\",\"depth\":0,\"durationMs\":15,\"error\":null}\n[R2EV] {\"kind\":\"test.end\",\"seq\":34,\"atMs\":1789659139780,\"testId\":\"f700b64f726ab6c99cf2-e0294b6597136db61263\",\"title\":\" › long-run.spec.ts › 측정 — 로그인 화면에 머문다\",\"status\":\"passed\",\"expectedStatus\":\"passed\",\"durationMs\":45174,\"error\":null,\"workerIndex\":0}\n[R2EV] {\"kind\":\"run.end\",\"seq\":35,\"atMs\":1789659139815,\"status\":\"passed\",\"durationMs\":48001.069}\n  1 passed (48.0s)",
+      "userCodeModified": false
+    }
+  ]
+}

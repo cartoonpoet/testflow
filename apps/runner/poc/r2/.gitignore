@@ -1,0 +1,5 @@
+# 경로 A 는 실행 시점에 `pw/shimroot/` 를 **만들어** 쓴다(런타임 산출물).
+#   - `pw/shimroot/node_modules/@playwright/test/` ← `pw/shim-pkg/` 를 복사한 것
+#   - `pw/shimroot/specs/`                         ← 사용자 spec 을 복사한 것(무수정)
+# 원본은 `pw/shim-pkg/` 와 `pw/specs*/` 에 있다.
+pw/shimroot/

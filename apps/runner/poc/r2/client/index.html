@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>TestFlow R2 PoC · 테스트 실행 라이브 뷰</title>
+    <!--
+      ⚠️ PoC 전용 임시물. 제품 코드가 아니다.
+         라운드 1 `poc/client/index.html` 의 프레임 수신·드롭 정책·측정 제어면을 그대로 옮기고
+         입력 역주입(마우스/키/IME) 경로만 제거했다 — 이번 PoC 는 **보기만** 검증한다.
+         지연은 `capturedAtMs → drawImage 완료` 로 재고, fps 는 **렌더까지 끝난** 프레임만 센다.
+    -->
+    <style>
+      html, body { margin: 0; padding: 0; background: #15211e; color: #e8efec;
+                   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      #wrap { padding: 12px; }
+      #canvas { display: block; background: #000; }
+      #hud { font-size: 12px; padding: 6px 0; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap">
+      <div id="hud">connecting…</div>
+      <canvas id="canvas" width="1280" height="800"></canvas>
+    </div>
+    <script>
+      (function () {
+        "use strict";
+        var FRAME_HEADER_BYTES = 25;
+        var params = new URLSearchParams(location.search);
+        var wsUrl = params.get("ws") || "ws://" + location.host + "/r2/view";
+        var scale = parseFloat(params.get("scale") || "1") || 1;
+
+        var canvas = document.getElementById("canvas");
+        var hud = document.getElementById("hud");
+        var ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+
+        var remoteW = 1280;
+        var remoteH = 800;
+        var pending = null;
+        var rendering = false;
+        var st = null;
+
+        function nowMs() {
+          return performance.timeOrigin + performance.now();
+        }
+        function resetStats() {
+          st = {
+            startedAtMs: nowMs(),
+            received: 0, rendered: 0, droppedClient: 0, bytes: 0,
+            latencyDraw: [], latencyPaint: [], wsErrors: 0, maxBufferedAmount: 0,
+          };
+        }
+        resetStats();
+
+        function applyScale() {
+          canvas.width = remoteW;
+          canvas.height = remoteH;
+          canvas.style.width = remoteW * scale + "px";
+          canvas.style.height = remoteH * scale + "px";
+        }
+        applyScale();
+
+        var ws = new WebSocket(wsUrl);
+        ws.binaryType = "arraybuffer";
+        ws.onopen = function () { hud.textContent = "connected " + wsUrl; };
+        ws.onerror = function () { st.wsErrors += 1; hud.textContent = "ws error"; };
+        ws.onclose = function () { hud.textContent = "ws closed"; };
+
+        ws.onmessage = function (ev) {
+          if (typeof ev.data === "string") { hud.textContent = ev.data.slice(0, 200); return; }
+          var buf = ev.data;
+          if (buf.byteLength < FRAME_HEADER_BYTES) return;
+          var dv = new DataView(buf);
+          if (dv.getUint8(0) !== 0x01) return;
+          var frame = {
+            id: dv.getUint32(1),
+            capturedAtMs: dv.getFloat64(5),
+            serverSendAtMs: dv.getFloat64(13),
+            w: dv.getUint16(21),
+            h: dv.getUint16(23),
+            blob: new Blob([new Uint8Array(buf, FRAME_HEADER_BYTES)], { type: "image/jpeg" }),
+            bytes: buf.byteLength,
+          };
+          st.received += 1;
+          st.bytes += frame.bytes;
+          if (frame.w !== remoteW || frame.h !== remoteH) {
+            remoteW = frame.w; remoteH = frame.h; applyScale();
+          }
+          // ★ 드롭 정책 — 렌더 중이면 대기 프레임을 버리고 최신 것만 남긴다.
+          if (pending !== null) st.droppedClient += 1;
+          pending = frame;
+          pump();
+        };
+
+        function pump() {
+          if (rendering || pending === null) return;
+          var frame = pending;
+          pending = null;
+          rendering = true;
+          createImageBitmap(frame.blob)
+            .then(function (bitmap) {
+              ctx.drawImage(bitmap, 0, 0, remoteW, remoteH);
+              bitmap.close();
+              st.rendered += 1;
+              st.latencyDraw.push(nowMs() - frame.capturedAtMs);
+              requestAnimationFrame(function () {
+                st.latencyPaint.push(nowMs() - frame.capturedAtMs);
+              });
+              rendering = false;
+              pump();
+            })
+            .catch(function () { rendering = false; pump(); });
+        }
+
+        function percentile(sorted, p) {
+          if (sorted.length === 0) return null;
+          var idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+          return sorted[idx];
+        }
+        window.__poc = {
+          ready: function () { return ws.readyState === WebSocket.OPEN; },
+          firstFrame: function () { return st.rendered > 0; },
+          reset: resetStats,
+          /** 캔버스 중앙 픽셀 — "검은 캔버스 아님"을 증명하는 데 쓴다. */
+          sample: function () {
+            var d = ctx.getImageData(0, 0, remoteW, remoteH).data;
+            var colors = Object.create(null);
+            for (var i = 0; i < d.length; i += 4 * 997) {
+              colors[d[i] + "," + d[i + 1] + "," + d[i + 2]] = 1;
+            }
+            var mid = (Math.floor(remoteH / 2) * remoteW + Math.floor(remoteW / 2)) * 4;
+            return { distinctColors: Object.keys(colors).length, center: [d[mid], d[mid + 1], d[mid + 2]] };
+          },
+          stats: function () {
+            var dd = st.latencyDraw.slice().sort(function (a, b) { return a - b; });
+            var pp = st.latencyPaint.slice().sort(function (a, b) { return a - b; });
+            var elapsed = (nowMs() - st.startedAtMs) / 1000;
+            return {
+              elapsedSeconds: elapsed,
+              received: st.received, rendered: st.rendered,
+              droppedClient: st.droppedClient, bytes: st.bytes,
+              wsErrors: st.wsErrors,
+              fps: elapsed > 0 ? st.rendered / elapsed : 0,
+              mbps: elapsed > 0 ? (st.bytes * 8) / elapsed / 1e6 : 0,
+              latencyDrawMs: {
+                n: dd.length, min: dd.length ? dd[0] : null,
+                p50: percentile(dd, 50), p95: percentile(dd, 95),
+                max: dd.length ? dd[dd.length - 1] : null,
+              },
+              latencyPaintMs: { n: pp.length, p50: percentile(pp, 50), p95: percentile(pp, 95) },
+            };
+          },
+        };
+      })();
+    </script>
+  </body>
+</html>

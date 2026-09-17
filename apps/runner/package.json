@@ -16,7 +16,8 @@
     "clean": "rm -rf dist dist-poc .turbo *.tsbuildinfo",
     "build:poc": "tsc -p tsconfig.poc.json",
     "poc:serve": "pnpm build:poc && node dist-poc/poc/poc1.js",
-    "poc:measure": "pnpm build:poc && node dist-poc/poc/measure.js"
+    "poc:measure": "pnpm build:poc && node dist-poc/poc/measure.js",
+    "poc:r2": "pnpm build:poc && node dist-poc/poc/r2/r2.js"
   },
   "dependencies": {
     "@testflow/contracts": "workspace:*",
@@ -30,6 +31,7 @@
     "ws": "8.21.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@testflow/config-eslint": "workspace:*",
     "@testflow/config-typescript": "workspace:*",
     "@types/node": "22.20.3",

@@ -1,0 +1,16 @@
+{
+  "name": "@playwright/test",
+  "version": "1.63.0",
+  "private": true,
+  "description": "PoC 전용 shim — 사용자 spec 의 `@playwright/test` 해석을 가로채 스트리밍 fixture 를 주입한다. 제품 코드가 아니다.",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "default": "./index.js"
+    },
+    "./reporter": "./reporter.js",
+    "./package.json": "./package.json"
+  }
+}
