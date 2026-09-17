@@ -17,7 +17,9 @@ out/
 !.env.example
 
 # 증적 저장소 (ARTIFACT_ROOT 기본값)
-artifacts/
+# ★ 선행 슬래시 필수. `artifacts/` 라고만 쓰면 어느 깊이든 매칭돼
+#   `apps/api/src/modules/artifacts/`(소스 코드)까지 통째로 무시된다(실제로 겪었다).
+/artifacts/
 
 # Playwright
 playwright-report/

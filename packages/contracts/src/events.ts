@@ -84,6 +84,52 @@ export function runEventBufferKey(runId: string): string {
   return `run:${runId}:events`;
 }
 
+/**
+ * SSE `id:` 값을 만드는 단조 증가 카운터 키.
+ *
+ * `INCR` 결과가 그대로 `seq` 이자 SSE 의 `id:` 가 된다. 1 부터 시작한다.
+ */
+export function runEventSeqKey(runId: string): string {
+  return `run:${runId}:seq`;
+}
+
+/** 실행 취소 신호 채널. api 가 publish 하고 runner 가 subscribe 한다(Gen-Phase 6 Task 6.7). */
+export function runCancelChannel(runId: string): string {
+  return `run:${runId}:cancel`;
+}
+
+/** 이벤트 버퍼에 남기는 최대 건수. `Last-Event-ID` 재전송이 커버하는 범위다. */
+export const RUN_EVENT_BUFFER_MAX = 500;
+
+/** 이벤트 버퍼 · 카운터 키의 TTL(초). 실행이 끝나도 잠시 남아 재연결을 받아 준다. */
+export const RUN_EVENT_BUFFER_TTL_SEC = 3600;
+
+/**
+ * ★ pub/sub 로 오가는 **봉투(envelope)**. 채널에 흘리는 JSON 이 곧 이 형태다.
+ *
+ * `RunEvent` 자체에 `seq` 를 넣지 않은 이유: `seq` 는 전송 계층의 관심사(재전송 순번)이고
+ * 이벤트 내용이 아니다. 봉투로 감싸면 버퍼(List)와 채널(pub/sub)에 **완전히 같은 바이트**를
+ * 넣을 수 있어 재연결 시 중복 판정이 `seq` 비교 하나로 끝난다.
+ *
+ * ## 발행 절차 (Gen-Phase 6 `reporter.ts` 가 그대로 따라야 한다)
+ * ```
+ * seq = INCR  run:<id>:seq
+ *       EXPIRE run:<id>:seq  <TTL>
+ * body = JSON({seq, payload})
+ *       RPUSH  run:<id>:events  body
+ *       LTRIM  run:<id>:events  -<MAX> -1
+ *       EXPIRE run:<id>:events  <TTL>
+ *       PUBLISH run:<id>  body
+ * ```
+ * 순서가 중요하다 — **버퍼에 넣은 다음 publish** 해야 한다. 반대로 하면 구독자가
+ * 이벤트를 받은 직후 버퍼를 읽었을 때 그 이벤트가 아직 없어 재연결 재전송에 구멍이 생긴다.
+ */
+export const RunEventEnvelopeSchema = z.object({
+  seq: z.number().int().positive(),
+  payload: RunEventSchema,
+});
+export type RunEventEnvelope = z.infer<typeof RunEventEnvelopeSchema>;
+
 /* ════════════════════════════════════════════════════════════
  * B. WebSocket — 녹화 (양방향 + 바이너리)
  *

@@ -44,10 +44,9 @@ import type { ConfigModuleOptions } from "@nestjs/config";
  *   컴파일 후 위치(`apps/api/dist/common/config/env.js`)와 소스 위치
  *   (`apps/api/src/common/config/env.ts`) 의 깊이가 같아 같은 상대 경로가 성립한다.
  */
-export const REPO_ROOT_ENV_FILE = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../../../.env",
-);
+export const REPO_ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../..");
+
+export const REPO_ROOT_ENV_FILE = resolve(REPO_ROOT_DIR, ".env");
 
 /** 빈 문자열은 "설정 안 됨"으로 본다 (`FOO=` 만 적힌 줄 대응). */
 function blankToUndefined(value: unknown): unknown {
@@ -78,6 +77,24 @@ export const EnvSchema = z.looseObject({
 
   REDIS_HOST: textField("127.0.0.1"),
   REDIS_PORT: portField(6379),
+
+  /**
+   * 증적 파일 루트. 상대 경로면 **레포 루트 기준**으로 해석한다(cwd 기준이 아니다).
+   * API 와 Runner 가 같은 호스트에서 이 디렉토리를 공유한다 (02-context "(b) 부가 제약").
+   */
+  ARTIFACT_ROOT: textField("./artifacts"),
+
+  /**
+   * 녹화 WS 는 **Runner 직결**이다. API 는 이 값으로 `wsUrl` 문자열만 만든다
+   * (프레임을 중계하면 홉이 늘어 지연이 배가된다 — 02-context "구조상 쟁점").
+   */
+  RUNNER_WS_PORT: portField(4100),
+  RUNNER_WS_HOST: textField("127.0.0.1"),
+  /**
+   * nginx 뒤에 둘 때 쓰는 공개 베이스 URL(예: `wss://testflow.internal/rec`).
+   * 비어 있으면 `ws://RUNNER_WS_HOST:RUNNER_WS_PORT/rec` 를 쓴다.
+   */
+  RUNNER_WS_PUBLIC_URL: z.preprocess(blankToUndefined, z.string().default("")),
 });
 export type Env = z.infer<typeof EnvSchema>;
 

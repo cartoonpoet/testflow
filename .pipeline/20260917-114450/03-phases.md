@@ -245,42 +245,42 @@ total_gen_phases: 12
 - **작업**: `POST /api/runs` — `CreateRunDto`(baseUrl·variables 필수 경로) 검증 → `runs` 레코드 생성(`status:'queued'`, `base_url`·`scenario_name` 스냅샷 저장) → BullMQ `run` 큐에 job 등록 → **202 Accepted** + `{runId, status:'queued', position}` 즉시 반환. **`variables` 평문을 `runs` 테이블에 저장하지 않는다** — 실제 값은 큐 페이로드에만 존재하고 완료 후 만료된다. 스위트 실행이면 시나리오 수만큼 run을 만들고 동일 `batch_id` 부여. `GET /api/runs`, `GET /api/runs/:id`, `POST /api/runs/:id/cancel`도 구현.
 - **참고**: 02-context "★ 최종 결정 > (c) 파생 영향" 3번째 항목, "규약 메모" 202 규칙.
 - **완료 기준**: `POST /api/runs` 응답 코드가 **202**이고 요청~응답이 **1초 이내**(성능 목표). 직후 MySQL `SELECT * FROM runs` 결과 어느 컬럼에도 전달한 비밀번호 평문이 **없다**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.2: `runs.sse.ts` — Redis pub/sub → SSE 중계
 - **파일**: `apps/api/src/modules/runs/runs.sse.ts` (신규 생성)
 - **작업**: `GET /api/runs/:id/events` 를 `text/event-stream`으로 응답. Redis 채널 `run:<id>` 을 구독해 `run.status`/`step.started`/`step.finished`/`run.finished`/`artifact.ready` 5종 이벤트를 전달. 각 이벤트에 증가하는 `id:` 를 붙이고 **`Last-Event-ID` 헤더로 재연결 시 누락분을 재전송**한다(최근 N건을 Redis List에 버퍼). **모든 이벤트 payload는 `mask.ts`를 통과시킨 뒤 전송한다.** 15초 keep-alive 주석(`:ping`) 전송.
 - **참고**: 02-context "API 스펙 초안" SSE 행, "★ 최종 결정 (c) 파생 영향" — SSE는 마스킹 3경로 중 하나.
 - **완료 기준**: `curl -N localhost:4000/api/runs/<id>/events` 가 `Content-Type: text/event-stream` 헤더와 함께 연결을 유지하고, Redis에 수동 publish한 메시지가 **2초 이내**에 출력된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.3: artifacts 모듈
 - **파일**: `apps/api/src/modules/artifacts/{artifacts.module.ts,artifacts.controller.ts,artifacts.service.ts}` (신규 생성)
 - **작업**: `GET /api/runs/:id/artifacts`(목록), `GET /api/artifacts/:id`(`?download=1`) — `ARTIFACT_ROOT` 아래 `storage_key` 경로 파일을 스트림으로 서빙하고 `Content-Type`·`Content-Disposition` 설정. **경로 순회 방어 필수**(`storage_key`에 `..` 포함 시 거부, resolve 후 `ARTIFACT_ROOT` 접두 검사). API와 Runner가 같은 호스트에서 `ARTIFACT_ROOT` 볼륨을 공유한다는 전제를 README에 기록.
 - **참고**: 02-context "(b) 부가 제약" — 볼륨 공유 전제.
 - **완료 기준**: `ARTIFACT_ROOT`에 테스트 PNG를 두고 artifacts 레코드를 넣으면 `GET /api/artifacts/:id` 가 200 + `image/png`로 파일을 반환한다. `storage_key`를 `../../etc/passwd`로 조작한 레코드는 **400 또는 404**로 거부된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.4: recordings 모듈 — 세션 수명주기
 - **파일**: `apps/api/src/modules/recordings/{recordings.module.ts,recordings.controller.ts,recordings.service.ts}` (신규 생성)
 - **작업**: `POST /api/scenarios/:id/recordings` — `recording_sessions` 레코드 생성 + **단명 세션 토큰 발급**(랜덤 32byte, Redis에 TTL 저장) + `{sessionId, wsUrl, expiresAt, viewport}` 반환. `wsUrl`은 **Runner 직결 주소**(`/rec/:sessionId?token=…`, nginx가 `/rec/`만 Runner로 프록시). `GET /api/recordings/:sessionId`, `POST .../stop`(초안 → 시나리오 스텝 반영), `DELETE`(브라우저 폐기). **API는 WS를 중계하지 않는다** — 프레임마다 홉이 늘면 지연이 배가된다.
 - **참고**: 02-context "구조상 쟁점 1건" 절 전체.
 - **완료 기준**: `POST /api/scenarios/:id/recordings` 응답의 `wsUrl`이 API 포트가 아닌 **`RUNNER_WS_PORT`**를 가리킨다. 발급 토큰이 Redis에 TTL과 함께 저장됨을 `TTL <key>` 로 확인 가능.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.5: suites 모듈
 - **파일**: `apps/api/src/modules/suites/{suites.module.ts,suites.controller.ts,suites.service.ts}` (신규 생성)
 - **작업**: `GET/POST /api/projects/:projectId/suites`, `GET/PATCH/DELETE /api/suites/:id`. `suite_scenarios`의 `sequence`로 순서 관리. 스위트 실행은 Task 5.1의 `POST /api/runs` 에 `suiteId`를 넘기는 경로를 쓴다(별도 엔드포인트 없음).
 - **참고**: 02-context "규약 메모" — 부모 run 없이 `batch_id` 묶음 모델링.
 - **완료 기준**: 시나리오 3건으로 스위트를 만들고 `POST /api/runs {suiteId}` 를 호출하면 **runs 3건이 동일 `batch_id`로 생성**된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.6: dashboard 모듈
 - **파일**: `apps/api/src/modules/dashboard/{dashboard.module.ts,dashboard.controller.ts,dashboard.service.ts}` (신규 생성)
 - **작업**: `GET /api/dashboard/summary` — 지표 4종(`todayRuns`, `successRate`, `automatedScenarios`, `avgDurationMs`)을 `runs`·`scenarios` 집계로 계산. `GET /api/dashboard/readiness` — `{percent, totalScenarios, passing, notices:[{level,message}]}`. notices는 "최근 실행이 실패한 시나리오", "스텝 0개인 시나리오" 등 규칙 기반 생성(시안 amber notice 대응).
 - **참고**: 01-clarify 화면 1 설명, 02-context "API 스펙 초안" 대시보드 절.
 - **완료 기준**: run 데이터를 시드한 뒤 `GET /api/dashboard/summary` 가 4개 키를 모두 포함하고 `successRate`가 실제 passed/total 비율과 일치한다. 응답 p95가 **500ms 이내**.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

@@ -125,6 +125,78 @@ export const CreateRunDtoSchema = z
 export type CreateRunDto = z.infer<typeof CreateRunDtoSchema>;
 export type CreateRunPayload = z.input<typeof CreateRunDtoSchema>;
 
+/**
+ * `POST /api/runs` 가 **실제로 받는 요청 body**.
+ *
+ * `CreateRunDtoSchema` 와 필드 구성은 같지만 `baseUrl` · `envLabel` 이 **선택**이다.
+ * 생략하면 서버가 `projects.base_url` / `projects.default_env_label` 로 채운다
+ * (02-context "★ 사용자 최종 결정" (a) — 프로젝트 값은 기본값, 요청 값이 우선).
+ *
+ * ★ `CreateRunDtoSchema` 는 손대지 않았다. 기본값을 채운 뒤의 형태가 `CreateRunDto` 이고,
+ *   이 스키마는 그 **입력 단계**를 표현한다. runner 로 나가는 큐 페이로드는
+ *   언제나 `baseUrl` · `envLabel` 이 채워진 상태다.
+ */
+export const CreateRunRequestSchema = z
+  .object({
+    scenarioId: z.uuid().optional(),
+    suiteId: z.uuid().optional(),
+    baseUrl: z.url().max(500).optional(),
+    envLabel: z.string().min(1).max(50).optional(),
+    browser: BrowserSchema.default("chromium"),
+    variables: z.record(z.string().min(1).max(100), z.string().max(2000)).default({}),
+    secretKeys: z.array(z.string().min(1).max(100)).default([]),
+  })
+  .superRefine((dto, ctx) => {
+    if (!dto.scenarioId && !dto.suiteId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["scenarioId"],
+        message: "scenarioId 또는 suiteId 중 하나는 반드시 필요합니다.",
+      });
+    }
+    if (dto.scenarioId && dto.suiteId) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["suiteId"],
+        message: "scenarioId 와 suiteId 를 동시에 지정할 수 없습니다.",
+      });
+    }
+  });
+export type CreateRunRequest = z.infer<typeof CreateRunRequestSchema>;
+
+/* ────────────────────────────────────────────────────────────
+ * BullMQ 큐 규약  (api 가 등록하고 runner 가 소비한다)
+ * ──────────────────────────────────────────────────────────── */
+
+/** BullMQ 큐 이름. `BullModule.registerQueue({name: RUN_QUEUE_NAME})` / Worker 양쪽이 쓴다. */
+export const RUN_QUEUE_NAME = "run";
+
+/** 큐에 넣는 job 이름. */
+export const RUN_JOB_NAME = "execute";
+
+/**
+ * 큐 페이로드.
+ *
+ * ★ **`variables` 의 평문은 여기에만 존재한다.** `runs` 테이블에는 컬럼 자체가 없고,
+ *   job 은 완료 후 `removeOnComplete` 로 만료된다 (02-context "★ 최종 결정" (c)).
+ *   Runner 는 이 값을 `{{변수}}` 치환에만 쓰고 DB 나 로그로 흘리지 않는다.
+ */
+export const RunJobDataSchema = z.object({
+  runId: z.uuid(),
+  projectId: z.uuid(),
+  scenarioId: z.uuid().nullable(),
+  suiteId: z.uuid().nullable(),
+  batchId: z.uuid().nullable(),
+  /** 같은 batch 안에서의 실행 순서(`suite_scenarios.sequence`). 단건 실행이면 1. */
+  batchSequence: z.number().int().positive(),
+  baseUrl: z.string().max(500),
+  envLabel: z.string().max(50),
+  browser: BrowserSchema,
+  variables: z.record(z.string(), z.string()),
+  secretKeys: z.array(z.string()),
+});
+export type RunJobData = z.infer<typeof RunJobDataSchema>;
+
 /** 202 Accepted 응답. 실행 진행은 SSE 로만 관찰한다. */
 export const CreateRunResponseSchema = z.object({
   runId: z.uuid(),

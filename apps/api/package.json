@@ -36,6 +36,7 @@
     "@testflow/config-eslint": "workspace:^",
     "@testflow/config-typescript": "workspace:^",
     "@types/compression": "1.8.1",
+    "@types/express": "5.0.6",
     "@types/node": "22.20.3",
     "eslint": "10.10.0",
     "typescript": "6.0.3",

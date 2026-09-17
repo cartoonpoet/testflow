@@ -109,5 +109,14 @@ BullMQ 6 은 ioredis `>=5.0.0` 을 명시 지원하므로 문제 없다.
 
 - **Runner 와 API 는 같은 호스트에 두고 `ARTIFACT_ROOT` 볼륨을 공유한다.**
   증적 저장소가 로컬 디스크이고 API 가 Runner 가 쓴 파일을 서빙하기 때문이다.
+  `ARTIFACT_ROOT` 가 상대 경로면 **레포 루트 기준**으로 해석한다(진입점마다 cwd 가 달라서다).
+  API 는 `storage_key` 를 그대로 fs 경로로 쓰지 않는다 — 형식 검증 + 절대경로 거부 +
+  resolve 후 root 접두 검사 3중으로 막는다(`modules/artifacts/artifacts.path.ts`).
 - 녹화 WebSocket 은 API 를 경유하지 않고 **Runner 직결**이다
   (nginx 에서 `/rec/` 경로만 Runner 로 프록시). API 를 끼우면 프레임마다 홉이 늘어 지연이 배가된다.
+  API 는 세션 토큰만 발급하고 **Redis 에는 `sha256(token)` 만** TTL 10분으로 둔다
+  (`testflow:rec:token:<sessionId>`). Runner 가 그 해시로 검증하고, 세션 종료 시 키를 지우면
+  즉시 접속이 막힌다. nginx 뒤에 두면 `RUNNER_WS_PUBLIC_URL` 을 설정한다.
+- **SSE 이벤트는 `run:<runId>` 채널 + `run:<runId>:events` 버퍼 규약**을 따른다.
+  Runner 가 publish 하고 API 가 중계하며, `Last-Event-ID` 재전송이 버퍼로 동작한다
+  (규약 전문은 `packages/contracts/src/events.ts` 의 `RunEventEnvelopeSchema` JSDoc).

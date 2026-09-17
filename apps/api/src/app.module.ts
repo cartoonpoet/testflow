@@ -9,6 +9,11 @@ import { RedisModule } from "./common/redis/redis.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ScenariosModule } from "./modules/scenarios/scenarios.module.js";
+import { RunsModule } from "./modules/runs/runs.module.js";
+import { ArtifactsModule } from "./modules/artifacts/artifacts.module.js";
+import { RecordingsModule } from "./modules/recordings/recordings.module.js";
+import { SuitesModule } from "./modules/suites/suites.module.js";
+import { DashboardModule } from "./modules/dashboard/dashboard.module.js";
 
 /**
  * 루트 모듈.
@@ -44,13 +49,12 @@ import { ScenariosModule } from "./modules/scenarios/scenarios.module.js";
     ProjectsModule,
     ScenariosModule,
 
-    // ── Gen-Phase 5 에서 추가될 모듈 ───────────────────────
-    //   RunsModule        (Task 5.1 · 5.2 SSE)
-    //   ArtifactsModule   (Task 5.3)
-    //   RecordingsModule  (Task 5.4)
-    //   SuitesModule      (Task 5.5)
-    //   DashboardModule   (Task 5.6)
-    // 아직 만들지 않는다 — 빈 모듈을 미리 두면 "구현된 것처럼" 보인다.
+    // ── 도메인 모듈 (Gen-Phase 5 범위) ─────────────────────
+    RunsModule, //       Task 5.1 실행 요청·큐 등록 + 5.2 SSE
+    ArtifactsModule, //  Task 5.3 증적 목록·스트리밍
+    RecordingsModule, // Task 5.4 녹화 세션 수명주기 (WS 는 Runner 직결)
+    SuitesModule, //     Task 5.5
+    DashboardModule, //  Task 5.6
   ],
 })
 export class AppModule {}

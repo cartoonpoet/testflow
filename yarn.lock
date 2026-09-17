@@ -945,6 +945,7 @@ __metadata:
     "@testflow/contracts": "workspace:^"
     "@testflow/db": "workspace:^"
     "@types/compression": "npm:1.8.1"
+    "@types/express": "npm:5.0.6"
     "@types/node": "npm:22.20.3"
     bullmq: "npm:6.3.6"
     class-transformer: "npm:0.5.1"
@@ -1204,7 +1205,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/express@npm:*":
+"@types/express@npm:*, @types/express@npm:5.0.6":
   version: 5.0.6
   resolution: "@types/express@npm:5.0.6"
   dependencies:
