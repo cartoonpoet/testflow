@@ -39,7 +39,7 @@ import type { ConfigModuleOptions } from "@nestjs/config";
 /**
  * 레포 루트 `.env` 의 절대 경로.
  *
- * ★ `process.cwd()` 를 쓰지 않는다 — `yarn workspace @testflow/api dev` 와
+ * ★ `process.cwd()` 를 쓰지 않는다 — `pnpm --filter @testflow/api dev` 와
  *   `node apps/api/dist/main.js` 의 cwd 가 서로 달라 `.env` 를 놓친다.
  *   컴파일 후 위치(`apps/api/dist/common/config/env.js`)와 소스 위치
  *   (`apps/api/src/common/config/env.ts`) 의 깊이가 같아 같은 상대 경로가 성립한다.

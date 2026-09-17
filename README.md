@@ -102,20 +102,20 @@ packages/
 ### 0) 사전 준비
 
 ```bash
-corepack enable                # yarn 4 활성화
+corepack enable                # pnpm 10 활성화
 git clone <repo> && cd testflow
 ```
 
 ### 1) 의존성
 
 ```bash
-yarn install
+pnpm install
 ```
 
 Playwright 브라우저가 없으면 한 번 받는다:
 
 ```bash
-yarn workspace @testflow/runner exec playwright install chromium
+pnpm --filter @testflow/runner exec playwright install chromium
 ```
 
 ### 2) 환경변수
@@ -136,8 +136,8 @@ docker compose ps           # mysql · redis 둘 다 healthy 가 될 때까지 �
 ### 4) 빌드 → 마이그레이션
 
 ```bash
-yarn build                  # contracts → db → api/runner/web 순 (turbo 가 순서를 안다)
-yarn db:migrate             # 테이블 9개 + 기본 프로젝트 1건 시드 + 인덱스
+pnpm build                  # contracts → db → api/runner/web 순 (turbo 가 순서를 안다)
+pnpm db:migrate             # 테이블 9개 + 기본 프로젝트 1건 시드 + 인덱스
 ```
 
 `db:migrate` 가 회사 DB 를 가리켜 실패하면 → [회사 env 오염 주의](#️-회사-env-오염-주의--가장-많이-걸리는-함정)
@@ -146,16 +146,17 @@ yarn db:migrate             # 테이블 9개 + 기본 프로젝트 1건 시드 +
 
 ```bash
 # 터미널 1 — API
-yarn workspace @testflow/api start          # http://localhost:4000/api
+pnpm --filter @testflow/api exec node --env-file-if-exists=../../.env dist/main.js   # http://localhost:4000/api
 
 # 터미널 2 — Runner (실행 워커 + 녹화 WS)
-yarn workspace @testflow/runner start       # ws://localhost:4100/rec
+pnpm --filter @testflow/runner start       # ws://localhost:4100/rec
 
 # 터미널 3 — 웹
-yarn workspace @testflow/web dev            # http://localhost:5173
+pnpm --filter @testflow/web dev            # http://localhost:5173
 ```
 
-개발 중 자동 재시작이 필요하면 `start` 대신 `dev` 를 쓴다(`yarn dev` 로 turbo 가 셋을 동시에 띄울 수도 있다).
+개발 중 자동 재시작이 필요하면 `dev` 를 쓴다(`pnpm dev` 로 turbo 가 셋을 동시에 띄울 수도 있다).
+※ `@testflow/api` 에는 `start` 스크립트가 없다 — 위처럼 컴파일된 `dist/main.js` 를 직접 띄우거나 `dev` 를 쓴다.
 
 ### 6) 살아 있는지 확인
 
@@ -195,10 +196,10 @@ curl localhost:4000/api/health
 ### 검증 명령
 
 ```bash
-yarn typecheck    # 7 workspaces
-yarn lint         # 7 workspaces
-yarn test         # contracts 22 · web 52 · runner 75 · api 93 = 242
-yarn build        # 5 workspaces
+pnpm typecheck    # 7 workspaces
+pnpm lint         # 7 workspaces
+pnpm test         # contracts 22 · web 52 · runner 75 · api 93 = 242
+pnpm build        # 5 workspaces
 ```
 
 ---
@@ -216,7 +217,7 @@ Node 의 `--env-file` 은 **이미 존재하는 환경변수를 덮어쓰지 않
 대상이 로컬(`127.0.0.1`/`localhost`)이 아니면 **실행을 거부한다.** 걸리면 지우고 다시 실행한다:
 
 ```bash
-env -u DB_HOST -u DB_USER -u DB_PW -u DB_PORT -u DB_NAME yarn db:migrate
+env -u DB_HOST -u DB_USER -u DB_PW -u DB_PORT -u DB_NAME pnpm db:migrate
 ```
 
 API·Runner 도 같은 이유로 엉뚱한 DB 에 붙을 수 있다. 기동 로그의
@@ -476,15 +477,28 @@ Runner 가 publish 하고 API 가 중계하며 `Last-Event-ID` 재전송이 그 
 | TypeORM | 1.1.1 | `synchronize:false`, 마이그레이션 **명시 배열 등록**(glob 금지) |
 | Playwright | 1.63.0 | `page.screencast` 사용 |
 | React / Vite / Tailwind | 19.3.0 / 8.3.0 / 4.3.3 | Tailwind 는 `@theme` 토큰. **인라인 CSS · HEX 하드코딩 금지** |
-| 패키지 매니저 | yarn 4.18 (node-modules linker) | PnP 아님 — Playwright/Nest 런타임 호환 |
+| 패키지 매니저 | pnpm 10.32.1 (isolated/symlink) | 기존 모노레포(ERDify) 관례. `.npmrc` 의 `minimum-release-age=1440` 로 공급망 검역 |
 | 테스트 | vitest 5.0.1 | WSL 에서 jest 네이티브 바인딩 문제 회피 |
+
+### 패키지 매니저 — pnpm (공급망 검역 포함)
+
+`.npmrc` 의 **`minimum-release-age=1440`** 은 **배포 후 24시간이 지나지 않은 버전을 설치하지 않는다.**
+npm 계정 탈취로 악성 버전이 올라왔다가 몇 시간 안에 내려가는 유형의 공격을 막기 위한 장치다.
+yarn 시절의 `npmMinimalAgeGate: 1440` 을 **동등하게 옮긴 것이며, 방어가 약해지지 않았다**
+(pnpm 10.16+ 지원, 본 레포는 10.32.1).
+
+특정 패키지만 예외로 빼야 하면 `.npmrc` 에 `minimum-release-age-exclude=<패키지명>` 을 추가한다.
+
+> **node_modules 는 pnpm 기본값인 isolated(symlink) 구조다.** `shamefully-hoist` 를 쓰지 않는다 —
+> 선언하지 않은 패키지를 import 하면(phantom dependency) **설치 구조가 아니라 코드를 고친다.**
+> 해당 워크스페이스의 `package.json` 에 명시적 의존으로 추가하는 것이 정답이다.
 
 ### DB (`packages/db`)
 
 ```bash
-yarn build                 # contracts → db 순으로 빌드 (마이그레이션은 컴파일된 JS 로 돈다)
-yarn db:migrate            # 마이그레이션 실행
-yarn db:revert             # 마지막 1건 되돌리기
+pnpm build                 # contracts → db 순으로 빌드 (마이그레이션은 컴파일된 JS 로 돈다)
+pnpm db:migrate            # 마이그레이션 실행
+pnpm db:revert             # 마지막 1건 되돌리기
 ```
 
 테이블은 **9개**다 — `projects` / `scenarios` / `test_steps` / `suites` / `suite_scenarios` /
@@ -526,7 +540,7 @@ BullMQ 6 은 ioredis `>=5.0.0` 을 명시 지원하므로 문제 없다.
 
 | 증상 | 원인 / 해결 |
 |---|---|
-| `db:migrate` 가 "로컬이 아닙니다" 로 거부 | 셸의 회사 `DB_HOST` 가 `.env` 를 덮었다. `env -u DB_HOST -u DB_USER -u DB_PW -u DB_PORT -u DB_NAME yarn db:migrate` |
+| `db:migrate` 가 "로컬이 아닙니다" 로 거부 | 셸의 회사 `DB_HOST` 가 `.env` 를 덮었다. `env -u DB_HOST -u DB_USER -u DB_PW -u DB_PORT -u DB_NAME pnpm db:migrate` |
 | `health` 의 `runner` 가 `down` | Runner 프로세스가 없다. 실행 요청은 `queued` 로 쌓이고 Runner 를 띄우면 자동으로 이어진다 |
 | 녹화 시작 버튼이 비활성 | 같은 이유(Runner heartbeat 없음). 모달/패널에 안내가 뜬다 |
 | 녹화 WS 가 close code **4401** | 세션 토큰이 틀렸거나 만료(TTL 10분). 세션을 다시 만든다 |

@@ -13,7 +13,7 @@
  *
  * ## 실행
  * ```
- * yarn workspace @testflow/runner build:poc
+ * pnpm --filter @testflow/runner build:poc
  * node dist-poc/poc/poc2-ime.js            # 결과 JSON 을 stdout 으로
  * node dist-poc/poc/poc2-ime.js --headed   # 눈으로 확인
  * ```

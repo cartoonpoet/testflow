@@ -12,7 +12,7 @@
  *      캔버스 위 CSS 좌표를 계산해 **실제 마우스 이벤트**를 쏘고, 원격 페이지에서 어떤 버튼이
  *      눌렸는지 확인한다. 빗나간 경우 착지 좌표를 함께 남겨 오차(px)를 뽑는다.
  *
- * 재현: yarn workspace @testflow/runner poc:measure
+ * 재현: pnpm --filter @testflow/runner poc:measure
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";

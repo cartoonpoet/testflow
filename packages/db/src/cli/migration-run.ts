@@ -5,7 +5,7 @@ import { assertLocalDatabase } from "./guard.js";
  * 마이그레이션 실행.
  *
  * ★ **컴파일된 JS 로 돌린다** (`typeorm-ts-node-esm` 아님).
- *   `yarn build` 후 `yarn workspace @testflow/db migration:run`.
+ *   `pnpm build` 후 `pnpm --filter @testflow/db migration:run`.
  */
 assertLocalDatabase();
 

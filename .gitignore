@@ -30,20 +30,14 @@ blob-report/
 # 테스트 커버리지
 coverage/
 
-# yarn (node-modules linker)
-.yarn/*
-!.yarn/patches
-!.yarn/releases
-!.yarn/plugins
-!.yarn/versions
-.pnp.*
-.yarn/install-state.gz
+# pnpm
+# ★ pnpm-lock.yaml 은 커밋한다(무시 목록에 넣지 말 것).
+.pnpm-store/
+.pnpm-debug.log*
 
 # 로그
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # 에디터 / OS
 .vscode/*

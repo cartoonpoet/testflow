@@ -27,14 +27,14 @@
     "migration:show": "node --env-file-if-exists=../../.env dist/cli/migration-show.js"
   },
   "dependencies": {
-    "@testflow/contracts": "workspace:^",
+    "@testflow/contracts": "workspace:*",
     "mysql2": "3.24.4",
     "reflect-metadata": "0.2.2",
     "typeorm": "1.1.1"
   },
   "devDependencies": {
-    "@testflow/config-eslint": "workspace:^",
-    "@testflow/config-typescript": "workspace:^",
+    "@testflow/config-eslint": "workspace:*",
+    "@testflow/config-typescript": "workspace:*",
     "@types/node": "22.20.3",
     "eslint": "10.10.0",
     "typescript": "6.0.3",
