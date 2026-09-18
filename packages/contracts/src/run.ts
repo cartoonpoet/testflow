@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ActionTypeSchema } from "./step.js";
+import { ActionTypeSchema, SECRET_MASK } from "./step.js";
 import { ScenarioSourceTypeSchema } from "./scenario.js";
 import { ArtifactTypeSchema, StorageKeySchema } from "./storage.js";
 
@@ -56,6 +56,33 @@ export function isSecretVariableKey(key: string, secretKeys: readonly string[] =
 
 /** 저장용 마스크. 화면 표시용 `••••••••` 와 구분한다. */
 export const STORED_SECRET_PLACEHOLDER = "***";
+
+/**
+ * ★ **자유 텍스트** 안의 `키=값` 모양 비밀값을 가린다 (프로세스 레벨 예외 로그용).
+ *
+ * ## 기존 마스킹으로는 왜 안 되는가
+ * 값 기반 마스킹(`apps/api` 의 `maskErrorMessage` · Runner 의 `maskSecretText`)은
+ * **그 run 의 평문 값 목록을 알고 있을 때만** 동작한다. 그런데
+ * `unhandledRejection` / `uncaughtException` 핸들러는 **어느 run 의 예외인지 알 수 없는
+ * 지점**이라 값 목록이 언제나 빈 배열이다 — 즉 그 경로에서는 아무것도 가려지지 않는다.
+ * 키 기반 마스킹은 객체의 **키**를 보는 것이라 문자열 한 줄에는 걸리지 않는다.
+ *
+ * 그 틈을 메우는 최소한의 방어다. 문자열에서 `password=…` · `"token":"…"` ·
+ * `Authorization: Bearer …` 같은 **모양**을 찾아 값만 지운다.
+ *
+ * ★ 이것은 **보조 방어선이지 대체재가 아니다.** 키 이름이 없는 비밀값
+ * (Playwright 가 `input[value='hunter2']` 로 뱉는 것)은 여기서 잡히지 않는다 —
+ * 그건 값 목록을 아는 경로(SSE·DB 저장)가 잡는다. 그래서 **프로세스 레벨 로그에는
+ * 스택을 찍지 않는다**(`process-guards.ts` 주석).
+ */
+const SECRET_TEXT_PATTERN =
+  /(password|passwd|pwd|secret|token|credential|authorization|api[-_]?key|private[-_]?key)(["']?\s*[:=]\s*)(["']?)((?:Bearer\s+)?[^"'\s,;}&]+)/gi;
+
+export function maskSecretsInText(text: string, mask: string = SECRET_MASK): string {
+  return text.replace(SECRET_TEXT_PATTERN, (_match, key: string, sep: string, quote: string) =>
+    `${key}${sep}${quote}${mask}`,
+  );
+}
 
 /**
  * `runs` 테이블에 변수를 남겨야 할 때 쓰는 변환.

@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Worker } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import type { Job } from "bullmq";
 import { Redis } from "ioredis";
 import { DataSource } from "typeorm";
@@ -9,17 +9,20 @@ import {
   RUNNER_HEARTBEAT_TTL_SEC,
   RunJobDataSchema,
   collectSecretValues,
+  isTerminalRunStatus,
+  maskSecretsInText,
   runCancelChannel,
   runnerCapacityKey,
   runnerHeartbeatKey,
 } from "@testflow/contracts";
 import type { RunJobData } from "@testflow/contracts";
-import { createDataSourceOptions } from "@testflow/db";
+import { RunEntity, createDataSourceOptions } from "@testflow/db";
 import { RunAbortHandle, executeRun } from "./execute/executor.js";
 import { LiveStreamRegistry } from "./execute/live-stream.js";
 import { maskSecretText } from "./mask.js";
 import { loadConfig } from "./env.js";
 import type { RunnerConfig } from "./env.js";
+import { reclaimOwnOrphanRuns } from "./reclaim.js";
 import { startRecordingWsServer } from "./record/ws-server.js";
 
 /**
@@ -81,6 +84,31 @@ async function main(): Promise<void> {
   await startCancelListener(subscriber);
 
   /**
+   * 큐 **쓰기용** 핸들. Worker 와 달리 job 을 *읽고 지우는* 데만 쓴다 —
+   * 고아 run 회수가 재배달 대상 job 을 치워야 하기 때문이다(`reclaim.ts` 주석).
+   */
+  const queue = new Queue<RunJobData>(RUN_QUEUE_NAME, {
+    connection: { host: config.redis.host, port: config.redis.port },
+  });
+
+  /*
+   * ★ 내 이전 생이 남긴 고아 run 정리. **Worker 를 만들기 전에** 한다 —
+   *   Worker 가 먼저 돌면 재배달된 job 을 집어 들어 같은 run 이 다시 `running` 이 된다.
+   *   실패해도 기동을 막지 않는다(정리는 API 쪽 회수 장치가 한 번 더 받친다).
+   */
+  const reclaimed = await reclaimOwnOrphanRuns({
+    dataSource,
+    redis,
+    queue,
+    runnerId: config.runnerId,
+    log,
+  }).catch((error: unknown) => {
+    log(`고아 실행 정리 실패(무시하고 계속): ${maskSecretsInText(String(error))}`);
+    return 0;
+  });
+  if (reclaimed > 0) log(`고아 실행 ${String(reclaimed)}건을 error 로 확정했다.`);
+
+  /**
    * ★ 실행 라이브 스트림 레지스트리 (라운드 2 Task 4.4).
    *
    * **BullMQ Worker(프레임 생산)와 WS 서버(프레임 소비)가 이 객체 하나로 만난다.**
@@ -110,6 +138,34 @@ async function main(): Promise<void> {
       }
       // ★ 큐 페이로드도 계약으로 검증한다. API 가 바뀌어 형태가 어긋나면 여기서 잡힌다.
       const data = RunJobDataSchema.parse(job.data);
+
+      /**
+       * ★★ **재배달 방어** — 이미 끝난 run 을 다시 실행하지 않는다. (실측으로 발견했다)
+       *
+       * Worker 가 죽으면 그 job 은 lock 이 만료된 뒤 BullMQ 에 의해 **stalled 로 재배달**된다.
+       * 그 사이 고아 회수 장치(`StaleRunReaper` · `reclaim.ts`)가 run 을 `error` 로 확정했다면,
+       * 재배달된 job 이 **끝난 run 을 되살려 `running` → `passed` 로 되돌린다.**
+       * 상태가 뒤로 가는 것은 04-gen-5 이슈 4번과 같은 부류의 최악이다.
+       *
+       * 회수 쪽에서 `job.remove()` 를 부르지만 **그것만으로는 못 막는다** — BullMQ 는
+       * **lock 이 걸린 active job 의 삭제를 거부한다.** 실제로 회수 직후 Runner 를 다시 띄웠더니
+       * 이미 `error` 로 확정하고 **행까지 지운** run 2건을 그대로 집어 들었다(실측 로그).
+       * 그래서 진짜 방어선은 여기, **실행 직전의 DB 한 줄**이다.
+       *
+       * 행이 아예 없는 경우(사용자가 삭제)도 같이 막는다 — 그대로 진행하면 `step_results`
+       * INSERT 가 FK 위반으로 터진다.
+       */
+      const current = await dataSource
+        .getRepository(RunEntity)
+        .findOne({ where: { id: data.runId } });
+      if (!current) {
+        log(`run ${data.runId} 행이 없다(삭제됨) — 재배달된 job 을 버린다.`);
+        return;
+      }
+      if (isTerminalRunStatus(current.status)) {
+        log(`run ${current.runCode} 은 이미 ${current.status} 다 — 재배달된 job 을 버린다.`);
+        return;
+      }
 
       const abort = new RunAbortHandle();
       inFlight.set(data.runId, abort);
@@ -169,11 +225,12 @@ async function main(): Promise<void> {
       `recorderPort=${String(recorder.port)}`,
   );
 
-  setupShutdown(async () => {
+  const terminate = setupShutdown(async () => {
     log("종료 신호 수신 — 진행 중인 실행을 마치고 정리합니다.");
     await worker.close();
     liveStreams.closeAll();
     await recorder.close().catch(() => undefined);
+    await queue.close().catch(() => undefined);
     await recordingSubscriber.quit().catch(() => undefined);
     await subscriber.quit().catch(() => undefined);
     await redis
@@ -183,6 +240,60 @@ async function main(): Promise<void> {
     await queueConnection.quit().catch(() => undefined);
     await dataSource.destroy().catch(() => undefined);
     log("정리 완료.");
+  });
+
+  /**
+   * ★ 프로세스 레벨 예외 핸들러 — **기존 종료 경로를 그대로 탄다.**
+   *
+   * 새 종료 절차를 만들지 않는 이유가 핵심이다. `worker.close()` 는 진행 중인 실행이
+   * 끝나기를 기다리고, 그 안에서 중단이 걸리면 #13 이 만든 **graceful 종료
+   * (`RUNNER_GRACEFUL_STOP_MS`, 기본 10초)** 가 돌아 Playwright 가 영상·trace 를 완성한다.
+   * 여기서 `process.exit(1)` 을 바로 불렀다면 그 증적이 통째로 사라진다 —
+   * "실행이 왜 죽었는지"를 보려는 사람에게서 유일한 단서를 빼앗는 셈이다.
+   */
+  installProcessGuards(terminate, config);
+}
+
+/**
+ * `unhandledRejection` · `uncaughtException` → **로그를 남기고 graceful 종료.**
+ *
+ * ## 왜 잡고 계속 돌지 않는가
+ * Runner 의 상태는 프로세스 밖으로 뻗어 있다 — Playwright 브라우저·docker 컨테이너·
+ * 임시 작업공간·BullMQ job lock. `uncaughtException` 이 터진 시점은 그중 어디가 끊겼는지
+ * 알 수 없는 지점이고, 그 상태로 다음 job 을 받으면 **증적이 섞이거나 컨테이너가 누수된다.**
+ * 종료를 택하면 손실은 그 순간의 실행 하나로 끝나고, 그 실행조차
+ *  ① `worker.close()` 의 graceful 경로로 증적을 남기고,
+ *  ② 그래도 못 끝내면 **API 의 `StaleRunReaper` 가 heartbeat 부재로 회수**한다
+ *     (이번 작업의 세 갈래가 여기서 맞물린다).
+ * 그다음 프로세스 관리자가 깨끗한 Runner 를 다시 띄우고, 그 Runner 는 기동하면서
+ * 자기 이름의 고아 run 을 정리한다(`reclaim.ts`).
+ *
+ * ## 로그에 비밀값을 남기지 않는다
+ * `job.data.variables` 는 **평문 변수가 존재하는 유일한 장소**이고, 그 값은 Playwright
+ * 예외 메시지에 그대로 실려 나온다. 어느 run 의 값인지 알 수 없는 지점이라 값 기반
+ * 마스킹을 걸 수 없으므로 **키 기반 마스킹(`maskSecretText`)만** 걸고 스택은 찍지 않는다 —
+ * 스택 프레임에 인자를 싣는 라이브러리가 있어 "가려지지 않은 평문"의 마지막 경로가 된다.
+ */
+function installProcessGuards(
+  terminate: (reason: string, code: number) => void,
+  config: RunnerConfig,
+): void {
+  // graceful 증적 flush 를 기다린 뒤에도 안 죽으면 강제 종료한다.
+  const forceAfterMs = config.gracefulStopMs + 20_000;
+
+  const fatal = (kind: string, error: unknown): void => {
+    const message = error instanceof Error ? error.message : String(error);
+    log(`${kind}: ${maskSecretsInText(maskSecretText(message.split("\n")[0] ?? message))}`);
+    const force = setTimeout(() => process.exit(1), forceAfterMs);
+    force.unref();
+    terminate(kind, 1);
+  };
+
+  process.on("unhandledRejection", (reason: unknown) => {
+    fatal("처리되지 않은 Promise rejection", reason);
+  });
+  process.on("uncaughtException", (error: Error) => {
+    fatal("처리되지 않은 예외", error);
   });
 }
 
@@ -234,19 +345,24 @@ async function startCancelListener(subscriber: Redis): Promise<void> {
   log("취소 채널 구독 — run:*:cancel");
 }
 
-function setupShutdown(cleanup: () => Promise<void>): void {
+/**
+ * 종료 경로를 **하나로** 만든다. 반환값(`terminate`)을 신호 핸들러와 예외 핸들러가 같이 쓴다 —
+ * 종료 절차가 두 벌이 되면 "신호로 죽을 때는 증적이 남고 예외로 죽을 때는 안 남는" 상태가 된다.
+ */
+function setupShutdown(cleanup: () => Promise<void>): (reason: string, code: number) => void {
   let closing = false;
-  const handler = (signal: string): void => {
+  const terminate = (reason: string, code: number): void => {
     if (closing) return;
     closing = true;
-    log(`${signal} 수신`);
+    log(`${reason} — 종료 절차 시작`);
     void cleanup().then(
-      () => process.exit(0),
+      () => process.exit(code),
       () => process.exit(1),
     );
   };
-  process.on("SIGINT", () => handler("SIGINT"));
-  process.on("SIGTERM", () => handler("SIGTERM"));
+  process.on("SIGINT", () => terminate("SIGINT 수신", 0));
+  process.on("SIGTERM", () => terminate("SIGTERM 수신", 0));
+  return terminate;
 }
 
 main().catch((error: unknown) => {

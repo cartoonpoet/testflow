@@ -5,6 +5,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import compression from "compression";
 import { MAX_ATTACHMENT_BYTES, MAX_SCENARIO_CODE_BYTES } from "@testflow/contracts";
 import { AppModule } from "./app.module.js";
+import { installProcessGuards } from "./common/process-guards.js";
 
 /**
  * NestJS 부트스트랩 (ERDify 규약 이식 — 02-context "부트스트랩").
@@ -22,6 +23,16 @@ import { AppModule } from "./app.module.js";
  *   규약 전문은 `src/common/config/env.ts` 상단 주석 참조.
  */
 const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+/**
+ * ★ 프로세스 레벨 예외 핸들러 — `listen()` **전에** 건다.
+ *
+ * 부팅 도중(마이그레이션 확인·Redis 연결) 터지는 rejection 도 같은 경로로 잡아야
+ * "왜 안 뜨는지 모르겠다"가 되지 않는다. 종료 절차는 `app.close()` 하나로,
+ * `enableShutdownHooks()` 가 거는 것과 같은 정리 경로다.
+ * 왜 계속 돌지 않고 종료하는지는 `common/process-guards.ts` 상단 주석에 있다.
+ */
+installProcessGuards({ shutdown: () => app.close() });
 
 app.use(compression());
 
