@@ -6,4 +6,6 @@
  */
 export * from "./LiveCanvas";
 export * from "./LiveStage";
+export * from "./step-time";
 export * from "./useExpand";
+export * from "./useStepSync";

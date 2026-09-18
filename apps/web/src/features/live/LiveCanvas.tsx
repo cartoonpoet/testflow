@@ -43,6 +43,14 @@ export type LiveCanvasProps = {
    * 있었을 때만 true 다(실행 중에 끝난 경우는 false — 마지막 프레임을 지키기 위해서).
    */
   autoVideo?: boolean;
+  /**
+   * ★ 라운드 5 — `<video>` 엘리먼트를 바깥에 알려 주는 콜백 ref.
+   *
+   * 스텝 목록은 이 무대의 **형제**(`RunDetail` 이 공통 부모)라 시간축을 읽으려면
+   * 엘리먼트가 위로 올라가야 한다. `useState` 를 담은 콜백 ref 라 영상 모드를
+   * 껐다 켤 때마다 `null` → 엘리먼트로 정확히 갱신된다(`useStepSync` 참조).
+   */
+  videoRef?: (element: HTMLVideoElement | null) => void;
   /** 프레임이 한 장도 없을 때 대신 그릴 것 — 실패 스크린샷 또는 중립 안내. */
   fallback: React.ReactNode;
   /**
@@ -62,6 +70,7 @@ export function LiveCanvas({
   enabled,
   videoUrl,
   autoVideo = false,
+  videoRef,
   fallback,
   topRight,
   footer,
@@ -123,6 +132,7 @@ export function LiveCanvas({
       */}
       {watching ? (
         <video
+          ref={videoRef}
           data-testid="live-video"
           data-slot="live-video"
           src={videoUrl}
@@ -196,11 +206,21 @@ export function LiveCanvas({
       {/*
         확대 모드에서만 오는 진행 스트립. **레이아웃 높이를 먹지 않게** 겹친다 —
         높이를 먹으면 16:10 무대의 폭 계산(`tf-live-stage-expanded`)이 그만큼 줄어든다.
+
+        ★ 라운드 5 — **영상 모드에서도 띄운다.** 확대하면 스텝 목록이 화면 밖으로
+          나가는데, 영상만 보이고 "지금 몇 번째 스텝인지"가 사라지면 확대 모드에서만
+          동기화가 끊기는 꼴이다. 다만 바닥에는 `<video controls>` 의 재생 바가 있으므로
+          그 위(`bottom-[56px]`)로 올린다 — 겹치면 재생 바를 못 누른다. 값은 Chromium
+          기본 컨트롤 높이(약 40px)에 그 위로 깔리는 그라데이션 여유를 더한 실측값이다.
       */}
-      {footer == null || watching ? null : (
+      {footer == null ? null : (
         <div
           data-slot="live-footer"
-          className="absolute inset-x-0 bottom-0 bg-live-strip px-[14px] py-[9px] text-white"
+          data-over-video={watching ? "true" : "false"}
+          className={cn(
+            "absolute inset-x-0 bg-live-strip px-[14px] py-[9px] text-white",
+            watching ? "bottom-[56px]" : "bottom-0",
+          )}
         >
           {footer}
         </div>
