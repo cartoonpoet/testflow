@@ -20,6 +20,33 @@ export default defineConfig({
     },
   },
   /**
+   * ★ React 런타임을 **고정 청크**로 분리한다 (라운드 3).
+   *
+   * 그 전까지는 rolldown 의 자동 분할에 맡겼다. 자동 분할은 "이 모듈에 도달하는
+   * 엔트리·동적청크의 집합"으로 묶는데, **동적 import 를 하나 더 만들면 그 집합이
+   * 통째로 재편된다.** 실제로 코드 에디터를 `lazy()` 로 쪼갠 순간 기존 공용 청크
+   * (`useProject-*.js` 330KB)가 엔트리에 흡수돼 엔트리가 515KB 가 됐고,
+   * **초기 로드 총량은 그대로인데 `vite build` 의 500KB 경고만 새로 떴다.**
+   *
+   * React 는 화면과 무관하게 항상 받는 것이고 버전도 거의 안 바뀐다. 자동 분할의
+   * 우연에 맡기지 말고 여기에 못박는다 — 경고가 사라지고 캐시 수명도 길어진다.
+   *
+   * **범위를 react 계열로 좁힌 이유**: `node_modules` 전체를 한 그룹으로 묶으면
+   * CodeMirror(420KB)까지 초기 로드 청크로 끌려 들어온다. 그러면 이번 작업의 전제가
+   * 깨진다. 반드시 좁게 유지할 것.
+   */
+  build: {
+    rollupOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: "vendor-react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
+  /**
    * `/api` 프록시.
    *
    * `lib/api.ts` 의 베이스는 `/api` 이고 **동일 오리진**을 전제한다(사내 단일 서버 배포에서

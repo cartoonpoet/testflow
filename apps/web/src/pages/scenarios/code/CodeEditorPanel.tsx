@@ -1,34 +1,37 @@
-import { useRef } from "react";
-import type * as React from "react";
+import { Suspense, lazy, useRef } from "react";
 import { cn } from "cn";
 import { scenarioCodeByteLength, type CodeValidationIssue } from "@testflow/contracts";
+import { Skeleton } from "@/components/ui";
+import type { CodeMirrorHandle } from "@/features/codeEditor/CodeMirrorEditor";
 
 /**
- * 코드 에디터 (Task 5.2).
+ * 코드 에디터 (Task 5.2 · 라운드 3에서 CodeMirror 6 으로 교체).
  *
- * ## ★ `textarea` 다. CodeMirror/Monaco 를 넣지 않았다 (03-phases 쟁점 6)
- * - **번들**: CodeMirror 6 최소 구성도 수백 KB 대다. 이 화면은 lazy 청크라 초기 로드를
- *   직접 깨지는 않지만, **그 청크를 여는 순간 체감이 생긴다.**
- * - **토큰 규율**: 라운드 1은 HEX 하드코딩 **0건**이다. CodeMirror 테마는 JS 객체 안의 HEX 라
- *   CSS 변수 → 테마 객체 변환 계층을 또 만들어야 한다. 얻는 것은 색칠 하나다.
- * - **의존성 정책**: `.npmrc` 의 `minimum-release-age=1440` 을 통과해야 하고,
- *   라운드 1이 끝까지 지킨 "런타임 의존성 추가 없음" 기조를 깬다.
- * - 라운드 2의 가치는 **실행과 라이브 스트리밍**에 있다. 에디터 광택이 아니다.
+ * ## ★ `textarea` → CodeMirror 6 (03-phases 쟁점 6 의 "승급 조건" 발동)
+ * 쟁점 6 은 세 가지 이유로 에디터를 기각했다. 그 셋을 전부 해결하고 들어왔다.
  *
- * **대신 하는 것**: 모노 폰트 토큰 · `spellCheck=false` · `Tab` 들여쓰기 ·
- * 줄 수 표시 · 검증 오류의 줄 번호 표시.
+ * 1. **번들** — CodeMirror 를 이 파일에 **정적으로 import 하지 않는다.**
+ *    `lazy(() => import(...))` 로 별도 청크에 가둔다. 코드 화면은 원래도 라우트 lazy
+ *    청크였는데(routes.tsx), 거기에 얹으면 화면을 여는 순간 전부 받아야 한다.
+ *    한 겹 더 쪼개서 **에디터를 그리는 시점**에 받게 했다. 초기 로드 청크는 그대로다.
+ *    (청크별 before/after 수치는 `.pipeline/20260917-231945/08-code-editor.md`)
+ * 2. **테마 토큰** — 색을 컴포넌트에 적지 않는다. CodeMirror 테마 객체는 값으로
+ *    `var(--color-…)` **문자열만** 쓰고, 색의 정의는 `globals.css` 의 `@theme static`
+ *    한 곳에 남는다(`features/codeEditor/theme.ts`). HEX 리터럴 0건 규율 유지.
+ * 3. **의존성** — `.npmrc` 의 `minimum-release-age=1440` 을 끄지 않았다. 채택 버전은
+ *    전부 24시간을 넘긴 안정판이고 `apps/web/package.json` 에 **명시적으로** 올렸다.
  *
- * **승급 조건(기록)**: 사용자가 "편집이 불편하다"를 실제로 말하면, 이미 lazy 인 이 청크
- * 안에서만 CodeMirror 를 도입하고 초기 로드 델타를 측정해 보고한다.
+ * ## 이 파일이 갖는 것 / 넘긴 것
+ * 패널 껍데기(제목 · 줄 수 · 바이트 수)와 **검증 목록**은 여기 남는다 — CodeMirror 와
+ * 무관하고, 에디터 청크를 받기 전에도 보여야 한다. 에디터 본체와 그 생명주기는
+ * `features/codeEditor` 로 넘겼다.
  *
  * ## 검증은 재구현하지 않는다
- * `validateScenarioCode()`(contracts) 를 **그대로** 부른다. 웹과 API 가 같은 함수를 타야
- * 규칙이 어긋나는 순간 한쪽이 조용히 뚫리는 일이 없다(03-phases 쟁점 5).
+ * `validateScenarioCode()`(contracts) 를 **그대로** 부른다(부르는 곳은 `index.tsx`).
  * 이 컴포넌트는 그 결과(`issues`)를 받아 **표시만** 한다.
  */
 
-/** `Tab` 한 번이 넣는 공백. 대상이 codegen 산출물(2칸)이라 2칸으로 맞춘다. */
-const INDENT = "  ";
+const CodeMirrorEditor = lazy(() => import("@/features/codeEditor/CodeMirrorEditor"));
 
 export type CodeEditorPanelProps = {
   value: string;
@@ -44,51 +47,9 @@ export function CodeEditorPanel({
   issues,
   disabled = false,
 }: CodeEditorPanelProps) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const gutterRef = useRef<HTMLDivElement | null>(null);
+  const editor = useRef<CodeMirrorHandle | null>(null);
 
   const lines = value === "" ? 1 : value.split("\n").length;
-  /** 오류가 있는 줄 — 거터에서 붉게 표시한다. */
-  const errorLines = new Set(
-    issues.filter((issue) => issue.severity === "error").map((issue) => issue.line),
-  );
-
-  /**
-   * ★ `Tab` 을 들여쓰기로 만든다.
-   *
-   * `setRangeText` 로 **DOM 값을 먼저 바꾼 뒤** 그 값을 그대로 위로 올린다.
-   * 그러면 React 가 커밋할 때 DOM 값이 이미 같아 다시 쓰지 않고, **캐럿이 유지된다.**
-   * (state 만 바꾸면 React 가 value 를 다시 써서 캐럿이 끝으로 튄다.)
-   *
-   * 접근성: `Tab` 을 가로채면 키보드로 이 필드를 벗어날 수 없다. 그래서
-   * **`Escape` → `Tab`** 순서로 빠져나갈 수 있게 blur 를 남겨 뒀다(아래 `onKeyDown`).
-   */
-  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const target = event.currentTarget;
-
-    if (event.key === "Escape") {
-      target.blur();
-      return;
-    }
-    if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey) return;
-
-    event.preventDefault();
-    const { selectionStart, selectionEnd } = target;
-
-    if (event.shiftKey) {
-      // 내어쓰기 — 캐럿이 있는 줄 머리의 공백을 최대 INDENT 만큼 지운다.
-      const lineStart = target.value.lastIndexOf("\n", selectionStart - 1) + 1;
-      const head = target.value.slice(lineStart, lineStart + INDENT.length);
-      const remove = head.startsWith(INDENT) ? INDENT.length : head.startsWith(" ") ? 1 : 0;
-      if (remove === 0) return;
-      target.setRangeText("", lineStart, lineStart + remove, "preserve");
-      onChange(target.value);
-      return;
-    }
-
-    target.setRangeText(INDENT, selectionStart, selectionEnd, "end");
-    onChange(target.value);
-  };
 
   return (
     <div data-slot="code-editor" className="rounded-panel border border-line bg-panel">
@@ -99,59 +60,24 @@ export function CodeEditorPanel({
         </span>
       </div>
 
-      <div className="flex items-stretch">
-        {/*
-          줄 번호 거터. 세로 스크롤은 textarea 가 갖고 있으므로 `onScroll` 에서
-          같은 `scrollTop` 을 여기에 밀어 넣는다(이펙트가 아니라 이벤트 핸들러다).
-        */}
-        <div
-          ref={gutterRef}
-          aria-hidden="true"
-          data-slot="code-gutter"
-          className="max-h-[520px] shrink-0 overflow-hidden border-r border-line bg-table-head px-[10px] py-[12px] text-right font-mono text-[12px] leading-[1.7] text-table-head-ink"
-        >
-          {Array.from({ length: lines }, (_, index) => (
-            <div
-              key={index}
-              className={cn(errorLines.has(index + 1) && "font-bold text-danger")}
-            >
-              {index + 1}
-            </div>
-          ))}
-        </div>
-
-        <textarea
-          ref={textareaRef}
+      {/*
+        에디터 청크를 받는 동안의 자리. 높이를 `tf-code-host` 의 초기값(380px)과 맞춰
+        청크가 붙는 순간 레이아웃이 튀지 않게 한다.
+      */}
+      <Suspense fallback={<Skeleton className="m-[12px] h-[356px] w-[calc(100%-24px)]" />}>
+        <CodeMirrorEditor
           value={value}
+          onChange={onChange}
+          issues={issues}
           disabled={disabled}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          autoComplete="off"
-          wrap="off"
-          aria-label="테스트 코드"
-          data-testid="code-editor"
-          placeholder={'import { test, expect } from "@playwright/test";\n\ntest("로그인", async ({ page }) => {\n  await page.goto("/login");\n});'}
-          className="max-h-[520px] min-h-[380px] w-full resize-y border-0 bg-panel px-[12px] py-[12px] font-mono text-[12px] leading-[1.7] text-ink outline-none"
-          onKeyDown={onKeyDown}
-          onScroll={(event) => {
-            const gutter = gutterRef.current;
-            if (gutter !== null) gutter.scrollTop = event.currentTarget.scrollTop;
-          }}
-          onChange={(event) => {
-            onChange(event.target.value);
-          }}
+          handle={editor}
         />
-      </div>
+      </Suspense>
 
       <IssueList
         issues={issues}
-        onJump={(line) => {
-          const textarea = textareaRef.current;
-          if (textarea === null) return;
-          const index = offsetOfLine(textarea.value, line);
-          textarea.focus();
-          textarea.setSelectionRange(index, index);
+        onJump={(line, column) => {
+          editor.current?.jumpTo(line, column);
         }}
       />
     </div>
@@ -161,13 +87,16 @@ export function CodeEditorPanel({
 /**
  * 검증 결과 목록. **오류만 저장을 막는다** — 경고(`no_test` 등)는 막지 않는다
  * (`hasBlockingIssues()` 가 error 만 본다. 스텝이 없는 spec 도 사용자의 자유다).
+ *
+ * 에디터 안에도 같은 내용이 물결 밑줄 + 호버 툴팁으로 뜬다. 목록을 지우지 않은 이유는
+ * **스크롤 밖의 오류**다 — 380px 안에 안 보이는 줄의 오류를 여기서 한눈에 보고 눌러서 간다.
  */
 function IssueList({
   issues,
   onJump,
 }: {
   issues: readonly CodeValidationIssue[];
-  onJump: (line: number) => void;
+  onJump: (line: number, column: number) => void;
 }) {
   if (issues.length === 0) {
     return (
@@ -202,7 +131,7 @@ function IssueList({
             data-testid="code-issue-line"
             className="shrink-0 font-mono text-[11px] font-bold underline"
             onClick={() => {
-              onJump(issue.line);
+              onJump(issue.line, issue.column);
             }}
           >
             {String(issue.line)}:{String(issue.column)}
@@ -214,15 +143,4 @@ function IssueList({
       ))}
     </ul>
   );
-}
-
-/** 1-based 줄 번호 → 본문 안 문자 인덱스. 범위를 벗어나면 끝으로 보낸다. */
-function offsetOfLine(content: string, line: number): number {
-  let index = 0;
-  for (let current = 1; current < line; current += 1) {
-    const next = content.indexOf("\n", index);
-    if (next === -1) return content.length;
-    index = next + 1;
-  }
-  return index;
 }
