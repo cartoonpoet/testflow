@@ -7,6 +7,7 @@ import { ArtifactsModule } from "../artifacts/artifacts.module.js";
 import { LiveStreamController } from "./live-stream.controller.js";
 import { RunsController } from "./runs.controller.js";
 import { RunsService } from "./runs.service.js";
+import { StaleRunReaper } from "./runs.reaper.js";
 import { RunEventsService, RunsSseController } from "./runs.sse.js";
 
 /**
@@ -18,6 +19,9 @@ import { RunEventsService, RunsSseController } from "./runs.sse.js";
  * `RunEventsService` 를 export 하는 이유: Gen-Phase 6 이후 다른 모듈(예: artifacts 의
  * `artifact.ready`)이 같은 발행 절차를 재사용해야 하기 때문이다. 발행 코드가 두 벌이 되면
  * `seq` 규약이 반드시 어긋난다.
+ *
+ * `StaleRunReaper` 는 컨트롤러가 없는 **주기 작업**이다. 다른 모듈이 부를 일이 없어
+ * export 하지 않는다 — 회수 경로가 두 곳에서 불리면 중복 회수 방지 근거를 다시 따져야 한다.
  */
 @Module({
   imports: [
@@ -30,7 +34,7 @@ import { RunEventsService, RunsSseController } from "./runs.sse.js";
     ArtifactsModule,
   ],
   controllers: [RunsController, RunsSseController, LiveStreamController],
-  providers: [RunsService, RunEventsService],
+  providers: [RunsService, RunEventsService, StaleRunReaper],
   exports: [RunsService, RunEventsService],
 })
 export class RunsModule {}

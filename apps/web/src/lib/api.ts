@@ -66,12 +66,27 @@ export function buildUrl(
   return qs === "" ? base : `${base}?${qs}`;
 }
 
-function toApiError(status: number, body: unknown): ApiError {
+/**
+ * Nest 기본 필터가 **예상치 못한 예외**에 붙이는 고정 문구.
+ *
+ * 그 자체는 옳다 — 스택·SQL·비밀값을 응답에 싣지 않는다(실측 확인, artifact §5).
+ * 다만 **영어**라서 화면의 유일한 영어 문장이 된다. DB 를 내려 보니 모든 화면 설명이
+ * `Internal server error` 로 떴다. 서버를 고칠 일은 아니고(응답 포맷은 그대로 두는 것이 맞다)
+ * **표시하는 쪽에서** 사람의 말로 바꾼다. 다른 5xx 메시지는 서버가 준 것을 그대로 쓴다 —
+ * 우리가 지어낸 문구로 덮으면 진짜 원인이 화면에서 사라진다.
+ */
+const NEST_GENERIC_500 = "Internal server error";
+
+export const UNEXPECTED_SERVER_ERROR_MESSAGE =
+  "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+
+export function toApiError(status: number, body: unknown): ApiError {
   if (typeof body === "object" && body !== null && "message" in body) {
     const nest = body as NestErrorBody;
     const details = Array.isArray(nest.message) ? nest.message : [];
+    const raw = details.length > 0 ? details.join(", ") : String(nest.message);
     const message =
-      details.length > 0 ? details.join(", ") : String(nest.message);
+      raw === NEST_GENERIC_500 ? UNEXPECTED_SERVER_ERROR_MESSAGE : raw;
     return new ApiError(status, message, {
       code: nest.error,
       details,
@@ -102,12 +117,24 @@ export async function apiFetch<T = unknown>(
     body = JSON.stringify(json);
   }
 
-  const response = await fetch(buildUrl(path, query), {
-    ...rest,
-    method: method ?? (body === undefined || body === null ? "GET" : "POST"),
-    headers: finalHeaders,
-    ...(body === undefined ? {} : { body }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, query), {
+      ...rest,
+      method: method ?? (body === undefined || body === null ? "GET" : "POST"),
+      headers: finalHeaders,
+      ...(body === undefined ? {} : { body }),
+    });
+  } catch (error) {
+    /*
+     * ★ **연결 자체가 실패한 경우** — API 가 안 떠 있거나 망이 끊겼다. 가장 흔한 상황이다.
+     *   그대로 두면 화면에 브라우저의 영어 원문(`Failed to fetch` · `NetworkError when
+     *   attempting to fetch resource`)이 그대로 뜬다. 실측으로 확인했다(artifact §6).
+     *   `ApiError` 로 감싸 **한국어 한 줄**로 바꾼다 — 화면들은 이미 `ApiError.message` 를
+     *   `StateView` 설명으로 쓰고 있어 표시 코드를 한 줄도 바꾸지 않는다.
+     */
+    throw toNetworkError(error);
+  }
 
   const text = await response.text();
   const parsed: unknown = text === "" ? undefined : safeJson(text);
@@ -126,6 +153,25 @@ export async function apiFetch<T = unknown>(
     });
   }
   return result.data as T;
+}
+
+/**
+ * fetch 자체가 거부한 이유를 사용자 문장으로 바꾼다.
+ *
+ * ★ **`AbortError` 는 그대로 던진다.** 취소는 고장이 아니고, 호출부(SSE·라이브 스트림)가
+ *   `name === "AbortError"` 로 구분해 조용히 넘어간다 — 여기서 감싸면 그 구분이 깨져
+ *   화면을 떠날 때마다 "서버에 연결하지 못했습니다" 가 뜬다.
+ *
+ * `status` 는 `0` 이다(HTTP 응답이 없었다는 뜻). `queryClient` 의 재시도 규칙이
+ * `4xx` 만 걸러내므로 **네트워크 실패는 그대로 2회 재시도된다** — 잠깐 끊긴 경우 저절로 낫는다.
+ */
+export function toNetworkError(error: unknown): unknown {
+  if (error instanceof DOMException && error.name === "AbortError") return error;
+  if (error instanceof ApiError) return error;
+  return new ApiError(0, "네트워크 또는 API 서버 연결이 끊겼습니다. 서버 상태를 확인한 뒤 다시 시도해 주세요.", {
+    code: "NetworkError",
+    body: error,
+  });
 }
 
 function safeJson(text: string): unknown {

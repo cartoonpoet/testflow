@@ -4,8 +4,10 @@ import {
   CreateRunRequestSchema,
   collectSecretValues,
   isSecretVariableKey,
+  maskSecretsInText,
   maskVariablesForStorage,
 } from "./run.js";
+import { SECRET_MASK } from "./step.js";
 
 describe("CreateRunDtoSchema", () => {
   it("시나리오 실행 요청을 통과시킨다", () => {
@@ -116,5 +118,46 @@ describe("CreateRunRequestSchema — scenarioIds (라운드 7)", () => {
 
   it("단건 경로(scenarioId)는 그대로 통과한다", () => {
     expect(CreateRunRequestSchema.safeParse({ scenarioId: a }).success).toBe(true);
+  });
+});
+
+describe("maskSecretsInText — 자유 텍스트의 `키=값` 비밀값", () => {
+  it("★ JSON 모양을 가린다 (프로세스 레벨 예외 로그가 이 모양이다)", () => {
+    const out = maskSecretsInText('query failed: {"password":"hunter2"}');
+    expect(out).not.toContain("hunter2");
+    expect(out).toBe(`query failed: {"password":"${SECRET_MASK}"}`);
+  });
+
+  it("`키=값` 모양도 가린다", () => {
+    expect(maskSecretsInText("connect token=abc123xyz failed")).toBe(
+      `connect token=${SECRET_MASK} failed`,
+    );
+  });
+
+  it("Authorization 헤더의 Bearer 토큰을 값째로 가린다", () => {
+    const out = maskSecretsInText("Authorization: Bearer eyJhbGciOi.J9.sig");
+    expect(out).not.toContain("eyJhbGciOi");
+  });
+
+  it("대소문자·구분자 변형을 함께 잡는다", () => {
+    expect(maskSecretsInText('API_KEY: "k-123456"')).not.toContain("k-123456");
+    expect(maskSecretsInText("Secret = s3cr3tvalue")).not.toContain("s3cr3tvalue");
+  });
+
+  it("★ 비밀값이 아닌 문장은 건드리지 않는다 — 로그가 읽을 수 없게 되면 안 된다", () => {
+    const text = "run RUN-0281 finished in 102170ms with 3/3 steps";
+    expect(maskSecretsInText(text)).toBe(text);
+  });
+
+  it("★ 키 이름이 없는 값은 잡지 못한다 — 보조 방어선이라는 한계를 명시한다", () => {
+    // Playwright 가 뱉는 모양. 이것은 값 목록을 아는 경로(SSE·DB 저장)가 잡는다.
+    const text = "locator resolved to input[value='hunter2']";
+    expect(maskSecretsInText(text)).toBe(text);
+  });
+
+  it("여러 건이 한 줄에 있어도 전부 가린다", () => {
+    const out = maskSecretsInText('{"password":"aaa111","token":"bbb222"}');
+    expect(out).not.toContain("aaa111");
+    expect(out).not.toContain("bbb222");
   });
 });

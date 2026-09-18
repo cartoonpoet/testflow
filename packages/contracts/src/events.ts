@@ -349,3 +349,54 @@ export const RUNNER_CAPACITY_KEY_PREFIX = "testflow:runner:capacity:";
 export function runnerCapacityKey(runnerId: string): string {
   return `${RUNNER_CAPACITY_KEY_PREFIX}${runnerId}`;
 }
+
+/* ────────────────────────────────────────────────────────────
+ * 고아(stale) run 회수 — API 주기 작업 · Runner 기동 정리가 공유하는 규약
+ * ──────────────────────────────────────────────────────────── */
+
+/**
+ * ★ 회수 판정의 **1차 신호는 heartbeat 부재**다 — 경과 시간이 아니다.
+ *
+ * `runs.status='running'` 인 행의 `runner_id` 로 `runnerHeartbeatKey()` 를 만들어
+ * `EXISTS` 한다. **키가 있으면 그 Runner 는 살아 있으므로 절대 회수하지 않는다.**
+ * 이것이 "정상적으로 오래 도는 실행을 죽이지 않는다"를 보장하는 유일한 근거다 —
+ * `RUNNER_RUN_TIMEOUT_MS`(기본 300초)보다 오래 도는 실행이라도 Runner 가 살아 있는 한
+ * 10초마다 heartbeat 를 갱신하므로 이 조건에서 걸러진다. 경과 시간으로 판정했다면
+ * 그 값과 하드 타임아웃이 반드시 충돌한다.
+ *
+ * 2차 조건인 아래 유예는 **오탐 방지용**이다. heartbeat TTL 은 30초이고 갱신 주기는
+ * 10초라 ① Redis 가 잠깐 끊겼다 돌아오는 구간 ② Runner 가 job 을 집어 `running` 으로
+ * 바꾼 직후 첫 heartbeat 까지의 구간에서 키가 잠시 비어 보일 수 있다.
+ * TTL 의 2배를 유예로 두면 그 두 구간을 모두 덮는다.
+ */
+export const RUN_STALE_GRACE_MS = RUNNER_HEARTBEAT_TTL_SEC * 2 * 1000;
+
+/** 회수 주기. 유예(60초)보다 촘촘해야 "죽은 뒤 최대 유예+주기" 안에 확정된다. */
+export const RUN_REAPER_INTERVAL_MS = 15_000;
+
+/**
+ * 회수 작업의 상호배제 락 키. API 인스턴스가 여러 대여도 한 번에 한 대만 훑는다.
+ *
+ * 락은 **중복 작업을 줄이는 최적화**이고, 정확성의 최종 방어선은 조건부 UPDATE
+ * (`WHERE status='running'`)의 `affectedRows` 다 — 락을 못 잡아도 상태가 두 번
+ * 확정되거나 SSE 가 두 번 나가지 않는다.
+ */
+export const RUN_REAPER_LOCK_KEY = "testflow:reaper:runs:lock";
+
+/**
+ * 회수된 run 의 `error_message`. **사람이 읽을 이유**여야 한다.
+ *
+ * 상태를 `error` 로 확정하는 근거: 시나리오가 실패한 것이 아니라 **실행 환경이 무너진** 것이다
+ * (`failed` 는 "테스트가 틀렸다", `timeout` 은 "제한 시간을 넘겼다" — 둘 다 사실이 아니다).
+ */
+export const RUN_STALE_ERROR_MESSAGE =
+  "Runner 와 연결이 끊겨 실행 결과를 확인할 수 없습니다. 실행을 다시 시도해 주세요.";
+
+/**
+ * Runner 가 기동하면서 **자기 이름의** 고아 run 을 정리할 때 쓰는 메시지.
+ *
+ * API 의 heartbeat 판정은 `RUNNER_ID` 를 고정해 둔 Runner 가 **빠르게 재기동**하면
+ * (키가 되살아나므로) 그 run 을 영영 회수하지 못한다. 그 사각지대를 이쪽이 덮는다.
+ */
+export const RUN_ORPHAN_ERROR_MESSAGE =
+  "Runner 가 재시작되어 실행이 중단되었습니다. 실행을 다시 시도해 주세요.";

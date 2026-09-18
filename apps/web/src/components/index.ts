@@ -4,6 +4,7 @@
  * `ui/` 는 시안 프리미티브(버튼·입력·패널 …), 여기는 **시안 화면에만 나오는 조각**이다.
  * 레이아웃은 `layout/` 에 있다.
  */
+export * from "./ErrorBoundary";
 export * from "./MetricCard";
 export * from "./DeleteDialog";
 export * from "./RunRow";

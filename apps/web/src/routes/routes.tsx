@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import type * as React from "react";
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useLocation } from "react-router-dom";
+import { ErrorBoundary, RouteErrorElement } from "@/components/ErrorBoundary";
 import { AppShellRoute } from "./AppShellRoute";
 import { RouteFallback } from "./RouteFallback";
 
@@ -76,15 +77,52 @@ const SuiteDetailPage = lazy(async () => ({
   default: (await import("@/pages/suites/SuiteDetail")).SuiteDetailPage,
 }));
 
-/** 라우트 element 를 `Suspense` 로 감싼다. 라우트마다 같은 fallback 을 쓴다. */
+/**
+ * ★ 라우트 단위 ErrorBoundary. 화면별로는 `errorElement` 대신 클래스 경계를 쓴다 —
+ * 근거(특히 "다시 시도"가 `errorElement` 로는 불가능하다는 것)는 `ErrorBoundary.tsx` 주석.
+ *
+ * 이 컴포넌트는 `AppShell` 의 `<Outlet/>` 안에서 렌더되므로 **사이드바·탑바·브레드크럼은
+ * 그대로 살아 있고 본문만** 안내로 바뀐다. 한 화면이 깨졌다고 다른 화면으로 가는 길까지
+ * 끊을 이유가 없다.
+ *
+ * `location.key` 를 `resetKey` 로 넘긴다 — 사용자가 사이드바로 **다른 화면에 가면
+ * 에러 상태가 저절로 풀린다.** 넘기지 않으면 한 번 깨진 경계가 이후 모든 라우트를
+ * 에러 화면으로 덮어 버린다(경계는 언마운트되지 않는다 — element 만 바뀐다).
+ */
+function RouteBoundary({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <ErrorBoundary variant="route" resetKey={location.key}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * 라우트 element 를 `Suspense` 로 감싼다. 라우트마다 같은 fallback 을 쓴다.
+ *
+ * ★ 경계가 `Suspense` **바깥**이다. `lazy()` 의 청크 로드 실패는 Suspense 가 아니라
+ *   그 바깥 경계로 던져진다 — 안쪽에 두면 배포 직후의 청크 404 를 못 잡는다.
+ */
 function withSuspense(element: React.ReactNode): React.ReactNode {
-  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+  return (
+    <RouteBoundary>
+      <Suspense fallback={<RouteFallback />}>{element}</Suspense>
+    </RouteBoundary>
+  );
 }
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <AppShellRoute />,
+    /*
+     * ★ **라우터의 기본 errorElement 를 이긴다.** 주지 않으면 셸(`AppShellRoute`)이 던졌을 때
+     *   react-router 가 `Unexpected Application Error!` + **스택 트레이스 전문**을 뿌린다
+     *   (실측 확인 — `RouteErrorElement` 주석). 자식 화면은 `withSuspense` 의 클래스 경계가
+     *   더 안쪽에서 먼저 잡으므로 여기까지 올라오지 않는다.
+     */
+    errorElement: <RouteErrorElement />,
     children: [
       { index: true, element: withSuspense(<DashboardPage />) },
       { path: "scenarios", element: withSuspense(<ScenariosPage />) },
