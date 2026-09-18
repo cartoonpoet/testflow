@@ -46,6 +46,13 @@ import {
  */
 export type RunSidePanelProps = {
   run: RunDetail;
+  /**
+   * ★ 본문에 전폭 무대(`RunLiveScreen`)가 이미 그려졌는가. true 면 이 패널의
+   * 브라우저 목업을 그리지 않는다 — 같은 화면을 두 번 그리면 "어느 쪽이 진짜인가"를
+   * 매번 판단하게 만든다. 라운드 4에서 **끝난 녹화 실행**도 무대를 쓰게 되면서
+   * `sourceType === "code"` 만으로는 판단할 수 없어졌다.
+   */
+  stageShown: boolean;
   artifacts: readonly Artifact[];
   artifactsPending: boolean;
   artifactsError: Error | null;
@@ -60,6 +67,7 @@ export type RunSidePanelProps = {
 
 export function RunSidePanel({
   run,
+  stageShown,
   artifacts,
   artifactsPending,
   artifactsError,
@@ -75,7 +83,7 @@ export function RunSidePanel({
           같은 화면을 두 번 그리게 된다. 우측 360px 짜리 축소판이 옆에 같이 있으면
           "둘 중 어느 쪽이 진짜인가" 를 매번 판단하게 만든다.
       */}
-      {isCode ? null : (
+      {stageShown ? null : (
         <div className="mb-[15px] overflow-hidden rounded-panel bg-browser shadow-panel">
           <div className="flex h-[42px] items-center gap-[6px] bg-browser-bar px-[13px]">
             <i className="h-[8px] w-[8px] rounded-full bg-browser-dot" />
@@ -109,7 +117,8 @@ export function RunSidePanel({
             ? "실행 요청 시 직접 입력"
             : `${String(Object.keys(maskedVariables).length)}개 변수 · 직접 입력`}
         </Kv>
-        <Kv label="영상 녹화">사용 (실패 시 보관)</Kv>
+        {/* ★ 라운드 4 — 성공한 실행도 영상을 남긴다(다시 보기). trace 만 실패 시 보관이다. */}
+        <Kv label="영상 녹화">사용 (성공·실패 모두 보관)</Kv>
         <Kv label="실패 시 Trace">사용</Kv>
         <Kv label="원본">{isCode ? "코드 (.spec.ts)" : "녹화 스텝"}</Kv>
         {/*
@@ -157,7 +166,8 @@ export function RunSidePanel({
         ) : artifacts.length === 0 ? (
           <p className="m-0 text-[11px] leading-[1.6] text-muted">
             아직 증적이 없습니다. 실행이 끝나면 스크린샷 · 영상 · Trace · 로그가 여기에 모입니다.
-            성공한 실행의 영상 · Trace 는 디스크 절약을 위해 보관하지 않습니다.
+            영상은 성공·실패 모두 보관하고(다시 보기), Trace · 로그는 디스크 절약을 위해
+            실패한 실행만 보관합니다.
           </p>
         ) : (
           <ul data-slot="artifact-list" className="m-0 list-none p-0">

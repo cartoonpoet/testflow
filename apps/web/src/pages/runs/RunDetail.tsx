@@ -1,5 +1,5 @@
 import { useLocation, useParams } from "react-router-dom";
-import { isTerminalRunStatus } from "@testflow/contracts";
+import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { NoticeBox, NoticeLine } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
 import { RUN_STATUS_LABEL } from "@/lib";
@@ -156,7 +156,13 @@ export function RunDetailPage() {
             </div>
           )}
 
-          {run.sourceType === "code" ? (
+          {/*
+            ★ 라운드 4 — 전폭 무대는 코드 실행만의 것이 아니다.
+              **끝난 녹화 실행도 영상이 있으면** 같은 자리에서 다시 본다. 360px 패널의
+              축소판으로는 1280×800 영상을 볼 수 없고(28%), "다시 보기"가 실행 종류에 따라
+              되기도 안 되기도 하면 그건 기능이 아니라 우연이다.
+          */}
+          {showStage(run, artifacts.data ?? []) ? (
             <RunLiveScreen run={run} artifacts={artifacts.data ?? []} />
           ) : null}
 
@@ -184,6 +190,7 @@ export function RunDetailPage() {
 
             <RunSidePanel
               run={run}
+              stageShown={showStage(run, artifacts.data ?? [])}
               artifacts={artifacts.data ?? []}
               artifactsPending={artifacts.isPending}
               artifactsError={artifacts.error}
@@ -194,6 +201,20 @@ export function RunDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * 전폭 무대(`RunLiveScreen`)를 그릴 것인가.
+ *
+ * - **코드 실행**: 언제나 그린다(라이브가 있다).
+ * - **녹화 실행**: 라이브는 없지만 **끝난 뒤 영상이 있으면** 다시 보기 무대로 쓴다.
+ *   진행 중인 녹화 실행에 빈 전폭 상자를 세우지 않는다 — 그건 "고장났다"로 읽힌다.
+ */
+function showStage(run: RunDetail, artifacts: readonly Artifact[]): boolean {
+  if (run.sourceType === "code") return true;
+  return (
+    isTerminalRunStatus(run.status) && artifacts.some((artifact) => artifact.type === "video")
   );
 }
 

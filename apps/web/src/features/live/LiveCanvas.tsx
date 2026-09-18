@@ -23,9 +23,14 @@ import { RUN_STATUS_LABEL, RUN_STATUS_TONE } from "@/lib";
  * 마지막 프레임은 **실패 직전 화면**이라 가장 정보가 많다. 그래서
  * `useFrameRenderer().reset()` 을 **부르지 않고**, `ended` 에는 배지만 덮는다.
  *
- * ## 영상 전환은 수동이다
- * 영상 증적이 도착해도 **자동으로 바꾸지 않는다.** 마지막 화면을 보고 있는데
- * 처음으로 되감기는 꼴이 되기 때문이다. 버튼을 주고 사용자가 고르게 한다.
+ * ## 영상 전환 — **보고 있던 실행**은 수동, **이미 끝난 실행**은 자동 ★
+ * 라운드 2는 "자동 전환하지 않는다"로 정했다. 그 근거는 **실행 중 → 종료 순간**의 것이다:
+ * 마지막 화면을 보고 있는데 영상이 처음으로 되감기면 사용자가 잃는 것이 있다.
+ *
+ * 하지만 **이미 끝난 run 을 새로 여는 경우는 반대다.** 라이브는 404 라 캔버스가 영영 비고,
+ * 사용자가 "영상으로 보기"를 찾아 누르기 전까지 아무것도 볼 수 없다. 그래서 두 경우를
+ * `autoVideo` 로 가른다 — **열었을 때 이미 종료 상태였는가**(`RunScreen` 이 판단한다).
+ * 사용자가 한 번이라도 토글하면 그 선택이 언제나 이긴다.
  */
 export type LiveCanvasProps = {
   runId: string | undefined;
@@ -33,6 +38,11 @@ export type LiveCanvasProps = {
   enabled: boolean;
   /** 영상 증적 URL. 있으면 "영상으로 보기" 버튼이 나온다. */
   videoUrl?: string | undefined;
+  /**
+   * ★ 영상이 있으면 **처음부터 영상 모드**로 연다. 화면을 연 시점에 run 이 이미 끝나
+   * 있었을 때만 true 다(실행 중에 끝난 경우는 false — 마지막 프레임을 지키기 위해서).
+   */
+  autoVideo?: boolean;
   /** 프레임이 한 장도 없을 때 대신 그릴 것 — 실패 스크린샷 또는 중립 안내. */
   fallback: React.ReactNode;
   /**
@@ -51,6 +61,7 @@ export function LiveCanvas({
   runId,
   enabled,
   videoUrl,
+  autoVideo = false,
   fallback,
   topRight,
   footer,
@@ -62,9 +73,14 @@ export function LiveCanvas({
    */
   const { canvasRef, remote, handleFrame } = useFrameRenderer();
   const live = useLiveStream(runId, { enabled, onFrame: handleFrame });
-  const [showVideo, setShowVideo] = useState(false);
+  /*
+   * `null` = 사용자가 아직 고르지 않았다 → `autoVideo` 를 따른다.
+   * `useState(autoVideo)` 로 두면 안 된다 — 영상 URL 은 증적 쿼리가 늦게 채우므로
+   * 마운트 시점에는 `autoVideo` 가 아직 의미를 갖기 전이고, 초기값은 다시 계산되지 않는다.
+   */
+  const [videoChoice, setVideoChoice] = useState<boolean | null>(null);
 
-  const watching = showVideo && videoUrl !== undefined;
+  const watching = (videoChoice ?? autoVideo) && videoUrl !== undefined;
   const canvasVisible = live.hasFrame && !watching;
 
   return (
@@ -73,6 +89,8 @@ export function LiveCanvas({
       data-live-connection={live.connection}
       data-live-phase={live.phase}
       data-live-frame={live.hasFrame ? "true" : "false"}
+      data-live-reconnect={String(live.reconnectAttempt)}
+      data-live-view={watching ? "video" : "canvas"}
       className="relative aspect-[16/10] overflow-hidden bg-browser-screen"
     >
       {/*
@@ -98,12 +116,20 @@ export function LiveCanvas({
         )}
       />
 
+      {/*
+        ★ 인라인 재생. 다운로드가 아니다 — `controls` 로 재생·탐색이 되고, 탐색은
+          `GET /api/artifacts/:id` 의 **Range(206) 응답**이 받쳐 준다(없으면 진행 바가
+          움직이지 않는다). `preload="metadata"` 로 길이만 먼저 읽어 진행 바를 살린다.
+      */}
       {watching ? (
         <video
           data-testid="live-video"
+          data-slot="live-video"
           src={videoUrl}
           controls
-          className="block h-full w-full bg-browser"
+          preload="metadata"
+          playsInline
+          className="block h-full w-full bg-browser object-contain"
         />
       ) : null}
 
@@ -113,15 +139,31 @@ export function LiveCanvas({
         </div>
       )}
 
+      {/*
+        ★ 상태별 문구 — "화면이 아직 없습니다" 를 **실행 중에 띄우지 않는다**(라운드 4 버그).
+          첫 프레임 전에는 "실행 화면을 준비하는 중"(= 아직 page 가 없다),
+          첫 프레임 이후의 전환 구간에만 "다음 테스트 준비 중"(= 테스트 사이)이다.
+      */}
       {live.showBetweenTests && !watching ? (
         <Overlay data-slot="live-between-tests">
           <span className="animate-pulse-dot inline-block h-[7px] w-[7px] rounded-full bg-run-state" />
-          다음 테스트 준비 중…
+          {live.hasFrame ? "다음 테스트 준비 중…" : "실행 화면을 준비하는 중…"}
         </Overlay>
       ) : null}
 
-      {live.phase === "connecting" && !watching ? (
-        <Overlay data-slot="live-connecting">실행 화면에 연결하는 중…</Overlay>
+      {/*
+        ★ 연결 오버레이는 **이미 그림이 있을 때만** 띄운다.
+          프레임이 한 장도 없을 때는 아래 `fallback` 이 run 상태에 맞는 문구를
+          이미 말하고 있다(대기 중 / 실행 중 / 종료됨). 그 위에 "연결하는 중"을 덮으면
+          같은 순간에 두 가지 설명이 겹쳐 어느 쪽이 사실인지 알 수 없게 된다.
+          반대로 그림이 있는데 끊긴 경우에는 이 오버레이가 유일한 신호다.
+      */}
+      {live.phase === "connecting" && live.hasFrame && !watching ? (
+        <Overlay data-slot="live-connecting">
+          {live.reconnectAttempt > 0
+            ? `실행 화면에 다시 연결하는 중… (${String(live.reconnectAttempt)}회)`
+            : "실행 화면에 연결하는 중…"}
+        </Overlay>
       ) : null}
 
       {live.phase === "ended" && live.hasFrame && !watching ? (
@@ -172,7 +214,7 @@ export function LiveCanvas({
               type="button"
               data-testid="live-video-toggle"
               onClick={() => {
-                setShowVideo((prev) => !prev);
+                setVideoChoice(!watching);
               }}
               className={cn(
                 "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",

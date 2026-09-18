@@ -3,6 +3,7 @@ import {
   LIVE_STREAM_TOKEN_TTL_SEC,
   RECORDING_TOKEN_TTL_SEC,
   liveStreamTokenKey,
+  liveStreamTokenMemberKey,
   recordingTokenKey,
 } from "@testflow/contracts";
 import {
@@ -135,5 +136,50 @@ describe("★ 키 공간 분리 (03-phases 쟁점 3)", () => {
 
     expect(delta).toBeGreaterThanOrEqual(LIVE_STREAM_TOKEN_TTL_SEC * 1000 - 50);
     expect(delta).toBeLessThanOrEqual(LIVE_STREAM_TOKEN_TTL_SEC * 1000 + 5000);
+  });
+});
+
+/**
+ * ★ 라운드 4 — 같은 run 의 토큰이 **여러 개 공존**한다 (다중 뷰어).
+ *
+ * 단일 슬롯만 있던 라운드 2에서는 두 번째 탭이 `GET /api/runs/:id/live` 를 부르는 순간
+ * 첫 탭의 토큰이 무효가 됐다. 두 탭에서 같은 run 을 열면 먼저 연 쪽이 **4401** 을 맞는다.
+ */
+describe("★ 라이브 토큰 — 다중 뷰어 (라운드 4)", () => {
+  it("발급하면 해시별 키도 함께 생긴다", async () => {
+    const store = fakeStore();
+    const { token } = await issueStreamToken(store, "live", RUN_ID);
+    const memberKey = liveStreamTokenMemberKey(RUN_ID, hashStreamToken(token));
+
+    expect(store.dump().get(memberKey)?.value).toBe("1");
+    expect(store.dump().get(memberKey)?.ttl).toBe(LIVE_STREAM_TOKEN_TTL_SEC);
+  });
+
+  it("★ 두 번 발급해도 **앞선 토큰의 해시별 키가 살아 있다**", async () => {
+    const store = fakeStore();
+    const first = await issueStreamToken(store, "live", RUN_ID);
+    const second = await issueStreamToken(store, "live", RUN_ID);
+
+    // 단일 슬롯은 최신 것으로 회전한다(기존 동작 그대로).
+    expect(store.dump().get(liveStreamTokenKey(RUN_ID))?.value).toBe(
+      hashStreamToken(second.token),
+    );
+    // 그러나 앞선 토큰도 자기 키로 살아 있다 — 첫 탭이 끊기지 않는 근거다.
+    expect(
+      store.dump().get(liveStreamTokenMemberKey(RUN_ID, hashStreamToken(first.token))),
+    ).toBeDefined();
+  });
+
+  it("해시별 키는 여전히 실행 키 공간 접두사다 — 녹화와 섞이지 않는다", () => {
+    const key = liveStreamTokenMemberKey(RUN_ID, "a".repeat(64));
+    expect(key.startsWith(liveStreamTokenKey(RUN_ID))).toBe(true);
+    expect(key.startsWith(recordingTokenKey(RUN_ID))).toBe(false);
+  });
+
+  it("★ 녹화 발급은 해시별 키를 만들지 않는다(녹화 경로 무변경)", async () => {
+    const store = fakeStore();
+    await issueStreamToken(store, "recording", SESSION_ID);
+    const extra = [...store.dump().keys()].filter((key) => key !== recordingTokenKey(SESSION_ID));
+    expect(extra).toEqual([]);
   });
 });

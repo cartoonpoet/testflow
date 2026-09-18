@@ -49,6 +49,22 @@ import { classifyClose, decodeFrame, type DecodedFrame } from "@/features/record
  */
 export const BETWEEN_TESTS_SHOW_DELAY_MS = 400;
 
+/**
+ * ★ 라운드 4 — 비정상 종료 뒤 **자동 재연결** 횟수 상한.
+ *
+ * 라운드 2는 자동 재시도를 전부 껐다. 근거는 "토큰이 1회용이고 재발급이 곧 이전 토큰
+ * 무효화"였는데, 그 전제가 **라운드 4에서 바뀌었다** — 서버가 같은 run 의 토큰을 여러 개
+ * 인정한다(`liveStreamTokenMemberKey`). 이제 재발급이 다른 탭을 끊지 않는다.
+ *
+ * 재연결이 필요한 이유는 실측 가능한 것이다: 실행이 **토큰 TTL(120초)보다 길면**
+ * 그 사이 소켓이 한 번 끊겼을 때 사용자가 "다시 연결"을 누르기 전까지 화면이 영영 죽는다.
+ * 상한을 두는 이유는 반대쪽이다 — 서버가 아예 없을 때 무한 재시도는 콘솔을 오류로 채운다.
+ */
+export const LIVE_RECONNECT_MAX_ATTEMPTS = 5;
+/** 지수 백오프(1s → 2s → 4s → 8s → 10s 상한). 프레임 지연과 무관한 값이라 넉넉히 둔다. */
+export const LIVE_RECONNECT_BASE_DELAY_MS = 1_000;
+export const LIVE_RECONNECT_MAX_DELAY_MS = 10_000;
+
 export type LiveStreamPhase =
   /** 코드 실행이 아니거나 이미 끝난 실행 — 스트림을 열지 않는다. */
   | "idle"
@@ -75,7 +91,9 @@ export type LiveStreamHandle = {
   hasFrame: boolean;
   /** 전환 오버레이를 실제로 띄울지(짧은 깜빡임 억제 뒤의 결과). */
   showBetweenTests: boolean;
-  /** 토큰을 새로 받아 다시 붙는다. 자동 재시도는 하지 않는다(토큰이 1회용이다). */
+  /** ★ 자동 재연결을 몇 번째 시도 중인가. 0 이면 재연결 중이 아니다. */
+  reconnectAttempt: number;
+  /** 토큰을 새로 받아 다시 붙는다. 자동 재연결과 같은 경로다. */
   retry: () => void;
 };
 
@@ -120,6 +138,7 @@ export function useLiveStream(
 ): LiveStreamHandle {
   const { enabled, onFrame } = options;
   const [state, setState] = useState<InternalState>(INITIAL);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   /**
    * 접속 정보. **캐시하지 않는다** — 토큰이 1회용이라 재사용하면 4401 이 난다.
@@ -158,6 +177,19 @@ export function useLiveStream(
     onFrameRef.current = onFrame;
   }, [onFrame]);
 
+  /*
+   * ★ 재연결에 필요한 최신 값들. **이펙트 의존성에 넣지 않는다** — `enabled` 가 바뀌었다고
+   *   소켓을 다시 열면 실행이 끝나는 순간(`enabled` → false) `ended` 를 못 받는다(결정 2).
+   */
+  const refetch = info.refetch;
+  const refetchRef = useRef(refetch);
+  const enabledRef = useRef(enabled);
+  const attemptRef = useRef(0);
+  useEffect(() => {
+    refetchRef.current = refetch;
+    enabledRef.current = enabled;
+  }, [refetch, enabled]);
+
   useEffect(() => {
     if (wsUrl === null) return;
 
@@ -172,8 +204,25 @@ export function useLiveStream(
       betweenTimer = undefined;
     };
 
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+
     socket.onopen = () => {
-      setState((prev) => ({ ...prev, wsUrl, connection: "open" }));
+      // 붙었으면 백오프를 처음으로 돌린다 — 다음 끊김은 다시 1초부터다.
+      attemptRef.current = 0;
+      setReconnectAttempt(0);
+      /*
+       * ★ `idle` 에 머물지 않는다 — 실측으로 발견한 구멍이다.
+       *   run 이 **큐에 있는 동안**에는 핸드셰이크는 끝났지만 Runner 가 아직 세션을 열지
+       *   않아 `{t:"state"}` 가 오지 않는다(서버는 최대 15초 기다린다). 그 구간 내내
+       *   `phase` 가 `idle`("스트림을 열지 않았다")로 남아 진단 속성이 사실과 어긋났다.
+       *   소켓이 열렸으면 최소한 "연결됨, 첫 신호 대기 중" = `connecting` 이다.
+       */
+      setState((prev) => ({
+        ...prev,
+        wsUrl,
+        connection: "open",
+        phase: prev.phase === "idle" ? "connecting" : prev.phase,
+      }));
     };
 
     socket.onmessage = (event: MessageEvent<unknown>) => {
@@ -259,6 +308,32 @@ export function useLiveStream(
     socket.onclose = (event: CloseEvent) => {
       clearBetweenTimer();
       const info_ = classifyClose(event.code, event.reason);
+
+      /*
+       * ★ 자동 재연결 — **실행이 아직 살아 있을 때만** 한다.
+       *
+       * `1000`(정상 종료)은 실행이 끝났다는 뜻이라 다시 붙지 않는다. 그 밖의 close 는
+       * 네트워크·프록시·토큰 만료 후 재접속 실패 등인데, 실행이 계속되는 한 화면은
+       * 돌아와야 한다. 토큰은 재발급으로 갱신되므로 **TTL 120초보다 긴 실행도 덮인다.**
+       */
+      const shouldReconnect =
+        info_.kind !== "normal" &&
+        enabledRef.current &&
+        attemptRef.current < LIVE_RECONNECT_MAX_ATTEMPTS;
+      if (shouldReconnect) {
+        attemptRef.current += 1;
+        const attempt = attemptRef.current;
+        setReconnectAttempt(attempt);
+        const delay = Math.min(
+          LIVE_RECONNECT_BASE_DELAY_MS * 2 ** (attempt - 1),
+          LIVE_RECONNECT_MAX_DELAY_MS,
+        );
+        reconnectTimer = setTimeout(() => {
+          // 새 토큰을 받아 온다 → `wsUrl` 이 바뀌고 이 이펙트가 다시 돈다.
+          void refetchRef.current();
+        }, delay);
+      }
+
       setState((prev) => ({
         ...prev,
         wsUrl,
@@ -275,12 +350,18 @@ export function useLiveStream(
             : prev.hasFrame
               ? "ended"
               : "unavailable",
-        notice: info_.kind === "normal" ? prev.notice : CLOSE_NOTICE[info_.kind],
+        notice:
+          info_.kind === "normal"
+            ? prev.notice
+            : shouldReconnect
+              ? null
+              : CLOSE_NOTICE[info_.kind],
       }));
     };
 
     return () => {
       clearBetweenTimer();
+      if (reconnectTimer !== undefined) clearTimeout(reconnectTimer);
       socket.onclose = null;
       socket.onmessage = null;
       socket.onopen = null;
@@ -290,8 +371,10 @@ export function useLiveStream(
     };
   }, [wsUrl]);
 
-  const refetch = info.refetch;
   const retry = useCallback(() => {
+    // 수동 재시도는 백오프를 처음으로 되돌린다(사용자가 명시적으로 다시 해 보라고 말한 것이다).
+    attemptRef.current = 0;
+    setReconnectAttempt(0);
     void refetch();
   }, [refetch]);
 
@@ -308,6 +391,7 @@ export function useLiveStream(
       connection: info.isError ? "closed" : enabled ? "connecting" : "idle",
       hasFrame: false,
       showBetweenTests: false,
+      reconnectAttempt,
       retry,
     };
   }
@@ -317,8 +401,14 @@ export function useLiveStream(
       endedStatus: null,
       notice: null,
       connection: "connecting",
-      hasFrame: false,
+      /*
+       * ★ `hasFrame` 은 소켓이 아니라 **캔버스**의 성질이다 — 재연결하는 동안에도
+       *   지금까지 그린 픽셀은 그대로 있다. 여기서 false 로 떨어뜨리면 재연결 1초 사이에
+       *   캔버스가 숨고 "화면이 없습니다" 안내가 번쩍인다(라운드 2 버그와 같은 꼴).
+       */
+      hasFrame: state.hasFrame,
       showBetweenTests: false,
+      reconnectAttempt,
       retry,
     };
   }
@@ -329,6 +419,7 @@ export function useLiveStream(
     connection: state.connection,
     hasFrame: state.hasFrame,
     showBetweenTests: state.showBetweenTests,
+    reconnectAttempt,
     retry,
   };
 }

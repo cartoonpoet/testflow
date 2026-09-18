@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "cn";
 import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { LiveStage } from "@/features/live";
@@ -30,17 +31,56 @@ export type RunScreenProps = {
 
 export function RunLiveScreen({ run, artifacts }: RunScreenProps) {
   const video = artifacts.find((artifact) => artifact.type === "video");
+  const ended = isTerminalRunStatus(run.status);
+
+  /*
+   * ★ **화면을 열었을 때** 이미 끝나 있었는가.
+   *
+   * `ended` 를 그대로 쓰면 보고 있던 실행이 끝나는 순간 영상으로 튕겨 나간다 —
+   * 라운드 2가 "자동 전환하지 않는다"로 막은 바로 그 동작이다. `useState` 의 지연 초기값은
+   * **첫 렌더에서만** 계산되므로 이 값은 마운트 시점의 사실로 고정된다.
+   * (`useRef` 가 아니다 — 렌더 중 ref 접근은 `react-hooks/refs` 가 막는다.)
+   * 이 컴포넌트는 `run` 이 로드된 뒤에만 렌더된다 — `RunDetail` 참조.
+   */
+  const [openedEnded] = useState(() => ended);
 
   return (
     <LiveStage
       runId={run.id}
-      enabled={!isTerminalRunStatus(run.status)}
+      enabled={!ended}
       videoUrl={video?.url}
+      autoVideo={openedEnded}
       url={run.summary.baseUrl}
-      fallback={<RunScreenStill artifacts={artifacts} code />}
+      fallback={
+        <RunScreenStill
+          artifacts={artifacts}
+          code
+          emptyText={emptyScreenText(run, video !== undefined)}
+        />
+      }
       progress={<RunLiveProgress run={run} />}
     />
   );
+}
+
+/**
+ * ★ 상태별 문구 — **실행 중에 "화면이 아직 없습니다"를 띄우지 않는다.**
+ *
+ * 라운드 3까지는 프레임이 없으면 언제나 "표시할 실행 화면이 아직 없습니다 …"였다.
+ * 실행이 **한창 돌고 있는데도** 그 문구가 떠서, 사용자에게는 "고장났다"로 읽혔다
+ * (라운드 4 진단의 눈에 보이는 증상이 정확히 이것이다).
+ */
+function emptyScreenText(run: RunDetail, hasVideo: boolean): string {
+  if (run.status === "queued") {
+    return "실행이 큐에서 대기 중입니다. Runner 가 이 실행을 가져가면 이 자리에 실제 브라우저 화면이 그려집니다.";
+  }
+  if (!isTerminalRunStatus(run.status)) {
+    return "실행 중입니다. 실행 화면을 불러오는 중이며, 화면이 준비되는 대로 이 자리에 그려집니다.";
+  }
+  if (hasVideo) {
+    return "실행이 끝났습니다. 우측 위 “영상으로 보기”로 이 실행을 다시 볼 수 있습니다.";
+  }
+  return "실행이 끝났습니다. 이 실행에는 다시 볼 화면 증적이 남아 있지 않습니다.";
 }
 
 /**
@@ -93,12 +133,15 @@ export function RunLiveProgress({ run }: { run: RunDetail }) {
 export function RunScreenStill({
   artifacts,
   code,
+  emptyText,
 }: {
   artifacts: readonly Artifact[];
   code: boolean;
+  /** 보여 줄 것이 하나도 없을 때의 문구. 생략하면 경로별 기본 문구를 쓴다. */
+  emptyText?: string;
 }) {
   const screenshot = latestScreenshot(artifacts);
-  if (screenshot === undefined) return <NoScreenView code={code} />;
+  if (screenshot === undefined) return <NoScreenView code={code} text={emptyText} />;
 
   return (
     <img
@@ -118,7 +161,7 @@ export function RunScreenStill({
  *   **진짜 화면이 오기 때문에** 두 가지가 나란히 있으면 어느 쪽이 진짜인지 알 수 없다.
  *   그래서 목업을 지우고 "무엇이 없는지"만 적는다.
  */
-function NoScreenView({ code }: { code: boolean }) {
+function NoScreenView({ code, text }: { code: boolean; text?: string }) {
   /*
    * 전폭 무대(코드 실행)에서는 상자가 1000px 급이라 11px 문구가 미아처럼 보인다.
    * 우측 360px 목업(녹화 실행)에서는 반대로 13px 이 상자를 꽉 채운다.
@@ -141,9 +184,10 @@ function NoScreenView({ code }: { code: boolean }) {
           code ? "text-[13px]" : "text-[11px]",
         )}
       >
-        {code
-          ? "표시할 실행 화면이 아직 없습니다. 실행이 시작되면 이 자리에 실제 브라우저 화면이 그려집니다."
-          : "녹화 기반 실행은 실행 화면이 스트리밍되지 않습니다. 실패하면 스크린샷·영상 증적이 이 자리에 표시됩니다."}
+        {text ??
+          (code
+            ? "표시할 실행 화면이 아직 없습니다. 실행이 시작되면 이 자리에 실제 브라우저 화면이 그려집니다."
+            : "녹화 기반 실행은 실행 화면이 스트리밍되지 않습니다. 실행이 끝나면 영상 증적을 이 자리에서 다시 볼 수 있습니다.")}
       </p>
     </div>
   );

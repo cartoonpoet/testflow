@@ -301,8 +301,33 @@ export function startCodeBrowser(options: StartCodeBrowserOptions): CodeBrowserA
   const handles = new Set<ScreencastHandle>();
   let watcher: PageWatcher | null = null;
   let browser: Browser | null = null;
+  /**
+   * ★ 키프레임을 찍을 대상 — **가장 최근에 붙은 page 의 핸들**.
+   *
+   * `handles` 는 Set 이라 "지금 보고 있는 page" 를 고를 수 없다. 테스트 경계에서 이전
+   * page 가 아직 닫히지 않은 채 새 page 가 붙는 구간이 있는데, 그때 옛 page 를 찍으면
+   * **한 테스트 전 화면**을 지금 화면인 것처럼 보내게 된다.
+   */
+  let keyframeHandle: ScreencastHandle | null = null;
 
   const isStopped = (): boolean => stopped;
+
+  /*
+   * ★ 정지 화면에서 늦게 붙은 뷰어를 위한 경로. 세션은 **캐시가 비었을 때만** 부른다
+   *   (`live-stream.ts` 의 조합 전략) — 실행 중인 페이지에 개입하는 비용을 최소로 둔다.
+   */
+  session.setKeyframeProvider(async () => {
+    const handle = keyframeHandle;
+    if (handle === null || stopped) return null;
+    const frame = await handle.captureKeyframe();
+    if (frame === null) return null;
+    return {
+      data: frame.data,
+      capturedAtMs: frame.capturedAtMs,
+      viewportWidth: frame.viewportWidth,
+      viewportHeight: frame.viewportHeight,
+    };
+  });
 
   const attachPage = async (page: Page): Promise<void> => {
     if (stopped) return;
@@ -311,12 +336,14 @@ export function startCodeBrowser(options: StartCodeBrowserOptions): CodeBrowserA
     });
 
     let detached = false;
+    let handleRef: ScreencastHandle | null = null;
     const detach = (): void => {
       if (detached) return;
       detached = true;
       // ★ page 1건당 정확히 1회. 두 번 부르면 `attachedPages` 가 음수로 새고
       //   `between-tests` 가 조기 발행돼 화면에 오버레이가 깜빡인다.
       session.pageDetached();
+      if (keyframeHandle === handleRef) keyframeHandle = null;
       const passed = throttle.stats();
       stats.framesProduced += passed.produced;
       stats.framesPassed += passed.passed;
@@ -333,6 +360,9 @@ export function startCodeBrowser(options: StartCodeBrowserOptions): CodeBrowserA
         onFrame: throttle.onFrame,
       });
       handles.add(handle);
+      handleRef = handle;
+      keyframeHandle = handle;
+      // ★ `pageAttached()` 보다 **먼저** 꽂는다 — 세션이 그 안에서 키프레임을 요청한다.
       session.pageAttached();
       stats.pagesAttached += 1;
       page.once("close", () => {
@@ -367,6 +397,7 @@ export function startCodeBrowser(options: StartCodeBrowserOptions): CodeBrowserA
   const teardownRound = async (): Promise<void> => {
     watcher?.stop();
     watcher = null;
+    keyframeHandle = null;
     for (const handle of [...handles]) {
       await handle.stop().catch(() => undefined);
       handles.delete(handle);
@@ -448,6 +479,7 @@ export function startCodeBrowser(options: StartCodeBrowserOptions): CodeBrowserA
     stop: async () => {
       if (stopped) return;
       stopped = true;
+      session.setKeyframeProvider(null);
       await teardownRound();
     },
   };

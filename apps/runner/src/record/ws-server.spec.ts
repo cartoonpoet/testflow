@@ -4,6 +4,7 @@ import {
   LIVE_STREAM_TOKEN_KEY_PREFIX,
   RECORDING_TOKEN_KEY_PREFIX,
   liveStreamTokenKey,
+  liveStreamTokenMemberKey,
   recordingTokenKey,
 } from "@testflow/contracts";
 import {
@@ -113,5 +114,32 @@ describe("프레임 봉투 — 녹화와 실행이 공유한다", () => {
     const sendAt = encoded.readDoubleBE(13);
     expect(sendAt).toBeGreaterThanOrEqual(before);
     expect(sendAt).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+/**
+ * ★ 라운드 4 — 해시별 키의 성질 (다중 뷰어).
+ *
+ * Runner 는 단일 슬롯을 먼저 보고, 어긋나면 `liveStreamTokenMemberKey` 의 **존재 여부**를
+ * 본다. 그 키 이름 자체가 `sha256(token)` 이라, 토큰을 모르면 키에 닿을 수 없다.
+ */
+describe("★ 라이브 토큰 — 해시별 키 (라운드 4)", () => {
+  it("키 이름이 sha256(token) 을 포함한다 — 평문은 어디에도 없다", () => {
+    const token = "live-token-abc";
+    const key = liveStreamTokenMemberKey(ID, sha256hex(token));
+    expect(key).toContain(sha256hex(token));
+    expect(key).not.toContain(token);
+  });
+
+  it("다른 토큰은 다른 키를 만든다(추측 불가는 그대로다)", () => {
+    expect(liveStreamTokenMemberKey(ID, sha256hex("a"))).not.toBe(
+      liveStreamTokenMemberKey(ID, sha256hex("b")),
+    );
+  });
+
+  it("★ 녹화 키 공간과 섞이지 않는다", () => {
+    const key = liveStreamTokenMemberKey(ID, sha256hex("x"));
+    expect(key.startsWith(liveStreamTokenKey(ID))).toBe(true);
+    expect(key.startsWith(recordingTokenKey(ID))).toBe(false);
   });
 });

@@ -222,6 +222,88 @@ describe("LiveStreamSession — ★ 종료 시 캔버스를 비우지 않는다"
   });
 });
 
+/**
+ * ★ 라운드 4 — **정지 화면에서 늦게 붙은 뷰어에게 첫 프레임을 보장한다.**
+ *
+ * `page.screencast` 는 변경분만 송출한다(04-gen-3 실측). 화면이 멈춘 순간에 붙으면
+ * 프레임이 한 장도 오지 않아 캔버스가 검게 남는다 — 라운드 4가 고친 바로 그 버그다.
+ */
+describe("LiveStreamSession — 늦게 붙은 뷰어의 첫 프레임 (라운드 4)", () => {
+  it("★ 캐시된 마지막 프레임을 붙는 즉시 보낸다(새 프레임이 하나도 없어도)", () => {
+    const session = new LiveStreamSession(RUN_ID);
+    const early = fakeSink();
+    session.attach(early.sink);
+    session.pageAttached();
+    session.pushFrame(FRAME);
+
+    // 이 시점부터 화면이 정지했다고 가정한다 — `pushFrame` 이 더 오지 않는다.
+    const late = fakeSink();
+    session.attach(late.sink);
+
+    expect(late.frames).toBe(1);
+    expect(session.stats().cachedFramesReplayed).toBe(1);
+    // 상태도 `live` 로 받는다 — "화면이 아직 없습니다"가 뜰 이유가 없다.
+    expect(late.messages[0]).toEqual({ t: "state", state: "live" });
+  });
+
+  it("뷰어가 하나도 없는 동안 온 프레임도 캐시된다", () => {
+    const session = new LiveStreamSession(RUN_ID);
+    session.pageAttached();
+    session.pushFrame(FRAME);
+    expect(session.stats().framesDroppedNoViewer).toBe(1);
+    expect(session.hasCachedFrame()).toBe(true);
+
+    const late = fakeSink();
+    session.attach(late.sink);
+    expect(late.frames).toBe(1);
+  });
+
+  it("★ 캐시가 비었을 때만 키프레임을 요청한다(실행 중인 페이지 개입 최소화)", async () => {
+    const session = new LiveStreamSession(RUN_ID);
+    const provider = vi.fn(() => Promise.resolve(FRAME));
+    session.setKeyframeProvider(provider);
+
+    const first = fakeSink();
+    session.attach(first.sink);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(first.frames).toBe(1);
+    expect(session.stats().keyframesDelivered).toBe(1);
+
+    // 캐시가 찼으므로 다음 뷰어는 캡처 없이 캐시로 답한다.
+    const second = fakeSink();
+    session.attach(second.sink);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(second.frames).toBe(1);
+  });
+
+  it("키프레임 공급자가 없거나 null 을 주면 조용히 넘어간다(실행에 영향 없음)", async () => {
+    const session = new LiveStreamSession(RUN_ID);
+    session.setKeyframeProvider(() => Promise.resolve(null));
+    const viewer = fakeSink();
+    expect(() => {
+      session.attach(viewer.sink);
+    }).not.toThrow();
+    await Promise.resolve();
+    expect(viewer.frames).toBe(0);
+    expect(session.stats().keyframesRequested).toBe(1);
+    expect(session.stats().keyframesDelivered).toBe(0);
+  });
+
+  it("공급자가 던져도 세션이 죽지 않는다", async () => {
+    const session = new LiveStreamSession(RUN_ID);
+    session.setKeyframeProvider(() => Promise.reject(new Error("page closed")));
+    const viewer = fakeSink();
+    session.attach(viewer.sink);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(viewer.frames).toBe(0);
+    expect(session.stats().state).toBe("between-tests");
+  });
+});
+
 describe("LiveStreamSession — 계약 준수", () => {
   it("발행하는 모든 메시지가 LiveStreamServerMessageSchema 를 통과한다", () => {
     const session = new LiveStreamSession(RUN_ID);
@@ -268,18 +350,37 @@ describe("LiveStreamRegistry", () => {
     expect(registry.get(RUN_ID)).toBeUndefined();
   });
 
-  it("★ 최신 뷰어가 이긴다 — 이전 sink 를 돌려주므로 호출부가 닫을 수 있다", () => {
+  it("★ 다중 뷰어 — 나중에 붙은 뷰어가 먼저 붙은 뷰어를 끊지 않는다", () => {
     const session = new LiveStreamSession(RUN_ID);
     const first = fakeSink();
     const second = fakeSink();
 
-    expect(session.attach(first.sink)).toBeNull();
-    expect(session.attach(second.sink)).toBe(first.sink);
+    session.attach(first.sink);
+    session.attach(second.sink);
+    expect(session.viewerCount).toBe(2);
+    // ★ 라운드 2의 "최신이 이긴다"(sink 1개)를 되돌린 지점이다. 아무도 닫히지 않는다.
+    expect(first.finished).toBe(0);
 
     session.pageAttached();
     session.pushFrame(FRAME);
-    expect(first.frames).toBe(0);
-    expect(second.frames).toBe(1);
+    expect(first.frames).toBeGreaterThanOrEqual(1);
+    expect(second.frames).toBeGreaterThanOrEqual(1);
+  });
+
+  it("★ 한 뷰어가 나가도 남은 뷰어는 계속 받는다", () => {
+    const session = new LiveStreamSession(RUN_ID);
+    const first = fakeSink();
+    const second = fakeSink();
+    session.attach(first.sink);
+    session.attach(second.sink);
+    session.pageAttached();
+
+    session.detach(first.sink);
+    expect(session.viewerCount).toBe(1);
+
+    const before = second.frames;
+    session.pushFrame(FRAME);
+    expect(second.frames).toBe(before + 1);
   });
 
   it("closeAll 이 전부 내린다", () => {

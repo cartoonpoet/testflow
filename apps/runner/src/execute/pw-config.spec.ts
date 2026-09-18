@@ -49,9 +49,22 @@ describe("mergePlaywrightConfig — 우리가 덮어쓰는 것", () => {
 
   it("증적 옵션을 우리가 넣는다 (Task 3.6)", () => {
     const use = mergePlaywrightConfig({}, OVERRIDES)["use"] as Record<string, unknown>;
-    expect(use["video"]).toBe("retain-on-failure");
+    /*
+     * ★ 라운드 4 — `video` 만 `"on"` 이다. **성공한 실행도 다시 볼 수 있어야 한다**
+     *   (`retain-on-failure` 는 성공 실행의 영상을 지운다). trace·screenshot 은 디버깅
+     *   자료라 실패 시에만 남긴다 — 그 비대칭이 의도다.
+     */
+    expect(use["video"]).toBe("on");
     expect(use["trace"]).toBe("retain-on-failure");
     expect(use["screenshot"]).toBe("only-on-failure");
+  });
+
+  it("★ 사용자가 use.video 를 적어도 우리 값이 이긴다(다시 보기 보장)", () => {
+    const use = mergePlaywrightConfig({ use: { video: "off" } }, OVERRIDES)["use"] as Record<
+      string,
+      unknown
+    >;
+    expect(use["video"]).toBe("on");
   });
 });
 

@@ -26,6 +26,60 @@ export interface ArtifactStream {
   contentType: string;
   fileName: string;
   sizeBytes: number | null;
+  /**
+   * ★ Range 요청으로 잘라 준 구간(`[start, end]`, 둘 다 포함). 전체를 준 경우 `null`.
+   *
+   * `<video>` 는 **seek 할 때 Range 를 쓴다.** 서버가 언제나 200 + 전체를 주면
+   * 브라우저가 탐색을 포기하거나(진행 바가 안 움직인다) 파일을 통째로 다시 받는다.
+   */
+  range: { start: number; end: number } | null;
+}
+
+/**
+ * `Range: bytes=…` 헤더 1개를 해석한다. **순수 함수 — 단위 테스트의 대상이다.**
+ *
+ * 지원하는 형태는 단일 구간뿐이다(`bytes=0-1000` · `bytes=500-` · `bytes=-500`).
+ * 다중 구간(`bytes=0-9,20-29`)은 `multipart/byteranges` 응답을 만들어야 하는데
+ * 브라우저의 미디어 재생은 그것을 쓰지 않는다 — **지원하는 척하지 않고** `null` 로
+ * 떨어뜨려 전체를 준다(200). 잘못된 범위는 `"unsatisfiable"` 이며 **416** 이다.
+ */
+export function parseByteRange(
+  header: string | undefined,
+  sizeBytes: number,
+): { start: number; end: number } | null | "unsatisfiable" {
+  if (header === undefined || header === "") return null;
+  const match = /^bytes=(\d*)-(\d*)$/u.exec(header.trim());
+  if (match === null) return null;
+  const rawStart = match[1] ?? "";
+  const rawEnd = match[2] ?? "";
+  if (rawStart === "" && rawEnd === "") return null;
+  if (sizeBytes <= 0) return "unsatisfiable";
+
+  let start: number;
+  let end: number;
+  if (rawStart === "") {
+    // `bytes=-500` = 마지막 500바이트.
+    const suffix = Number(rawEnd);
+    if (suffix <= 0) return "unsatisfiable";
+    start = Math.max(0, sizeBytes - suffix);
+    end = sizeBytes - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === "" ? sizeBytes - 1 : Number(rawEnd);
+    // 파일 끝을 넘겨 요청해도 끝까지만 준다(RFC 9110 — 초과분은 잘라 낸다).
+    if (end > sizeBytes - 1) end = sizeBytes - 1;
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "unsatisfiable";
+  if (start > end || start >= sizeBytes) return "unsatisfiable";
+  return { start, end };
+}
+
+/** Range 가 만족될 수 없을 때 던진다 → 컨트롤러가 **416** 으로 옮긴다. */
+export class RangeNotSatisfiableError extends Error {
+  constructor(readonly sizeBytes: number) {
+    super("요청한 바이트 범위를 만족할 수 없습니다.");
+    this.name = "RangeNotSatisfiableError";
+  }
 }
 
 /**
@@ -76,7 +130,7 @@ export class ArtifactsService {
    * 경로 방어는 `artifacts.path.ts` 가 전담한다. 여기서는 그 결과를 400/404 로 옮기고
    * `stat` 으로 실제 파일인지(디렉토리·심볼릭 링크 탈출 아님) 한 번 더 본다.
    */
-  async openFile(id: string): Promise<ArtifactStream> {
+  async openFile(id: string, rangeHeader?: string): Promise<ArtifactStream> {
     const artifact = await this.artifacts.findOne({ where: { id } });
     if (!artifact) throw new NotFoundException(`증적을 찾을 수 없습니다: ${id}`);
 
@@ -97,11 +151,20 @@ export class ArtifactsService {
       throw new BadRequestException("storage_key 가 ARTIFACT_ROOT 밖을 가리킵니다.");
     }
 
+    const range = parseByteRange(rangeHeader, info.size);
+    if (range === "unsatisfiable") throw new RangeNotSatisfiableError(info.size);
+
     return {
-      stream: createReadStream(filePath),
+      // ★ Range 가 있으면 **그 구간만** 읽는다. 전체를 읽고 잘라 주면 200MB 영상의 마지막
+      //   1초를 보려는 seek 이 200MB 디스크 읽기가 된다.
+      stream:
+        range === null
+          ? createReadStream(filePath)
+          : createReadStream(filePath, { start: range.start, end: range.end }),
       contentType: artifact.contentType,
       fileName: artifactFileName(artifact.storageKey),
       sizeBytes: info.size,
+      range,
     };
   }
 }
