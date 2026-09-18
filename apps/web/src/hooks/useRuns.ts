@@ -1,14 +1,16 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Query } from "@tanstack/react-query";
+import type { Query, QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   ArtifactSchema,
+  BulkDeleteResultSchema,
   CreateRunResponseSchema,
   RunDetailSchema,
   RunListItemSchema,
   RunQueueStatusSchema,
   isTerminalRunStatus,
   type Artifact,
+  type BulkDeleteResult,
   type CreateRunRequest,
   type CreateRunResponse,
   type RunDetail,
@@ -127,6 +129,28 @@ export function useRunArtifacts(runId: string | undefined, enabled = true) {
 }
 
 /**
+ * ★ 라운드 8 — run 여러 건의 증적 목록을 **한 번에** 읽는다(삭제 확인 대화상자용).
+ *
+ * 확인 대화상자가 "증적 N개 · 합계 M 가 함께 삭제됩니다" 를 **실제 값**으로 적으려면
+ * 고른 run 마다 증적을 알아야 한다. 목록 응답(`RunListItem`)에는 없다.
+ *
+ * ★ `enabled` 로 **대화상자가 열렸을 때만** 돈다. 목록을 보는 내내 N개 요청을 돌리면
+ *   아무도 안 여는 대화상자를 위해 매 폴링마다 트래픽을 쓴다.
+ * ★ 캐시 키는 `useRunArtifacts` 와 **같다**(`queryKeys.runArtifacts`). 상세 화면에서
+ *   이미 읽은 run 이면 네트워크를 타지 않는다.
+ */
+export function useRunArtifactsMany(runIds: readonly string[], enabled: boolean) {
+  return useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: queryKeys.runArtifacts(runId),
+      queryFn: () =>
+        api.get<Artifact[]>(`/runs/${runId}/artifacts`, { schema: ArtifactListSchema }),
+      enabled,
+    })),
+  });
+}
+
+/**
  * ★ 라운드 7 — 큐 상태 (`GET /api/runs/queue`).
  *
  * **"병렬로 여러 개"가 실제로 몇 개인지**를 화면이 말하기 위한 값이다. Runner 의
@@ -183,6 +207,93 @@ export function useCancelRun(runId: string | undefined) {
     onSuccess: () => {
       // 상태 확정은 SSE 가 한다. 스트림이 끊겨 있을 때를 대비해 재조회만 예약한다.
       void queryClient.invalidateQueries({ queryKey: queryKeys.run(runId ?? "") });
+    },
+  });
+}
+
+/**
+ * 실행 이력 삭제 — 단건 `DELETE /api/runs/:id` (204).
+ *
+ * ════════════════════════════════════════════════════════════════════
+ * ★ **되돌릴 수 없고, 증적도 함께 사라진다.**
+ *   `step_results` · `artifacts` DB 행은 FK CASCADE 로, **디스크의 영상·trace·스크린샷은
+ *   서버가 `runs/<runId>/` 디렉토리째** 지운다. 07-attachments §8 의 고아 파일 97MB 사고를
+ *   반복하지 않기 위한 구조다.
+ *
+ * ★ **진행 중인 실행은 409 다.** 큐에 job 이 남은 채 DB 행만 지우면 Runner 가 없는 run 에
+ *   결과를 쓰려다 깨진다. 화면은 버튼을 **끄고 이유를 `title` 로** 말한다(#14 의 재실행 방식).
+ * ════════════════════════════════════════════════════════════════════
+ */
+export function useDeleteRun() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (runId: string) => api.delete<void>(`/runs/${runId}`),
+    onSuccess: () => {
+      invalidateAfterRunDelete(client);
+    },
+  });
+}
+
+/**
+ * 실행 이력 다중 삭제 — `POST /api/runs/bulk-delete` (200 + 결과 본문).
+ *
+ * ★ **부분 성공이 정상 응답이다.** 고른 것 중 진행 중인 실행은 `skipped` 로 돌아오고
+ *   나머지는 지워진다(형태 근거는 `contracts/delete.ts` 머리 주석).
+ */
+export function useBulkDeleteRuns() {
+  const client = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: readonly string[]) =>
+      api.post<BulkDeleteResult>(
+        "/runs/bulk-delete",
+        { ids: [...ids] },
+        { schema: BulkDeleteResultSchema },
+      ),
+    onSuccess: () => {
+      invalidateAfterRunDelete(client);
+    },
+  });
+}
+
+/**
+ * 삭제 후 낡는 캐시. 단건·다중이 **같은 것**을 무효화한다.
+ *
+ * ════════════════════════════════════════════════════════════════════
+ * ## ★ `["runs"]` 를 통째로 무효화하지 **않는다** — 실측으로 확인한 함정
+ * 접두 일치 무효화는 `["runs", <id>]`(상세)와 `["runs", <id>, "artifacts"]`(증적)까지
+ * 함께 건드린다. 그 쿼리들은 **방금 지운 run 의 것**이고, 관찰자가 아직 붙어 있으면
+ * (대화상자가 닫히기 전 · 목록으로 이동하기 전) 곧바로 다시 읽으러 간다 →
+ * **404 가 콘솔에 남는다.** 실측: 3건 다중 삭제 1회에 `404 GET …/artifacts` 3건,
+ * 상세에서 단건 삭제 1회에 `404 GET …/runs/<id>` + `…/artifacts` 2건.
+ *
+ * 지워진 것을 다시 읽을 이유는 없다. **목록 계열만** 무효화한다.
+ * 같은 종류의 함정을 `queryKeys.runLive` 주석이 이미 기록해 두었다
+ * (Gen-Phase 6 에서 접두 일치 무효화가 라이브 토큰을 회전시켜 소켓을 끊은 사고).
+ * ════════════════════════════════════════════════════════════════════
+ */
+function invalidateAfterRunDelete(client: QueryClient): void {
+  invalidateRunLists(client);
+  // 시나리오 목록의 "최근 결과" 열 — 서버가 `last_run_id` 를 NULL 로 되돌린다.
+  void client.invalidateQueries({ queryKey: ["projects"] });
+  void client.invalidateQueries({ queryKey: ["dashboard"] });
+}
+
+/**
+ * 실행 **목록 계열**만 무효화한다(`["runs", {필터}]` · `["runs","queue"]`).
+ *
+ * id 로 키가 잡힌 쿼리(`["runs", "<uuid>"]` · `…, "artifacts"]`)는 건드리지 않는다 —
+ * 위 주석의 404 가 정확히 그 경로로 난다. 시나리오 삭제도 같은 함수를 쓴다
+ * (시나리오가 사라지면 목록의 "최근 결과"와 재실행 가능 여부가 바뀐다).
+ */
+export function invalidateRunLists(client: QueryClient): void {
+  void client.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      if (key[0] !== "runs") return false;
+      // 목록은 필터 **객체**, 큐는 `"queue"`. 상세·증적은 uuid 문자열이라 걸러진다.
+      return typeof key[1] !== "string" || key[1] === "queue";
     },
   });
 }

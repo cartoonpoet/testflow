@@ -38,6 +38,14 @@ export const queryKeys = {
   project: (id: string) => ["projects", id] as const,
   scenarios: (projectId: string, filters?: Readonly<Record<string, unknown>>) =>
     ["projects", projectId, "scenarios", filters ?? {}] as const,
+  /**
+   * ★ 라운드 8 — **필터 조합 전체**를 한 번에 무효화하는 접두사.
+   *
+   * `scenarios(projectId)` 는 뒤에 `{}` 가 붙어 있어 **필터가 빈 목록 하나만** 맞는다.
+   * 삭제 후에는 검색어·상태·페이지가 다른 캐시도 전부 낡으므로 그 앞까지만 쓴다.
+   * (react-query 의 무효화는 접두 일치다.)
+   */
+  scenariosRoot: (projectId: string) => ["projects", projectId, "scenarios"] as const,
   /** 툴바 "기능" 선택지. 목록 필터와 달리 **필터 없이** 한 번만 읽는다. */
   scenarioFeatures: (projectId: string) =>
     ["projects", projectId, "scenario-features"] as const,

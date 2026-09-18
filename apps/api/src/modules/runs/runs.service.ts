@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Queue } from "bullmq";
@@ -10,6 +17,9 @@ import {
   RUN_QUEUE_NAME,
   RUNNER_CAPACITY_KEY_PREFIX,
   isTerminalRunStatus,
+  liveStreamTokenKey,
+  runEventBufferKey,
+  runEventSeqKey,
 } from "@testflow/contracts";
 import type {
   CreateRunRequest,
@@ -57,6 +67,8 @@ interface SuiteScenarioRow extends ScenarioRow {
  */
 @Injectable()
 export class RunsService {
+  private readonly logger = new Logger(RunsService.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(RunEntity) private readonly runs: Repository<RunEntity>,
@@ -297,6 +309,105 @@ export class RunsService {
     const run = await this.runs.findOne({ where: { id } });
     if (!run) throw new NotFoundException(`실행을 찾을 수 없습니다: ${id}`);
     return run;
+  }
+
+  /**
+   * 삭제해도 되는 실행인가 (라운드 8). 안 되면 **404 · 409** 를 여기서 던진다.
+   *
+   * ★ **진행 중(`queued`/`running`)인 실행은 지우지 않는다 — 409 다.**
+   *   큐에 job 이 남은 채 DB 행만 사라지면 Runner 가 없는 run 에 결과를 쓰려다 깨진다
+   *   (`step_results.run_id` 가 FK 라 INSERT 자체가 실패한다). 안내는 "먼저 취소하세요" 다 —
+   *   취소 경로(`POST /runs/:id/cancel`)가 이미 큐 job 제거와 상태 확정을 다 한다.
+   *
+   * ★ 판정을 **삭제 직전에** 한다. 실제로 지우는 컨트롤러가 이 함수를 먼저 부르고
+   *   그다음 파일을 지운다 — 순서가 뒤집히면 "지우지 않기로 한 실행의 증적"을 먼저 날린다.
+   */
+  async assertDeletable(id: string): Promise<RunEntity> {
+    const run = await this.mustFind(id);
+    if (!isTerminalRunStatus(run.status)) {
+      throw new ConflictException(
+        `진행 중인 실행은 삭제할 수 없습니다 (${run.runCode}, status: ${run.status}). ` +
+          "먼저 실행을 취소한 뒤 삭제하세요.",
+      );
+    }
+    return run;
+  }
+
+  /**
+   * run 행을 지운다. **증적 파일은 호출부(`RunsController`)가 먼저 지운다.**
+   *
+   * 지워지는 것:
+   *  - `runs` 1행 → `step_results` · `artifacts` 는 **FK CASCADE** 로 함께 사라진다
+   *    (`fk_step_results_run` · `fk_artifacts_run`, 둘 다 `ON DELETE CASCADE` — 실측 확인).
+   *  - 큐에 남은 job (완료 job 이 `removeOnComplete.age=3600` 동안 남아 있다).
+   *  - Redis 잔재 — 아래 `purgeRedis()` 참조.
+   *  - `scenarios.last_run_id` 의 역참조 — **FK 가 없는 비정규화 컬럼**이라
+   *    아무도 NULL 로 만들어 주지 않는다. 목록의 `LEFT JOIN` 이 NULL 을 내 화면은
+   *    멀쩡하지만, **끊긴 포인터를 남기지 않는다**(나중에 INNER JOIN 으로 바꾸면 행이 사라진다).
+   *
+   * 순서: **큐 job → DB → Redis.** job 을 먼저 치우면 그 사이 Runner 가 집어 갈 길이 없고,
+   * Redis 는 실패해도 TTL(1시간)로 사라지는 파생 데이터라 맨 뒤에 둔다.
+   */
+  async removeRow(run: RunEntity): Promise<void> {
+    const job = await this.queue.getJob(run.id).catch(() => undefined);
+    if (job) await job.remove().catch(() => undefined);
+
+    await this.dataSource.transaction(async (manager) => {
+      // 비정규화 역참조를 먼저 끊는다(FK 가 없어 CASCADE 가 닿지 않는다).
+      await manager.query(`UPDATE scenarios SET last_run_id = NULL WHERE last_run_id = ?`, [run.id]);
+      await manager.getRepository(RunEntity).delete({ id: run.id });
+    });
+
+    await this.purgeRedis(run.id);
+  }
+
+  /**
+   * Redis 에 남는 것들 — **지우는 것이 맞다**는 판단과 근거 (라운드 8).
+   *
+   * | 키 | 무엇 | TTL | 판정 |
+   * |---|---|---|---|
+   * | `run:<id>:events` | SSE 재전송 버퍼(List, 최대 500건) | 1시간 | **지운다** |
+   * | `run:<id>:seq`    | SSE `id:` 카운터                 | 1시간 | **지운다** |
+   * | `testflow:run:token:<id>[:<hash>]` | 라이브 WS 토큰 해시 | 120초 | **지운다** |
+   *
+   * TTL 이 있으니 놔둬도 언젠가는 사라진다. 그럼에도 지우는 이유는 **양**이다 —
+   * 실행 이력 100건을 정리하면 버퍼 100개(최대 5만 이벤트)가 한 시간 동안 Redis 에
+   * 남는다. 지워진 run 의 이벤트를 다시 받을 클라이언트는 존재하지 않는다.
+   *
+   * 라이브 토큰은 **사실상 없다**(진행 중 run 은 삭제를 거부하므로). 그래도 지운다 —
+   * 공짜이고, "끝난 run 에 토큰이 남아 있을 리 없다"는 전제에 기대지 않는다.
+   * 취소 채널(`run:<id>:cancel`)은 pub/sub 라 **저장되는 것이 없어** 지울 대상이 아니다.
+   *
+   * 실패해도 던지지 않는다 — DB 행은 이미 없고, 남은 것은 TTL 로 사라지는 파생 데이터다.
+   */
+  private async purgeRedis(runId: string): Promise<void> {
+    try {
+      const keys = [runEventBufferKey(runId), runEventSeqKey(runId), liveStreamTokenKey(runId)];
+
+      /*
+       * 라이브 토큰은 **해시별 보조 키**(`…:<sha256>`)가 더 있다(라운드 4 다중 뷰어).
+       * 개수를 알 수 없으므로 SCAN 으로 훑는다 — `KEYS` 는 쓰지 않는다(운영 Redis 블로킹).
+       */
+      let cursor = "0";
+      for (let i = 0; i < 10; i += 1) {
+        const [next, found] = await this.redis.scan(
+          cursor,
+          "MATCH",
+          `${liveStreamTokenKey(runId)}:*`,
+          "COUNT",
+          100,
+        );
+        keys.push(...found);
+        cursor = next;
+        if (cursor === "0") break;
+      }
+
+      await this.redis.del(...keys);
+    } catch (error) {
+      this.logger.warn(
+        `Redis 잔재를 지우지 못했습니다 (run ${runId}): ${String(error)}. TTL 로 사라진다.`,
+      );
+    }
   }
 
   /* ── 내부 ─────────────────────────────────────────────── */

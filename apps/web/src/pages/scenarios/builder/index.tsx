@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ProjectGate } from "@/components";
 import { Button, PageHead, Panel, StateView } from "@/components/ui";
 import { toast } from "@/hooks/useToast";
@@ -12,7 +12,9 @@ import {
   useScenarioBuilderMutations,
   useScenarioDetail,
 } from "@/hooks/useScenarioBuilder";
+import { useDeleteScenario } from "@/hooks/useScenarios";
 import { RunDialog } from "@/pages/runs/RunDialog";
+import { ScenarioDeleteDialog } from "../ScenarioDeleteDialog";
 import { BuilderHeader } from "./BuilderHeader";
 import { CodeExportModal } from "./CodeExportModal";
 import { Inspector } from "./Inspector";
@@ -37,6 +39,7 @@ import { StepList } from "./StepList";
  */
 export function ScenarioBuilderPage() {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
+  const navigate = useNavigate();
   const { project } = useCurrentProject();
   const health = useHealth();
 
@@ -47,6 +50,8 @@ export function ScenarioBuilderPage() {
   const [advanced, setAdvanced] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const removeScenario = useDeleteScenario();
   const advancedDetail = useAdvancedScenarioDetail(scenarioId, advanced);
 
   const recording = useRecording({
@@ -105,6 +110,22 @@ export function ScenarioBuilderPage() {
         description="기록한 행동을 업무 단계로 정리하고 기대 결과를 추가하세요."
         action={
           <div className="flex gap-[8px]">
+            {/*
+              ★ 라운드 8 — 라벨이 **"시나리오 삭제"** 다. 이 화면의 인스펙터에는
+                `삭제`(=선택한 **스텝** 삭제) 버튼이 이미 있다. 같은 이름을 두 개 두면
+                무엇이 지워지는지가 버튼 이름만으로 갈리지 않는다.
+                위치도 주 동작(저장·실행·발행)에서 **가장 왼쪽으로** 떼어 놓았다.
+            */}
+            <Button
+              variant="danger"
+              data-testid="scenario-delete-open"
+              disabled={detail.data === undefined}
+              onClick={() => {
+                setDeleteOpen(true);
+              }}
+            >
+              시나리오 삭제
+            </Button>
             <Button
               data-testid="save-draft"
               disabled={detail.data === undefined || mutations.renameScenario.isPending}
@@ -175,6 +196,39 @@ export function ScenarioBuilderPage() {
         target={{ scenarioId }}
         targetName={detail.data?.name ?? ""}
       />
+
+      {/*
+        ★ 녹화 시나리오는 스텝 수를 **이 화면이 이미 갖고 있다**(`detail.data.steps`).
+          첨부는 코드 시나리오 전용이라 여기서는 개수 자체가 존재하지 않는다 — 적지 않는다.
+      */}
+      {detail.data === undefined ? null : (
+        <ScenarioDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          pending={removeScenario.isPending}
+          targets={[
+            {
+              id: detail.data.id,
+              name: detail.data.name,
+              code: detail.data.code,
+              sourceType: detail.data.sourceType,
+              stepCount: steps.length,
+            },
+          ]}
+          onConfirm={() => {
+            removeScenario.mutate(scenarioId, {
+              onSuccess: () => {
+                toast("시나리오를 삭제했습니다.", { label: "삭제" });
+                setDeleteOpen(false);
+                void navigate("/scenarios");
+              },
+              onError: (error: Error) => {
+                toast(error.message, { label: "삭제 실패", tone: "danger" });
+              },
+            });
+          }}
+        />
+      )}
 
       <ProjectGate>
         {detail.isError ? (

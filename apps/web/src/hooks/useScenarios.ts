@@ -1,14 +1,23 @@
 import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
+import {
+  BulkDeleteResultSchema,
   SCENARIO_STATUSES,
   ScenarioListResponseSchema,
+  type BulkDeleteResult,
   type ScenarioListResponse,
   type ScenarioStatus,
 } from "@testflow/contracts";
 import { api, queryKeys } from "@/lib";
 import { useCurrentProject } from "./useProject";
+import { invalidateRunLists } from "./useRuns";
 
 /** 목록 1페이지 크기. 서버 기본값과 같다(`ScenarioListQuerySchema.size`). */
 export const SCENARIO_PAGE_SIZE = 20;
@@ -152,4 +161,67 @@ export function useScenarioFeatures() {
     },
     enabled: projectId !== undefined,
   });
+}
+
+/**
+ * 시나리오 삭제 — 단건 `DELETE /api/scenarios/:id` (204).
+ *
+ * ★ **되돌릴 수 없다.** soft delete 가 아니다. 서버가 스텝·코드 본문·첨부 DB 행을
+ *   FK CASCADE 로 지우고 **디스크의 첨부 파일까지** 지운다(07-attachments §8 의 97MB 사고).
+ *
+ * ★ **실행 이력은 지우지 않는다** — `runs.scenario_id` 가 `SET NULL` 이라 이력은 남는다.
+ *   그래서 `["runs"]` 캐시도 무효화한다(목록의 재실행 가능 여부가 바뀐다).
+ */
+export function useDeleteScenario() {
+  const client = useQueryClient();
+  const { projectId } = useCurrentProject();
+
+  return useMutation({
+    mutationFn: (scenarioId: string) => api.delete<void>(`/scenarios/${scenarioId}`),
+    onSuccess: () => {
+      invalidateAfterScenarioDelete(client, projectId);
+    },
+  });
+}
+
+/**
+ * 시나리오 다중 삭제 — `POST /api/scenarios/bulk-delete` (200 + 결과 본문).
+ *
+ * ★ **부분 성공이 정상 응답이다.** 진행 중인 실행이 걸린 시나리오는 `skipped` 로 돌아오고
+ *   나머지는 지워진다. 그래서 `onError` 가 아니라 **성공 결과를 읽어** 알려야 한다
+ *   (형태를 이렇게 고른 근거는 `contracts/delete.ts` 머리 주석).
+ */
+export function useBulkDeleteScenarios() {
+  const client = useQueryClient();
+  const { projectId } = useCurrentProject();
+
+  return useMutation({
+    mutationFn: (ids: readonly string[]) =>
+      api.post<BulkDeleteResult>(
+        "/scenarios/bulk-delete",
+        { ids: [...ids] },
+        { schema: BulkDeleteResultSchema },
+      ),
+    onSuccess: () => {
+      invalidateAfterScenarioDelete(client, projectId);
+    },
+  });
+}
+
+/**
+ * 삭제 후 낡는 캐시 — 한 곳에 모은다. 단건과 다중이 다른 것을 무효화하면
+ * "단건으로 지우면 목록이 갱신되는데 다중으로 지우면 안 되는" 버그가 난다.
+ */
+function invalidateAfterScenarioDelete(client: QueryClient, projectId: string | undefined): void {
+  if (projectId !== undefined) {
+    // 필터 조합 전체(`scenariosRoot`) + 툴바의 기능 선택지.
+    void client.invalidateQueries({ queryKey: queryKeys.scenariosRoot(projectId) });
+    void client.invalidateQueries({ queryKey: queryKeys.scenarioFeatures(projectId) });
+  }
+  /*
+   * 실행 이력은 남지만 "재실행 가능" 여부가 바뀐다(`scenario_id` → NULL).
+   * ★ 여기서도 **목록 계열만** 건드린다 — 이유는 `invalidateRunLists` 주석 참조.
+   */
+  invalidateRunLists(client);
+  void client.invalidateQueries({ queryKey: ["dashboard"] });
 }

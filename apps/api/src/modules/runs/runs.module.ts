@@ -3,6 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RUN_QUEUE_NAME } from "@testflow/contracts";
 import { ProjectEntity, RunEntity, StepResultEntity } from "@testflow/db";
+import { ArtifactsModule } from "../artifacts/artifacts.module.js";
 import { LiveStreamController } from "./live-stream.controller.js";
 import { RunsController } from "./runs.controller.js";
 import { RunsService } from "./runs.service.js";
@@ -22,6 +23,11 @@ import { RunEventsService, RunsSseController } from "./runs.sse.js";
   imports: [
     TypeOrmModule.forFeature([RunEntity, StepResultEntity, ProjectEntity]),
     BullModule.registerQueue({ name: RUN_QUEUE_NAME }),
+    /*
+     * ★ 실행 삭제가 **디스크의 증적 파일까지** 지우기 위해 필요하다(라운드 8).
+     *   `ArtifactsModule` 은 이 모듈을 import 하지 않으므로 순환이 아니다.
+     */
+    ArtifactsModule,
   ],
   controllers: [RunsController, RunsSseController, LiveStreamController],
   providers: [RunsService, RunEventsService],

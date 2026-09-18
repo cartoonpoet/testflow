@@ -7,7 +7,12 @@ import {
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { ProjectEntity, ScenarioEntity, TestStepEntity } from "@testflow/db";
-import { hasBlockingIssues, validateScenarioCode } from "@testflow/contracts";
+import {
+  RUN_STATUSES,
+  hasBlockingIssues,
+  isTerminalRunStatus,
+  validateScenarioCode,
+} from "@testflow/contracts";
 import type {
   ApiTestStep,
   CreateScenarioDto,
@@ -206,6 +211,53 @@ export class ScenariosService {
     if (result.affected === 0) {
       throw new NotFoundException(`시나리오를 찾을 수 없습니다: ${id}`);
     }
+  }
+
+  /**
+   * 삭제해도 되는 시나리오인가 (라운드 8). 안 되면 **404 · 409** 를 여기서 던진다.
+   *
+   * ════════════════════════════════════════════════════════════════
+   * ## ★ 진행 중인 실행이 있으면 **409 로 거부한다** — 판단과 근거
+   *
+   * `runs.scenario_id` 는 `ON DELETE SET NULL` 이라 시나리오를 지워도 **실행 이력은 남는다**
+   * (그것이 계약이다 — 이력은 증적이고, 스냅샷 컬럼 `scenario_name`·`source_type` 덕에
+   * 이름도 보존된다). 그러니 "지워도 DB 는 안 깨진다"는 말은 사실이다.
+   *
+   * 그럼에도 거부하는 이유는 **지금 돌고 있는 실행의 대상이 사라지기 때문**이다:
+   *  - Runner 는 실행 중 `scenarioId` 로 DB 를 읽는다 — `code` 시나리오는 `scenario_codes`
+   *    본문을, 녹화 시나리오는 `test_steps` 를. 읽기 전에 지워지면 실행은
+   *    **사용자가 해석할 수 없는 이유로** 실패한다("코드 본문이 없습니다").
+   *  - 실행 중 첨부 파일까지 함께 지워진다(`purgeScenarioFiles`) — 작업 디렉토리로
+   *    복사되기 전이면 `setInputFiles` 가 깨진다.
+   *  - 끝난 뒤에는 `scenario_id` 가 NULL 이라 **재실행도 불가능**하다(#14 가 버튼을 끈다).
+   *    사용자가 의도한 상황이 아니다.
+   *
+   * 즉 이 409 는 DB 정합성이 아니라 **"돌고 있는 것의 발판을 빼지 않는다"** 는 규칙이다.
+   * 실행 삭제(`RunsService.assertDeletable`)와 같은 문장으로 안내한다 — 먼저 취소하면 된다.
+   * ════════════════════════════════════════════════════════════════
+   */
+  async assertDeletable(id: string): Promise<ScenarioEntity> {
+    const scenario = await this.mustFind(id);
+
+    // 종료 상태 목록은 contracts 가 단일 진실이다 — 여기에 다시 적지 않는다.
+    const active = RUN_STATUSES.filter((status) => !isTerminalRunStatus(status));
+    const placeholders = active.map(() => "?").join(", ");
+    const rows = (await this.dataSource.query(
+      `SELECT run_code, status FROM runs
+        WHERE scenario_id = ? AND status IN (${placeholders})
+        ORDER BY queued_at ASC LIMIT 1`,
+      [id, ...active],
+    )) as { run_code: string; status: string }[];
+
+    const running = rows[0];
+    if (running !== undefined) {
+      throw new ConflictException(
+        `진행 중인 실행이 있어 시나리오를 삭제할 수 없습니다 ` +
+          `(${running.run_code}, status: ${running.status}). ` +
+          "먼저 실행을 취소한 뒤 삭제하세요.",
+      );
+    }
+    return scenario;
   }
 
   /**

@@ -15,3 +15,4 @@ export * from "./recording.js";
 export * from "./events.js";
 export * from "./storage.js";
 export * from "./attachment.js";
+export * from "./delete.js";

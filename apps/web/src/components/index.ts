@@ -5,6 +5,7 @@
  * 레이아웃은 `layout/` 에 있다.
  */
 export * from "./MetricCard";
+export * from "./DeleteDialog";
 export * from "./RunRow";
 export * from "./NoticeBox";
 export * from "./ProjectGate";
