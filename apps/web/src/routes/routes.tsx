@@ -6,7 +6,7 @@ import { RouteFallback } from "./RouteFallback";
 
 /**
  * 라우터. Gen-Phase 11 에서 `PagePlaceholder` 가 전부 사라졌다 —
- * 사이드바에서 **활성화된 메뉴 5개가 모두 실제 화면**이다.
+ * 사이드바에서 **활성화된 메뉴가 모두 실제 화면**이다(라운드 3 에서 `HELP > 가이드` 추가).
  *
  * 경로는 `components/layout/Sidebar/navigation.ts` 의 `to` 값과 1:1 이어야 한다
  * (한쪽만 고치면 브레드크럼 `usePageTitle` 과 active 표시가 어긋난다).
@@ -65,6 +65,13 @@ const RunDetailPage = lazy(async () => ({
 const SuitesPage = lazy(async () => ({
   default: (await import("@/pages/suites")).SuitesPage,
 }));
+/**
+ * 가이드(사용 안내). 본문 텍스트 덩어리라 **가장 늦게 받아도 되는 청크**다 —
+ * 대시보드만 보는 사용자에게는 통째로 죽은 코드이므로 반드시 lazy 로 남긴다.
+ */
+const GuidePage = lazy(async () => ({
+  default: (await import("@/pages/guide")).GuidePage,
+}));
 const SuiteDetailPage = lazy(async () => ({
   default: (await import("@/pages/suites/SuiteDetail")).SuiteDetailPage,
 }));
@@ -88,6 +95,7 @@ export const router = createBrowserRouter([
       { path: "runs/:runId", element: withSuspense(<RunDetailPage />) },
       { path: "suites", element: withSuspense(<SuitesPage />) },
       { path: "suites/:suiteId", element: withSuspense(<SuiteDetailPage />) },
+      { path: "guide", element: withSuspense(<GuidePage />) },
       { path: "*", element: <Navigate to="/" replace /> },
     ],
   },

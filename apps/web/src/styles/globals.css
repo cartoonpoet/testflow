@@ -514,6 +514,31 @@
   }
 }
 
+/**
+ * 클립보드 폴백용 화면 밖 `<textarea>` (`pages/guide/clipboard.ts`).
+ *
+ * 평문 HTTP 배포(`http://<사내 IP>`)에서는 `navigator.clipboard` 자체가 없다 —
+ * secure context 가 아니기 때문이다. 유일하게 남는 경로가
+ * "보이지 않는 textarea 를 선택해 `document.execCommand('copy')`" 인데,
+ * 그 요소는 **선택 가능해야** 한다.
+ *   - `display:none` / `visibility:hidden` → 선택이 안 돼 빈 문자열이 복사된다.
+ *   - `opacity:0` 만 → 레이아웃을 차지해 페이지가 튄다.
+ * 그래서 `position:fixed` 로 레이아웃에서 빼고 뷰포트 밖으로 밀어낸다.
+ *
+ * 이 클래스가 여기 있는 이유: 그 요소는 JS 가 `createElement` 로 만든다.
+ * `element.style.*` 를 쓰면 스타일 값이 스크립트로 새어 나간다(레포 규율: 스타일은 CSS 에만).
+ */
+@utility tf-offscreen {
+  position: fixed;
+  top: 0;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+}
+
 /* ==========================================================================
  * 폰트 조달 — 로컬 번들 (사내망 배포 전제로 CDN 불가)
  * 가변 폰트여야 font-weight 750/850 이 실제로 렌더된다.
