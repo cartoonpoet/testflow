@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ProjectGate } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
+import { RunDialog } from "@/pages/runs/RunDialog";
 import {
   SCENARIO_PAGE_SIZE,
   useScenarioFeatures,
@@ -24,6 +26,28 @@ export function ScenariosPage() {
   const list = useScenarioList(filters);
   const features = useScenarioFeatures();
   const now = new Date();
+
+  /*
+   * ★ 라운드 7 — 다중 선택 실행.
+   *
+   * id 만이 아니라 **이름까지** 들고 있는 이유는 페이지네이션이다. 2페이지에서 고른
+   * 시나리오를 1페이지로 돌아와 실행할 수 있어야 하는데, 그때 2페이지 목록은 이미
+   * 캐시 밖일 수 있다. 선택은 화면을 넘나들며 살아남고 이름은 다이얼로그 제목에 쓴다.
+   * (URL 에 넣지 않는다 — 선택은 공유할 상태가 아니고, 링크가 길어지기만 한다.)
+   */
+  const [selection, setSelection] = useState<Readonly<Record<string, string>>>({});
+  const [runOpen, setRunOpen] = useState(false);
+  const selectedIds = Object.keys(selection);
+  const selectedSet = new Set(selectedIds);
+
+  const toggle = (id: string, name: string) => {
+    setSelection((prev) => {
+      if (!Object.hasOwn(prev, id)) return { ...prev, [id]: name };
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
 
   const totalPages =
     list.data === undefined ? 1 : Math.max(1, Math.ceil(list.data.total / SCENARIO_PAGE_SIZE));
@@ -80,10 +104,58 @@ export function ScenariosPage() {
             </div>
           ) : (
             <>
+              {selectedIds.length === 0 ? null : (
+                <div
+                  data-slot="scenario-selection-bar"
+                  data-selected-count={selectedIds.length}
+                  className="mb-[12px] flex flex-wrap items-center gap-[10px] rounded-table border border-line bg-panel px-[15px] py-[11px]"
+                >
+                  <strong className="text-[12px]">
+                    시나리오 {String(selectedIds.length)}건 선택됨
+                  </strong>
+                  <span className="min-w-0 flex-1 truncate text-[10px] text-muted">
+                    한 번에 실행하면 같은 묶음(batch)으로 요청되고, Runner 의 동시 실행 한도만큼
+                    병렬로 돕니다. 나머지는 큐에서 차례를 기다립니다.
+                  </span>
+                  <Button
+                    data-testid="scenario-selection-clear"
+                    onClick={() => {
+                      setSelection({});
+                    }}
+                  >
+                    선택 해제
+                  </Button>
+                  <Button
+                    variant="primary"
+                    data-testid="scenario-selection-run"
+                    onClick={() => {
+                      setRunOpen(true);
+                    }}
+                  >
+                    ▶ 선택 실행
+                  </Button>
+                </div>
+              )}
+
               <ScenarioTable
                 items={list.data.items}
                 dimmed={list.isPlaceholderData}
                 now={now}
+                selected={selectedSet}
+                onToggle={(id) => {
+                  const item = list.data?.items.find((candidate) => candidate.id === id);
+                  toggle(id, item?.name ?? id);
+                }}
+                onToggleAll={(checked) => {
+                  setSelection((prev) => {
+                    const next = { ...prev };
+                    for (const item of list.data?.items ?? []) {
+                      if (checked) next[item.id] = item.name;
+                      else delete next[item.id];
+                    }
+                    return next;
+                  });
+                }}
               />
               <Pager
                 page={list.data.page}
@@ -96,9 +168,30 @@ export function ScenariosPage() {
             </>
           )
         ) : null}
+
+        {/*
+          ★ 실행 다이얼로그는 **단건과 같은 컴포넌트**다. 대상만 `scenarioIds` 로 바뀐다 —
+            baseUrl·계정·비밀번호를 받는 규칙이 두 벌이 되면 한쪽에서 평문이 샌다.
+        */}
+        {selectedIds.length === 0 ? null : (
+          <RunDialog
+            open={runOpen}
+            onOpenChange={setRunOpen}
+            target={{ scenarioIds: selectedIds }}
+            targetName={selectionLabel(selection)}
+            scenarioCount={selectedIds.length}
+          />
+        )}
       </ProjectGate>
     </>
   );
+}
+
+/** 다이얼로그 제목 아래 줄. 이름을 다 늘어놓지 않고 앞 두 건 + 나머지 수로 줄인다. */
+function selectionLabel(selection: Readonly<Record<string, string>>): string {
+  const names = Object.values(selection);
+  if (names.length <= 2) return names.join(" · ");
+  return `${names.slice(0, 2).join(" · ")} 외 ${String(names.length - 2)}건`;
 }
 
 /**

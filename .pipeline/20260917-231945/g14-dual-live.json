@@ -1,0 +1,19 @@
+{
+  "A": {
+    "runCode": "RUN-0276",
+    "connection": "open",
+    "phase": "live",
+    "hasFrame": "true",
+    "activeSeq": "8",
+    "meanLuma": 251
+  },
+  "B": {
+    "runCode": "RUN-0277",
+    "connection": "open",
+    "phase": "ended",
+    "hasFrame": "true",
+    "activeSeq": "6",
+    "meanLuma": 250.7
+  },
+  "errors": []
+}

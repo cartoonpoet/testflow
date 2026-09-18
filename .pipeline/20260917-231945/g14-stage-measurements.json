@@ -1,0 +1,898 @@
+{
+  "1440x900": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 623.98,
+      "x": 1129,
+      "y": 479,
+      "aspect": 0.391,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 770,
+      "h": 468,
+      "x": 262,
+      "y": 1128,
+      "aspect": 1.645,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 85.5,
+    "errors": []
+  },
+  "1920x1080": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1182,
+      "h": 738.75,
+      "x": 356,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1182,
+      "h": 738.75,
+      "x": 356,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 780.75,
+      "x": 1552,
+      "y": 387,
+      "aspect": 0.313,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 1062,
+      "h": 560,
+      "x": 356,
+      "y": 1183,
+      "aspect": 1.896,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 92.3,
+    "errors": []
+  },
+  "1680x1050": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1130,
+      "h": 706.25,
+      "x": 262,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1130,
+      "h": 706.25,
+      "x": 262,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 748.25,
+      "x": 1406,
+      "y": 387,
+      "aspect": 0.326,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 1010,
+      "h": 546,
+      "x": 262,
+      "y": 1150,
+      "aspect": 1.85,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 88.3,
+    "errors": []
+  },
+  "2560x1440": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1182,
+      "h": 738.75,
+      "x": 676,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1182,
+      "h": 738.75,
+      "x": 676,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 780.75,
+      "x": 1872,
+      "y": 387,
+      "aspect": 0.313,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 1062,
+      "h": 560,
+      "x": 676,
+      "y": 1183,
+      "aspect": 1.896,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 92.3,
+    "errors": []
+  },
+  "1366x768": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 933.88,
+      "h": 583.67,
+      "x": 332,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 933.88,
+      "h": 583.67,
+      "x": 332,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 523.67,
+      "x": 1012,
+      "y": 479,
+      "aspect": 0.466,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 696,
+      "h": 399.36,
+      "x": 262,
+      "y": 1028,
+      "aspect": 1.743,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 73,
+    "errors": []
+  },
+  "1050x900": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 758,
+      "h": 473.75,
+      "x": 262,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 758,
+      "h": 473.75,
+      "x": 262,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 758,
+      "h": 468,
+      "x": 262,
+      "y": 918,
+      "aspect": 1.62,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 59.2,
+    "errors": []
+  },
+  "760x900": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 734,
+      "h": 458.75,
+      "x": 13,
+      "y": 492,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 734,
+      "h": 458.75,
+      "x": 13,
+      "y": 492,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 734,
+      "h": 468,
+      "x": 13,
+      "y": 965,
+      "aspect": 1.568,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 57.3,
+    "errors": []
+  },
+  "390x844": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 364,
+      "h": 227.5,
+      "x": 13,
+      "y": 492,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 364,
+      "h": 227.5,
+      "x": 13,
+      "y": 492,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 364,
+      "h": 438.88,
+      "x": 13,
+      "y": 734,
+      "aspect": 0.829,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0,
+    "stagePct": 28.4,
+    "errors": []
+  }
+}

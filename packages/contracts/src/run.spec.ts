@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CreateRunDtoSchema,
+  CreateRunRequestSchema,
   collectSecretValues,
   isSecretVariableKey,
   maskVariablesForStorage,
@@ -71,5 +72,49 @@ describe("Secret 변수 처리", () => {
 
   it("마스킹 대상 값 목록을 모은다", () => {
     expect(collectSecretValues(variables).sort()).toEqual(["abc123", "hunter2"]);
+  });
+});
+
+/**
+ * ★ 라운드 7 — 여러 시나리오를 한 번에 실행하는 경로(`scenarioIds`).
+ *
+ * 세 대상(`scenarioId` · `scenarioIds` · `suiteId`)이 **배타적**이라는 규칙과,
+ * 같은 시나리오를 두 번 담지 못한다는 규칙을 계약 단계에서 못박는다 — 서버가 이 규칙을
+ * 믿고 `batch_sequence` 를 요청 순서 그대로 매기기 때문이다.
+ */
+describe("CreateRunRequestSchema — scenarioIds (라운드 7)", () => {
+  const a = "11111111-1111-4111-8111-111111111111";
+  const b = "22222222-2222-4222-8222-222222222222";
+  const suite = "33333333-3333-4333-8333-333333333333";
+
+  it("여러 시나리오를 요청 순서 그대로 통과시킨다", () => {
+    const parsed = CreateRunRequestSchema.parse({ scenarioIds: [b, a] });
+    expect(parsed.scenarioIds).toEqual([b, a]);
+    expect(parsed.scenarioId).toBeUndefined();
+  });
+
+  it("대상을 하나도 주지 않으면 거부한다", () => {
+    expect(CreateRunRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("scenarioIds 와 다른 대상을 동시에 주면 거부한다", () => {
+    expect(CreateRunRequestSchema.safeParse({ scenarioIds: [a], scenarioId: b }).success).toBe(
+      false,
+    );
+    expect(CreateRunRequestSchema.safeParse({ scenarioIds: [a], suiteId: suite }).success).toBe(
+      false,
+    );
+  });
+
+  it("같은 시나리오를 두 번 담으면 거부한다", () => {
+    expect(CreateRunRequestSchema.safeParse({ scenarioIds: [a, a] }).success).toBe(false);
+  });
+
+  it("빈 배열은 거부한다 — 0건짜리 묶음은 실행이 아니다", () => {
+    expect(CreateRunRequestSchema.safeParse({ scenarioIds: [] }).success).toBe(false);
+  });
+
+  it("단건 경로(scenarioId)는 그대로 통과한다", () => {
+    expect(CreateRunRequestSchema.safeParse({ scenarioId: a }).success).toBe(true);
   });
 });

@@ -32,22 +32,33 @@ export type LiveStageProps = Omit<LiveCanvasProps, "topRight" | "footer"> & {
   url: string;
   /** 확대 중 캔버스 하단에 겹쳐 보여 줄 스텝 진행 표시. */
   progress?: React.ReactNode;
+  /**
+   * ★ 라운드 7 — 무대 옆(넓은 화면) 또는 위(좁은 화면)에 붙는 **스텝 레일**.
+   *
+   * 위치는 전부 CSS(`tf-step-rail`)가 정한다 — 같은 엘리먼트 하나가 브레이크포인트에 따라
+   * `position: absolute`(겹침) ↔ `static`(열)로 바뀐다. **DOM 을 두 벌 만들지 않는다**:
+   * 두 벌이면 강조 상태가 두 곳에 생기고, 하나는 언제나 화면 밖에서 조용히 어긋난다.
+   */
+  rail?: React.ReactNode;
+  /** 레일이 닫혀 있을 때 우상단에 낄 "스텝 보기" 버튼. */
+  railToggle?: React.ReactNode;
 };
 
-export function LiveStage({ url, progress, ...canvas }: LiveStageProps) {
+export function LiveStage({ url, progress, rail, railToggle, ...canvas }: LiveStageProps) {
   const { expanded, toggle } = useExpand();
 
   return (
     <div
       data-slot="live-stage"
       data-expanded={expanded ? "true" : "false"}
+      data-rail={rail == null ? "false" : "true"}
       className={cn("mb-[15px]", expanded && "tf-live-backdrop")}
       {...(expanded
         ? { role: "dialog" as const, "aria-modal": true, "aria-label": "실행 화면 확대" }
         : {})}
     >
       <div className={expanded ? "tf-live-stage-expanded" : "tf-live-stage"}>
-        <div className="overflow-hidden rounded-panel bg-browser shadow-panel">
+        <div className="tf-stage-panel overflow-hidden rounded-panel bg-browser shadow-panel">
           {/*
             시안 `.browser-bar` 그대로. 확대 중에는 `hidden` 으로 **감추기만** 한다 —
             조건부 렌더로 지우면 형제 인덱스가 밀려 아래 `LiveCanvas` 가 리마운트될 수 있고,
@@ -72,22 +83,32 @@ export function LiveStage({ url, progress, ...canvas }: LiveStageProps) {
             {...canvas}
             footer={expanded ? progress : undefined}
             topRight={
-              <button
-                type="button"
-                data-testid="live-expand"
-                aria-expanded={expanded}
-                onClick={toggle}
-                className={cn(
-                  "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",
-                  "transition-colors duration-150 hover:border-btn-hover-line hover:bg-btn-hover-bg",
-                  "focus-visible:border-brand focus-visible:shadow-focus-ring focus-visible:outline-none",
-                )}
-              >
-                {expanded ? "축소 (Esc)" : "크게 보기"}
-              </button>
+              <>
+                {railToggle}
+                <button
+                  type="button"
+                  data-testid="live-expand"
+                  aria-expanded={expanded}
+                  onClick={toggle}
+                  className={cn(
+                    "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",
+                    "transition-colors duration-150 hover:border-btn-hover-line hover:bg-btn-hover-bg",
+                    "focus-visible:border-brand focus-visible:shadow-focus-ring focus-visible:outline-none",
+                  )}
+                >
+                  {expanded ? "축소 (Esc)" : "크게 보기"}
+                </button>
+              </>
             }
           />
         </div>
+
+        {/*
+          ★ 레일은 **캔버스의 형제**다(캔버스 안이 아니다). 안에 넣으면 `aspect-[16/10]`
+            상자에 갇혀 확대 모드에서 위치가 어긋나고, `overflow-hidden` 이 모서리를 자른다.
+            위치 기준은 `tf-live-stage`(= `position: relative`) 다.
+        */}
+        {rail}
       </div>
     </div>
   );

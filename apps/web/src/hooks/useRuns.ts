@@ -1,16 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Query } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   ArtifactSchema,
   CreateRunResponseSchema,
   RunDetailSchema,
   RunListItemSchema,
+  RunQueueStatusSchema,
   isTerminalRunStatus,
   type Artifact,
   type CreateRunRequest,
   type CreateRunResponse,
   type RunDetail,
   type RunListItem,
+  type RunQueueStatus,
   type RunStatus,
 } from "@testflow/contracts";
 import { api, queryKeys } from "@/lib";
@@ -90,6 +93,28 @@ export function useRunDetail(
   });
 }
 
+/**
+ * ★ 라운드 7 — 묶음(batch) 화면용. run 여러 건의 상세를 **한 번에** 구독한다.
+ *
+ * `useRunDetail` 을 행마다 부르면 부모가 집계(몇 건이 도는 중인가)를 할 수 없다.
+ * 그렇다고 부모가 또 부르면 훅을 반복문에서 부르게 된다 — `useQueries` 가 그 자리다.
+ * 폴링 규칙은 `useRunDetail` 과 **같은 값**이다(종료되면 멈춘다).
+ */
+export function useRunDetails(runIds: readonly string[]) {
+  return useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: queryKeys.run(runId),
+      queryFn: () => api.get<RunDetail>(`/runs/${runId}`, { schema: RunDetailSchema }),
+      staleTime: 0,
+      refetchInterval: (query: Query<RunDetail>) => {
+        const data = query.state.data;
+        if (data === undefined) return false;
+        return isTerminalRunStatus(data.status) ? false : 2000;
+      },
+    })),
+  });
+}
+
 /** 증적 목록 (`GET /api/runs/:id/artifacts`). 도착은 `artifact.ready` 이벤트가 알린다. */
 export function useRunArtifacts(runId: string | undefined, enabled = true) {
   return useQuery({
@@ -98,6 +123,25 @@ export function useRunArtifacts(runId: string | undefined, enabled = true) {
       api.get<Artifact[]>(`/runs/${String(runId)}/artifacts`, { schema: ArtifactListSchema }),
     enabled: runId !== undefined && enabled,
     staleTime: 0,
+  });
+}
+
+/**
+ * ★ 라운드 7 — 큐 상태 (`GET /api/runs/queue`).
+ *
+ * **"병렬로 여러 개"가 실제로 몇 개인지**를 화면이 말하기 위한 값이다. Runner 의
+ * `RUNNER_CONCURRENCY` 가 기본 2 이므로 5건을 걸면 2건만 돌고 3건은 큐에서 기다린다.
+ * 이 훅이 없으면 화면은 그 사실을 알 수 없고, "병렬 실행"이라는 표시가 거짓말이 된다.
+ *
+ * 폴링 주기는 묶음 행(2초)과 같다. 큐는 run 상태보다 빨리 변하지 않는다.
+ */
+export function useRunQueue(options: { enabled?: boolean; poll?: boolean } = {}) {
+  return useQuery({
+    queryKey: queryKeys.runQueue(),
+    queryFn: () => api.get<RunQueueStatus>("/runs/queue", { schema: RunQueueStatusSchema }),
+    enabled: options.enabled ?? true,
+    staleTime: 0,
+    refetchInterval: options.poll === true ? 2000 : false,
   });
 }
 

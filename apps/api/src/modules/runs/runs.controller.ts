@@ -6,6 +6,7 @@ import type {
   RunDetail,
   RunListItem,
   RunListQuery,
+  RunQueueStatus,
 } from "@testflow/contracts";
 import { zodBody } from "../../common/pipes/zod-validation.pipe.js";
 import { RunsService } from "./runs.service.js";
@@ -30,6 +31,17 @@ export class RunsController {
   @Get("runs")
   list(@Query(zodBody(RunListQuerySchema)) query: RunListQuery): Promise<RunListItem[]> {
     return this.runs.list(query);
+  }
+
+  /**
+   * `GET /api/runs/queue` — 큐 상태(대기·실행 중·Runner 동시 한도).
+   *
+   * ★ **`runs/:id` 보다 먼저 선언해야 한다.** Nest 는 선언 순서대로 매칭하므로
+   *   뒤에 두면 `:id = "queue"` 로 잡혀 404(uuid 아님)가 난다.
+   */
+  @Get("runs/queue")
+  queue(): Promise<RunQueueStatus> {
+    return this.runs.queueStatus();
   }
 
   @Get("runs/:id")

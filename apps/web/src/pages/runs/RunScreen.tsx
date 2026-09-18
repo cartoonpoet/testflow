@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "cn";
 import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
-import { findStep, LiveStage, type StepSyncHandle } from "@/features/live";
+import { findStep, LiveStage, StepRail, type StepSyncHandle } from "@/features/live";
 import { RUN_STATUS_LABEL } from "@/lib";
 
 /**
@@ -29,9 +29,18 @@ export type RunScreenProps = {
   artifacts: readonly Artifact[];
   /** ★ 라운드 5 — 스텝 목록과 이 무대를 잇는 손잡이(`RunDetail` 이 만든다). */
   sync: StepSyncHandle;
+  /** ★ 라운드 7 — 무대에 붙는 스텝 레일을 켤 것인가. 상태는 `RunDetail` 이 든다. */
+  railOpen: boolean;
+  onRailOpenChange: (open: boolean) => void;
 };
 
-export function RunLiveScreen({ run, artifacts, sync }: RunScreenProps) {
+export function RunLiveScreen({
+  run,
+  artifacts,
+  sync,
+  railOpen,
+  onRailOpenChange,
+}: RunScreenProps) {
   const video = artifacts.find((artifact) => artifact.type === "video");
   const ended = isTerminalRunStatus(run.status);
 
@@ -62,6 +71,41 @@ export function RunLiveScreen({ run, artifacts, sync }: RunScreenProps) {
         />
       }
       progress={<RunLiveProgress run={run} sync={sync} />}
+      /*
+       * ★ 레일은 **보여 줄 스텝이 있을 때만** 띄운다. 코드 실행은 첫 스텝이 도착하기
+       *   전까지 `run.steps` 가 비어 있는데, 그때 빈 레일을 세우면 화면의 22% 를
+       *   "아무것도 없음"으로 덮는 꼴이다.
+       */
+      rail={
+        railOpen && run.steps.length > 0 ? (
+          <StepRail
+            steps={run.steps}
+            sync={sync}
+            totalSteps={run.summary.totalSteps}
+            onClose={() => {
+              onRailOpenChange(false);
+            }}
+          />
+        ) : undefined
+      }
+      railToggle={
+        railOpen || run.steps.length === 0 ? undefined : (
+          <button
+            type="button"
+            data-testid="step-rail-open"
+            onClick={() => {
+              onRailOpenChange(true);
+            }}
+            className={cn(
+              "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",
+              "transition-colors duration-150 hover:border-btn-hover-line hover:bg-btn-hover-bg",
+              "focus-visible:border-brand focus-visible:shadow-focus-ring focus-visible:outline-none",
+            )}
+          >
+            스텝 보기
+          </button>
+        )
+      }
     />
   );
 }

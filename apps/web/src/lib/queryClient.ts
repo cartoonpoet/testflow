@@ -84,6 +84,13 @@ export const queryKeys = {
   run: (id: string) => ["runs", id] as const,
   runArtifacts: (id: string) => ["runs", id, "artifacts"] as const,
   /**
+   * 큐 상태(`GET /api/runs/queue`).
+   *
+   * ★ 접두사가 `runs` 다 — `useCreateRun` 의 `invalidateQueries({queryKey:["runs"]})` 에
+   *   같이 걸려서, 실행을 요청하는 순간 큐 숫자가 자동으로 새로 읽힌다.
+   */
+  runQueue: () => ["runs", "queue"] as const,
+  /**
    * `projectId` 를 키에 넣는다 — 서버가 `?projectId` 로 집계를 좁히므로
    * 프로젝트가 바뀌면 다른 값이다. (Gen-Phase 9 에서 인자 1개 → 2개로 넓혔다.)
    */

@@ -1,0 +1,212 @@
+{
+  "expanded": {
+    "view": "canvas",
+    "phase": "live",
+    "syncMode": "live",
+    "expanded": "true",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1401.59,
+      "h": 875.98,
+      "x": 19,
+      "y": 12,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 1401.59,
+      "h": 875.98,
+      "x": 19,
+      "y": 12,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "videoBox": null,
+    "railBox": {
+      "w": 244,
+      "h": 815.98,
+      "x": 1167,
+      "y": 62,
+      "aspect": 0.299,
+      "visible": true
+    },
+    "railActive": "12",
+    "railRows": [
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "10",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "11",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "12",
+        "active": "true",
+        "status": "running",
+        "tag": "DIV"
+      }
+    ],
+    "listBox": {
+      "w": 770,
+      "h": 468,
+      "x": 262,
+      "y": 296,
+      "aspect": 1.645,
+      "visible": true
+    },
+    "listActive": "12",
+    "seekNotice": null,
+    "docScrollX": 0,
+    "stagePct": 109.5
+  },
+  "bodyOverflow": "hidden",
+  "closed": {
+    "view": "canvas",
+    "phase": "live",
+    "syncMode": "live",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 338,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 338,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "videoBox": null,
+    "railBox": {
+      "w": 244,
+      "h": 623.98,
+      "x": 1129,
+      "y": 388,
+      "aspect": 0.391,
+      "visible": true
+    },
+    "railActive": "12",
+    "railRows": [
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "10",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "11",
+        "active": "false",
+        "status": "passed",
+        "tag": "DIV"
+      },
+      {
+        "seq": "12",
+        "active": "true",
+        "status": "running",
+        "tag": "DIV"
+      }
+    ],
+    "listBox": {
+      "w": 770,
+      "h": 468,
+      "x": 262,
+      "y": 1036,
+      "aspect": 1.645,
+      "visible": true
+    },
+    "listActive": "12",
+    "seekNotice": null,
+    "docScrollX": 0,
+    "stagePct": 85.5
+  },
+  "errors": []
+}

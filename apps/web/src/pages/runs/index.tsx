@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { RUN_STATUSES, type RunStatus } from "@testflow/contracts";
+import { RUN_STATUSES, isTerminalRunStatus, type RunDetail, type RunStatus } from "@testflow/contracts";
 import { ProjectGate, RunRow, StepStatusIcon } from "@/components";
 import { PageHead, Panel, Select, Skeleton, StateView, StatusDot } from "@/components/ui";
 import { RUN_STATUS_LABEL, RUN_STATUS_TONE, formatDurationMs, formatRelativeTime } from "@/lib";
-import { useRunDetail, useRunList } from "@/hooks/useRuns";
+import { useRunDetails, useRunList, useRunQueue } from "@/hooks/useRuns";
 
 export { RunDetailPage } from "./RunDetail";
 
@@ -103,18 +103,66 @@ export function RunsPage() {
 /**
  * 묶음 실행 패널.
  *
- * 각 행은 상세를 **폴링**으로 읽는다(2초, 종료되면 멈춘다). SSE 를 행마다 열지 않는 이유는
+ * 상세는 **폴링**으로 읽는다(2초, 종료되면 멈춘다). SSE 를 행마다 열지 않는 이유는
  * `useRuns.ts` 의 주석에 적어 두었다 — HTTP/1.1 에서 오리진당 동시 연결이 6개다.
+ *
+ * ## ★ 라운드 7 — **"병렬"이 실제로 몇 개인지 숨기지 않는다**
+ * run 을 5건 만들어 놓고 "병렬 실행"이라고만 적으면, 동시성 2인 Runner 에서
+ * 3건이 큐에 멈춰 있는 동안 사용자는 화면이 고장난 줄 안다. 그래서 이 패널은
+ *  - 머리말에 **실행 중 / 대기 / 완료 건수와 Runner 의 동시 실행 한도**를,
+ *  - 대기 중인 행에는 **큐에서 몇 번째인지**를 적는다(`GET /runs/queue` 의 관측값).
+ * 한도를 모르면(Runner 미기동 등) 숫자를 지어내지 않고 모른다고 쓴다.
  */
 function BatchPanel({ batchId, runIds }: { batchId: string; runIds: readonly string[] }) {
+  const details = useRunDetails(runIds);
+  const runs = details.map((detail) => detail.data);
+  const pending = runs.some((run) => run !== undefined && !isTerminalRunStatus(run.status));
+
+  // 묶음이 다 끝나면 큐를 더 볼 이유가 없다 — 폴링을 멈춘다.
+  const queue = useRunQueue({ poll: pending });
+  const waitingRunIds = queue.data?.waitingRunIds ?? [];
+  const concurrency = queue.data?.concurrency ?? null;
+
+  const running = runs.filter((run) => run?.status === "running").length;
+  const queued = runs.filter((run) => run?.status === "queued").length;
+  const done = runs.filter((run) => run !== undefined && isTerminalRunStatus(run.status)).length;
+
   return (
     <Panel
       title={`묶음 실행 · ${String(runIds.length)}건`}
       action={batchId === "" ? undefined : `batch ${batchId.slice(0, 8)}`}
       className="mb-[18px]"
     >
+      <p
+        data-slot="batch-progress"
+        data-running={running}
+        data-queued={queued}
+        data-concurrency={concurrency ?? ""}
+        className="m-0 border-b border-hairline px-[12px] py-[10px] text-[11px] leading-[1.6] text-muted"
+      >
+        <strong className="text-ink">
+          실행 중 {String(running)} · 대기 {String(queued)} · 완료 {String(done)}
+        </strong>
+        {concurrency === null
+          ? " · Runner 의 동시 실행 한도를 확인할 수 없습니다(Runner 미기동일 수 있습니다)."
+          : ` · Runner 는 한 번에 최대 ${String(concurrency)}건을 동시에 실행합니다. 나머지는 큐에서 차례를 기다립니다.`}
+      </p>
+
       {runIds.map((runId, index) => (
-        <BatchRunRow key={runId} runId={runId} order={index + 1} total={runIds.length} />
+        <BatchRunRow
+          key={runId}
+          runId={runId}
+          run={runs[index]}
+          order={index + 1}
+          total={runIds.length}
+          /*
+           * 큐 안에서 몇 번째인가. `jobId = runId` 규약 덕에 id 로 바로 찾는다.
+           * 큐에 없으면(이미 집어 갔거나 끝났으면) `null` 이고 순번을 쓰지 않는다.
+           */
+          queuePosition={
+            waitingRunIds.indexOf(runId) < 0 ? null : waitingRunIds.indexOf(runId) + 1
+          }
+        />
       ))}
     </Panel>
   );
@@ -122,21 +170,23 @@ function BatchPanel({ batchId, runIds }: { batchId: string; runIds: readonly str
 
 function BatchRunRow({
   runId,
+  run,
   order,
   total,
+  queuePosition,
 }: {
   runId: string;
+  run: RunDetail | undefined;
   order: number;
   total: number;
+  queuePosition: number | null;
 }) {
-  const detail = useRunDetail(runId, { poll: true });
-  const run = detail.data;
-
   return (
     <div
       data-slot="batch-run"
       data-run-id={runId}
       data-status={run?.status ?? "loading"}
+      data-queue-position={queuePosition ?? ""}
       className="tf-exec-row border-b border-hairline px-[12px] py-[13px] last:border-b-0"
     >
       <StepStatusIcon
@@ -156,6 +206,13 @@ function BatchRunRow({
           {run === undefined
             ? ""
             : ` · ${String(run.summary.currentStep)}/${String(run.summary.totalSteps)} 단계`}
+          {/*
+            ★ 큐 순번은 **대기 중일 때만** 쓴다. 이미 도는 실행 옆에 순번이 남아 있으면
+              "아직 기다리는 중"으로 읽힌다.
+          */}
+          {run?.status === "queued" && queuePosition !== null
+            ? ` · 큐 대기 ${String(queuePosition)}번째`
+            : ""}
         </span>
       </div>
 

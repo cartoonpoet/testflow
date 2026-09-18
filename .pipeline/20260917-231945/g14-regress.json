@@ -1,0 +1,14 @@
+{
+  "stepsRun": {
+    "sourceType": "steps",
+    "stage": true,
+    "rail": true,
+    "rerun": true,
+    "rows": 2
+  },
+  "recorder": {
+    "canvas": false,
+    "body": " TFTestFlow현재 프로젝트기본 프로젝트⌄WORKSPACE⌂대시보드▤테스트 시나리오＋시나리오 만"
+  },
+  "errors": []
+}

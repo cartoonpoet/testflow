@@ -1,0 +1,24 @@
+{
+  "started": {
+    "url": "/scenarios/68224450-3f4c-4be0-b526-397ce5d584c1",
+    "canvas": true
+  },
+  "canvasInfo": {
+    "attr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "rect": {
+      "w": 756,
+      "h": 473
+    },
+    "ratio": 0.591,
+    "x": 284,
+    "y": 327,
+    "recordedSteps": [
+      "01'확인' 버튼 클릭클릭 버튼 “확인”▲▼••"
+    ],
+    "bodyHasConfirm": false
+  },
+  "errors": []
+}

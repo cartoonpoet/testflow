@@ -1,10 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectQueue } from "@nestjs/bullmq";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Queue } from "bullmq";
 import { DataSource, Repository } from "typeorm";
-import { RUN_JOB_NAME, RUN_QUEUE_NAME, isTerminalRunStatus } from "@testflow/contracts";
+import { Redis } from "ioredis";
+import {
+  RUN_JOB_NAME,
+  RUN_QUEUE_NAME,
+  RUNNER_CAPACITY_KEY_PREFIX,
+  isTerminalRunStatus,
+} from "@testflow/contracts";
 import type {
   CreateRunRequest,
   CreateRunResponse,
@@ -12,9 +18,11 @@ import type {
   RunJobData,
   RunListItem,
   RunListQuery,
+  RunQueueStatus,
   ScenarioSourceType,
 } from "@testflow/contracts";
 import { ProjectEntity, RunEntity, StepResultEntity } from "@testflow/db";
+import { REDIS_CLIENT } from "../../common/redis/redis.module.js";
 import { maskSecrets } from "../../common/utils/mask.js";
 import { RunEventsService } from "./runs.sse.js";
 import { planRunBatch } from "./runs.plan.js";
@@ -55,6 +63,7 @@ export class RunsService {
     @InjectRepository(StepResultEntity) private readonly stepResults: Repository<StepResultEntity>,
     @InjectRepository(ProjectEntity) private readonly projects: Repository<ProjectEntity>,
     @InjectQueue(RUN_QUEUE_NAME) private readonly queue: Queue<RunJobData>,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
     private readonly events: RunEventsService,
   ) {}
 
@@ -78,7 +87,13 @@ export class RunsService {
       );
     }
 
-    const batchId = suiteId === null ? null : randomUUID();
+    /*
+     * ★ 묶음 id 는 **"대상이 여러 건인가"** 로 정한다(라운드 7 전에는 "스위트인가" 였다).
+     *   시나리오 다중 선택도 스위트와 똑같이 `batch_id` 로 묶인 run N건이므로
+     *   판정 기준이 스위트에만 걸려 있으면 다중 선택 묶음이 흩어진다.
+     *   단건은 그대로 `null` 이다 — 1건짜리 묶음은 묶음이 아니다.
+     */
+    const batchId = suiteId !== null || targets.length > 1 ? randomUUID() : null;
     const planned = await this.insertRuns(targets, batchId, {
       projectId,
       suiteId,
@@ -130,6 +145,72 @@ export class RunsService {
       status: "queued",
       position: await this.queue.getWaitingCount(),
     };
+  }
+
+  /**
+   * `GET /api/runs/queue` — **큐가 실제로 어떻게 생겼는가.** (라운드 7)
+   *
+   * ★ 전부 관측값이다. `RUNNER_CONCURRENCY` 를 API 의 env 에서 읽지 **않는다** —
+   *   그 값은 Runner 프로세스의 것이고, API 에 복사해 두면 한쪽만 바뀐 순간
+   *   화면이 조용히 거짓말을 한다. Runner 가 Redis 에 적어 둔 값만 읽는다.
+   *   키가 하나도 없으면 `concurrency: null` 이다 — 모르면 모른다고 한다.
+   */
+  async queueStatus(): Promise<RunQueueStatus> {
+    const [waiting, active, jobs] = await Promise.all([
+      this.queue.getWaitingCount(),
+      this.queue.getActiveCount(),
+      // `jobId = runId` 규약(03-phases). 큐 순서 = FIFO 이므로 인덱스가 곧 대기 순번이다.
+      this.queue.getWaiting(0, 99),
+    ]);
+
+    const capacity = await this.readRunnerCapacity();
+
+    return {
+      waiting,
+      active,
+      concurrency: capacity.total,
+      runners: capacity.runners,
+      waitingRunIds: jobs.map((job) => job.id ?? "").filter((id) => id !== ""),
+    };
+  }
+
+  /**
+   * 살아 있는 Runner 들의 동시 실행 한도 합계.
+   *
+   * `KEYS` 가 아니라 `SCAN` 이다(health 모듈과 같은 규율 — 운영 Redis 를 블로킹하지 않는다).
+   * 연결은 `@Global()` RedisModule 의 공용 클라이언트를 쓴다 — BullMQ 전용 연결은
+   * 블로킹 명령용이라 여기 섞지 않는다.
+   */
+  private async readRunnerCapacity(): Promise<{ total: number | null; runners: number }> {
+    try {
+      const client = this.redis;
+      const keys: string[] = [];
+      let cursor = "0";
+      for (let i = 0; i < 10; i += 1) {
+        const [next, found] = await client.scan(
+          cursor,
+          "MATCH",
+          `${RUNNER_CAPACITY_KEY_PREFIX}*`,
+          "COUNT",
+          100,
+        );
+        keys.push(...found);
+        cursor = next;
+        if (cursor === "0") break;
+      }
+      if (keys.length === 0) return { total: null, runners: 0 };
+
+      const values = await client.mget(...keys);
+      let total = 0;
+      for (const value of values) {
+        const parsed = Number(value);
+        if (Number.isInteger(parsed) && parsed > 0) total += parsed;
+      }
+      return { total: total > 0 ? total : null, runners: keys.length };
+    } catch {
+      // 큐 연결이 흔들려도 실행 요청 경로를 막지 않는다 — "모른다"로 떨어진다.
+      return { total: null, runners: 0 };
+    }
   }
 
   /** `GET /api/runs?projectId&scenarioId&status&limit` — 대시보드 "최근 실행". */
@@ -226,28 +307,37 @@ export class RunsService {
     suiteId: string | null;
     targets: RunTarget[];
   }> {
-    if (request.scenarioId !== undefined) {
-      const rows = (await this.dataSource.query(
-        `SELECT id, project_id, name, source_type FROM scenarios WHERE id = ?`,
-        [request.scenarioId],
-      )) as ScenarioRow[];
-      const scenario = rows[0];
-      if (!scenario) {
-        throw new NotFoundException(`시나리오를 찾을 수 없습니다: ${request.scenarioId}`);
+    /*
+     * ★ 단건과 다중 선택은 **같은 경로**다. 단건은 길이 1짜리 배열일 뿐이다 —
+     *   갈래를 둘로 두면 "시나리오를 찾을 수 없다" 판정이 두 벌이 된다.
+     */
+    const scenarioIds = request.scenarioIds ?? (request.scenarioId === undefined ? undefined : [request.scenarioId]);
+    if (scenarioIds !== undefined) {
+      const rows = await this.findScenarios(scenarioIds);
+      const found = new Map(rows.map((row) => [row.id, row]));
+      const missing = scenarioIds.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        throw new NotFoundException(`시나리오를 찾을 수 없습니다: ${missing.join(", ")}`);
       }
 
-      const stepCounts = await this.countSteps([scenario.id]);
+      // ★ 요청 배열의 순서가 곧 실행 순서다(스위트의 `sequence` 자리).
+      const ordered = scenarioIds.map((id) => found.get(id) as ScenarioRow);
+
+      /*
+       * ★ 프로젝트가 섞이면 거부한다. run 은 프로젝트 1건에 속하고 `baseUrl` 기본값도
+       *   프로젝트에서 온다 — 섞인 묶음은 어느 프로젝트의 주소로 돌아야 하는지 말할 수 없다.
+       */
+      const projectIds = new Set(ordered.map((row) => row.project_id));
+      if (projectIds.size > 1) {
+        throw new BadRequestException(
+          "서로 다른 프로젝트의 시나리오를 한 묶음으로 실행할 수 없습니다.",
+        );
+      }
+
       return {
-        projectId: scenario.project_id,
+        projectId: ordered[0]?.project_id ?? "",
         suiteId: null,
-        targets: [
-          {
-            scenarioId: scenario.id,
-            scenarioName: scenario.name,
-            stepCount: stepCounts.get(scenario.id) ?? 0,
-            sourceType: scenario.source_type,
-          },
-        ],
+        targets: await this.toTargets(ordered),
       };
     }
 
@@ -277,19 +367,39 @@ export class RunsService {
       throw new BadRequestException("시나리오가 하나도 없는 스위트는 실행할 수 없습니다.");
     }
 
-    const stepCounts = await this.countSteps(rows.map((row) => row.id));
     return {
       projectId: suite.project_id,
       suiteId,
       // ★ 스위트에 녹화·코드 시나리오가 섞여 있어도 `batch_id` 묶음은 그대로다.
       //   갈리는 것은 run 마다의 `source_type` 스냅샷과 큐 페이로드뿐이다.
-      targets: rows.map((row) => ({
-        scenarioId: row.id,
-        scenarioName: row.name,
-        stepCount: stepCounts.get(row.id) ?? 0,
-        sourceType: row.source_type,
-      })),
+      targets: await this.toTargets(rows),
     };
+  }
+
+  /** `scenarios` 를 id 목록으로 읽는다(순서는 보장하지 않는다 — 호출부가 정렬한다). */
+  private async findScenarios(ids: readonly string[]): Promise<ScenarioRow[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    return (await this.dataSource.query(
+      `SELECT id, project_id, name, source_type FROM scenarios WHERE id IN (${placeholders})`,
+      [...ids],
+    )) as ScenarioRow[];
+  }
+
+  /**
+   * 시나리오 행 → 실행 대상. **스텝 수 집계가 여기 한 곳**에 있다.
+   *
+   * 스위트 경로와 다중 선택 경로가 이 함수를 같이 쓴다 — 복사하면 `code` 시나리오의
+   * `stepCount = 0` 규약(쟁점 2)이 한쪽에서만 지켜지는 사고가 난다.
+   */
+  private async toTargets(rows: readonly ScenarioRow[]): Promise<RunTarget[]> {
+    const stepCounts = await this.countSteps(rows.map((row) => row.id));
+    return rows.map((row) => ({
+      scenarioId: row.id,
+      scenarioName: row.name,
+      stepCount: stepCounts.get(row.id) ?? 0,
+      sourceType: row.source_type,
+    }));
   }
 
   private async countSteps(scenarioIds: readonly string[]): Promise<Map<string, number>> {

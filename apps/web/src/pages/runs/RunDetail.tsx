@@ -1,4 +1,5 @@
-import { useLocation, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { NoticeBox, NoticeLine } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
@@ -6,6 +7,7 @@ import { useStepSync } from "@/features/live";
 import { RUN_STATUS_LABEL } from "@/lib";
 import { useCancelRun, useRunArtifacts, useRunDetail } from "@/hooks/useRuns";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { RunDialog } from "./RunDialog";
 import { RunLiveScreen } from "./RunScreen";
 import { RunSidePanel } from "./RunSidePanel";
 import { RunStepList, RunStepListSkeleton } from "./RunStepList";
@@ -37,6 +39,17 @@ export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const location = useLocation();
   const maskedVariables = readMaskedVariables(location.state);
+  const rerunOf = readRerunOf(location.state);
+
+  /*
+   * ★ 라운드 7 — 스텝 레일(무대 옆/위의 스텝 목록)을 켤 것인가.
+   *
+   * 상태가 여기 있는 이유는 `RunLiveScreen` 이 run 이 바뀔 때 통째로 다시 만들어지기
+   * 때문이 아니라, **사용자의 선택이 실행 하나보다 오래 살아야** 하기 때문이다.
+   * 기본값은 `true` — 사용자가 요구한 것이 "영상과 스텝을 같이 보기" 자체다.
+   */
+  const [railOpen, setRailOpen] = useState(true);
+  const [rerunOpen, setRerunOpen] = useState(false);
 
   const detail = useRunDetail(runId);
   const run = detail.data;
@@ -83,9 +96,66 @@ export function RunDetailPage() {
             >
               {cancelPending ? "취소 중…" : "■ 실행 중단"}
             </Button>
-          ) : undefined
+          ) : run === undefined ? undefined : (
+            /*
+             * ★ 라운드 7 — **끝난 실행은 이 화면에서 바로 다시 돌린다.**
+             *   종료 상태 전부(`passed`·`failed`·`timeout`·`cancelled`·`error`)에서 보인다.
+             *   진행 중에는 위 "실행 중단" 이 그 자리를 쓰므로 자연히 안 보인다.
+             *
+             *   시나리오가 삭제되면 `runs.scenario_id` 가 SET NULL 이라 다시 돌릴 대상이
+             *   없다. 그때 버튼을 지우지 않고 **끄고 이유를 붙인다** — 버튼이 사라지면
+             *   사용자는 "왜 어떤 실행에는 재실행이 있고 어떤 실행에는 없나"를 추측한다.
+             */
+            <Button
+              variant="primary"
+              data-slot="run-rerun"
+              disabled={run.scenarioId === null}
+              title={
+                run.scenarioId === null
+                  ? "원본 시나리오가 삭제되어 다시 실행할 수 없습니다."
+                  : undefined
+              }
+              onClick={() => {
+                setRerunOpen(true);
+              }}
+            >
+              ↻ 재실행
+            </Button>
+          )
         }
       />
+
+      {/*
+        ★ 재실행으로 만들어진 run 이면 **원본과 이어 보인다.**
+          스키마를 늘리지 않았다 — 근거는 `readRerunOf` JSDoc.
+      */}
+      {rerunOf === undefined ? null : (
+        <NoticeBox title={`${rerunOf.runCode} 을(를) 다시 실행한 결과입니다`} className="mt-0 mb-[15px]">
+          <NoticeLine>
+            원본 실행:{" "}
+            <Link to={`/runs/${rerunOf.runId}`} className="font-750 text-brand underline">
+              {rerunOf.runCode}
+            </Link>{" "}
+            · 대상 주소·환경·브라우저는 그 실행의 값으로 채워 요청했습니다. 계정·비밀번호는
+            저장되지 않으므로 이번 요청에 직접 입력한 값이 쓰였습니다.
+          </NoticeLine>
+        </NoticeBox>
+      )}
+
+      {run === undefined || run.scenarioId === null ? null : (
+        <RunDialog
+          open={rerunOpen}
+          onOpenChange={setRerunOpen}
+          target={{ scenarioId: run.scenarioId }}
+          targetName={run.scenarioName}
+          defaults={{
+            baseUrl: run.baseUrl,
+            envLabel: run.envLabel,
+            browser: run.browser,
+          }}
+          rerunOf={{ runId: run.id, runCode: run.runCode }}
+        />
+      )}
 
       {detail.isPending ? (
         <>
@@ -174,7 +244,13 @@ export function RunDetailPage() {
               되기도 안 되기도 하면 그건 기능이 아니라 우연이다.
           */}
           {showStage(run, artifacts.data ?? []) ? (
-            <RunLiveScreen run={run} artifacts={artifacts.data ?? []} sync={sync} />
+            <RunLiveScreen
+              run={run}
+              artifacts={artifacts.data ?? []}
+              sync={sync}
+              railOpen={railOpen}
+              onRailOpenChange={setRailOpen}
+            />
           ) : null}
 
           <div className="tf-run-layout">
@@ -242,6 +318,32 @@ function showStage(run: RunDetail, artifacts: readonly Artifact[]): boolean {
  *   링크로 직접 들어오거나 다른 탭에서 열면 state 가 없고, 그때는
  *   "실행 요청 시 직접 입력" 으로 떨어진다 — 서버에는 이 값이 없기 때문이다.
  */
+/**
+ * ★ 라운드 7 — "이 실행은 어떤 실행을 다시 돌린 것인가".
+ *
+ * ## 스키마를 늘리지 않았다 — 근거
+ * `runs` 에 `rerun_of_run_id` 컬럼을 두면 마이그레이션 + 계약(`RunSchema`) + 매퍼 +
+ * 서비스가 같이 움직인다. 그 값으로 **할 수 있는 일은 지금 화면에 한 줄 적는 것뿐**이고,
+ * 실행 이력의 정합성(무엇이 언제 무엇을 돌렸나)은 이미 `runs` 가 시나리오·시각·설정
+ * 스냅샷으로 다 갖고 있다. 즉 **새 컬럼이 없어도 잃는 사실이 없다.**
+ *
+ * 그래서 `maskedVariables` 와 **똑같은 경로**(react-router `state` = `history.state`)로
+ * 넘긴다. 이 경로의 성질은 이미 실측돼 있다 — 새로고침에는 살아남고, 링크로 직접
+ * 들어오거나 다른 탭에서 열면 없다. 후자에서는 배너가 사라질 뿐 화면이 깨지지 않는다.
+ *
+ * 나중에 "재실행 계보"를 목록에서 필터링해야 할 일이 생기면 그때가 컬럼을 만들 때다.
+ * 그 전에 만들면 조회하는 곳이 없는 컬럼 하나를 영원히 들고 다니게 된다.
+ */
+function readRerunOf(state: unknown): { runId: string; runCode: string } | undefined {
+  if (typeof state !== "object" || state === null) return undefined;
+  const candidate = (state as { rerunOf?: unknown }).rerunOf;
+  if (typeof candidate !== "object" || candidate === null) return undefined;
+
+  const { runId, runCode } = candidate as { runId?: unknown; runCode?: unknown };
+  if (typeof runId !== "string" || typeof runCode !== "string") return undefined;
+  return { runId, runCode };
+}
+
 function readMaskedVariables(
   state: unknown,
 ): Readonly<Record<string, string>> | undefined {

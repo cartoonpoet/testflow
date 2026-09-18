@@ -9,7 +9,7 @@ import {
 import { NoticeBox, NoticeLine } from "@/components";
 import { Button, Input, Modal, Select } from "@/components/ui";
 import { browserLabel, maskRecord } from "@/lib";
-import { useCreateRun } from "@/hooks/useRuns";
+import { useCreateRun, useRunQueue } from "@/hooks/useRuns";
 import { useHealth } from "@/hooks/useHealth";
 import { useCurrentProject } from "@/hooks/useProject";
 import { toast } from "@/hooks/useToast";
@@ -36,7 +36,23 @@ import { toast } from "@/hooks/useToast";
  * react-hook-form 을 새로 넣지 않았다(Gen-Phase 10 과 같은 판단). 전송 직전에
  * **계약 스키마(`CreateRunRequestSchema`)로 `safeParse`** 한다 — 서버가 실제로 검증하는 그 규칙이다.
  */
-export type RunTarget = { scenarioId: string } | { suiteId: string };
+export type RunTarget =
+  | { scenarioId: string }
+  /** ★ 라운드 7 — 시나리오 목록의 다중 선택. `batch_id` 로 묶인 run N건이 생긴다. */
+  | { scenarioIds: readonly string[] }
+  | { suiteId: string };
+
+/**
+ * ★ 라운드 7 — 폼의 **기본값을 바깥에서 밀어 넣는 통로**.
+ *
+ * 재실행(`RunDetail`)이 쓴다. 프로젝트 기본값 대신 **그 run 이 실제로 쓴 값**을 채운다.
+ * 넘기지 않은 필드는 지금까지처럼 프로젝트 기본값으로 떨어진다.
+ */
+export type RunDialogDefaults = {
+  baseUrl?: string;
+  envLabel?: string;
+  browser?: (typeof BROWSERS)[number];
+};
 
 export type RunDialogProps = {
   open: boolean;
@@ -44,19 +60,25 @@ export type RunDialogProps = {
   target: RunTarget;
   /** 다이얼로그 제목 아래에 보여 줄 대상 이름. */
   targetName: string;
-  /** 스위트 실행이면 몇 건이 생기는지 미리 알려 준다. */
+  /** 스위트·다중 선택 실행이면 몇 건이 생기는지 미리 알려 준다. */
   scenarioCount?: number;
+  defaults?: RunDialogDefaults;
+  /** 재실행이면 원본 run. 안내 문구와 결과 화면의 계보 배너에 쓴다. */
+  rerunOf?: { runId: string; runCode: string };
 };
 
 export function RunDialog(props: RunDialogProps) {
-  const { open, onOpenChange, target, targetName, scenarioCount } = props;
+  const { open, onOpenChange, target, targetName, scenarioCount, defaults, rerunOf } = props;
   const { project } = useCurrentProject();
+
+  const baseUrl = defaults?.baseUrl ?? project?.baseUrl ?? "";
+  const envLabel = defaults?.envLabel ?? project?.defaultEnvLabel ?? "스테이징";
 
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="실행 요청"
+      title={rerunOf === undefined ? "실행 요청" : `재실행 · ${rerunOf.runCode}`}
       description={
         scenarioCount === undefined
           ? targetName
@@ -66,13 +88,18 @@ export function RunDialog(props: RunDialogProps) {
       {/*
        * ★ `key` 로 초기화한다 — `useEffect` 로 "열릴 때 기본값 채우기" 를 하지 않는다.
        *   프로젝트 조회가 늦게 끝나도 값이 도착하는 순간 폼이 새 기본값으로 다시 마운트된다.
+       *   ★ 라운드 7 — `key` 에 **실제로 쓰는 기본값**을 넣는다. 재실행은 프로젝트가 아니라
+       *     원본 run 의 값으로 채우므로, 키가 프로젝트에만 걸려 있으면 다른 run 의
+       *     재실행 다이얼로그를 연속으로 열었을 때 앞 run 의 값이 남는다.
        */}
       {open ? (
         <RunDialogForm
-          key={`${project?.id ?? "no-project"}:${project?.baseUrl ?? ""}`}
+          key={`${project?.id ?? "no-project"}:${baseUrl}:${envLabel}:${rerunOf?.runId ?? ""}`}
           target={target}
-          defaultBaseUrl={project?.baseUrl ?? ""}
-          defaultEnvLabel={project?.defaultEnvLabel ?? "스테이징"}
+          defaultBaseUrl={baseUrl}
+          defaultEnvLabel={envLabel}
+          defaultBrowser={defaults?.browser ?? "chromium"}
+          rerunOf={rerunOf}
           onClose={() => {
             onOpenChange(false);
           }}
@@ -90,11 +117,15 @@ function RunDialogForm({
   target,
   defaultBaseUrl,
   defaultEnvLabel,
+  defaultBrowser,
+  rerunOf,
   onClose,
 }: {
   target: RunTarget;
   defaultBaseUrl: string;
   defaultEnvLabel: string;
+  defaultBrowser: (typeof BROWSERS)[number];
+  rerunOf?: { runId: string; runCode: string };
   onClose: () => void;
 }) {
   const navigate = useNavigate();
@@ -103,12 +134,20 @@ function RunDialogForm({
 
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
   const [envLabel, setEnvLabel] = useState(defaultEnvLabel);
-  const [browser, setBrowser] = useState<(typeof BROWSERS)[number]>("chromium");
+  const [browser, setBrowser] = useState<(typeof BROWSERS)[number]>(defaultBrowser);
   const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<readonly string[]>([]);
 
   const runnerDown = health.data?.runner === "down";
+
+  /*
+   * 묶음 크기는 **여기서 셀 수 있는 것만** 센다. 스위트는 담긴 시나리오 수를 이 폼이
+   * 모르므로(서버가 편다) 0 으로 두고 안내를 띄우지 않는다 — 모르는 숫자를 쓰지 않는다.
+   */
+  const batchSize = "scenarioIds" in target ? target.scenarioIds.length : 1;
+  const queue = useRunQueue({ enabled: batchSize > 1 });
+  const concurrency = queue.data?.concurrency ?? null;
 
   const submit = () => {
     const variables: Record<string, string> = {};
@@ -155,9 +194,9 @@ function RunDialogForm({
   ) => {
     if (response.runIds.length > 1 && response.batchId !== null) {
       /*
-       * 스위트 실행은 run 이 N 건 생긴다(같은 `batch_id`). 목록 응답(`RunListItem`)에는
-       * `batchId` 가 없어 서버에 "이 묶음만" 을 물어볼 수 없으므로, 방금 받은 id 들을
-       * 쿼리로 들고 간다. 묶음 화면이 그 id 로 각각 상세를 읽는다.
+       * 스위트·다중 선택 실행은 run 이 N 건 생긴다(같은 `batch_id`). 목록 응답
+       * (`RunListItem`)에는 `batchId` 가 없어 서버에 "이 묶음만" 을 물어볼 수 없으므로,
+       * 방금 받은 id 들을 쿼리로 들고 간다. 묶음 화면이 그 id 로 각각 상세를 읽는다.
        */
       void navigate(
         `/runs?batch=${response.batchId}&ids=${response.runIds.join(",")}`,
@@ -165,7 +204,8 @@ function RunDialogForm({
       );
       return;
     }
-    void navigate(`/runs/${response.runId}`, { state: { maskedVariables } });
+    // ★ 재실행이면 원본을 같이 넘긴다 — 결과 화면이 "무엇을 다시 돌린 것인지" 말한다.
+    void navigate(`/runs/${response.runId}`, { state: { maskedVariables, rerunOf } });
   };
 
   const errors = formError.length > 0 ? formError : apiErrorLines(createRun.error);
@@ -232,6 +272,22 @@ function RunDialogForm({
           {" 스텝의 "}
           {`{{${ACCOUNT_VARIABLE}}}`} · {`{{${PASSWORD_VARIABLE}}}`} 자리에 들어갑니다.
         </p>
+        {/*
+          ★ 라운드 7 — 재실행에서 **왜 계정 칸만 비어 있는지**를 그 자리에서 말한다.
+            주소·환경·브라우저는 채워 주면서 계정만 비워 두면, 설명이 없을 때
+            사용자는 "채우는 걸 깜빡한 버그"로 읽는다. 실제로는 DB 에 컬럼 자체가
+            없어서(설계) 채울 값이 존재하지 않는다.
+        */}
+        {rerunOf === undefined ? null : (
+          <p
+            data-slot="rerun-secret-notice"
+            className="m-0 mt-[6px] text-[10px] leading-[1.6] text-muted"
+          >
+            <strong>보안상 계정·비밀번호는 저장하지 않습니다.</strong> {rerunOf.runCode} 의 대상
+            주소·환경·브라우저는 그대로 채웠고, 계정 칸만 직접 입력해 주세요(값이 필요 없는
+            시나리오면 비워 둔 채로 실행하면 됩니다).
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-[12px] max-mobile:grid-cols-1">
@@ -263,6 +319,24 @@ function RunDialogForm({
           />
         </Field>
       </div>
+
+      {/*
+        ★ 라운드 7 — **"병렬"이 실제로 몇 개인지 숨기지 않는다.**
+          여러 건을 걸면 run 은 N 건 생기지만 동시에 도는 것은 Runner 의 한도까지다.
+          한도를 모르면(Runner 미기동·구버전) 숫자를 지어내지 않고 그렇게 적는다.
+      */}
+      {batchSize <= 1 ? null : (
+        <NoticeBox title={`${String(batchSize)}건이 한 묶음으로 큐에 올라갑니다`}>
+          <NoticeLine data-slot="batch-concurrency-notice">
+            {concurrency === null
+              ? "동시에 몇 건이 실행되는지는 Runner 가 알려 주지 않았습니다(Runner 미기동일 수 있습니다). 나머지는 큐에서 차례를 기다립니다."
+              : `Runner 는 한 번에 최대 ${String(concurrency)}건을 동시에 실행합니다. ` +
+                (batchSize > concurrency
+                  ? `나머지 ${String(batchSize - concurrency)}건은 큐에서 차례를 기다리며, 앞 실행이 끝나는 대로 순서대로 시작합니다.`
+                  : "선택한 건수가 한도 안이라 모두 곧바로 시작됩니다.")}
+          </NoticeLine>
+        </NoticeBox>
+      )}
 
       {runnerDown ? (
         <NoticeBox title="Runner 가 실행 중이 아닙니다">
