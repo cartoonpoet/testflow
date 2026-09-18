@@ -1,0 +1,226 @@
+{
+  "before": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 623.98,
+      "x": 1129,
+      "y": 479,
+      "aspect": 0.391,
+      "visible": true
+    },
+    "railActive": "2",
+    "railRows": [
+      {
+        "seq": "1",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "2",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "3",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 770,
+      "h": 468,
+      "x": 262,
+      "y": 1128,
+      "aspect": 1.645,
+      "visible": true
+    },
+    "listActive": "2",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0
+  },
+  "targetSeq": "9",
+  "t0": 0,
+  "t1": 10.687,
+  "after": {
+    "view": "video",
+    "phase": "idle",
+    "syncMode": "video",
+    "expanded": "false",
+    "canvasAttr": {
+      "w": "1280",
+      "h": "800"
+    },
+    "stageBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "canvasBox": {
+      "w": 0,
+      "h": 0,
+      "x": 0,
+      "y": 0,
+      "aspect": null,
+      "visible": false
+    },
+    "videoBox": {
+      "w": 1094.39,
+      "h": 683.98,
+      "x": 289,
+      "y": 429,
+      "aspect": 1.6,
+      "visible": true
+    },
+    "railBox": {
+      "w": 244,
+      "h": 623.98,
+      "x": 1129,
+      "y": 479,
+      "aspect": 0.391,
+      "visible": true
+    },
+    "railActive": "8",
+    "railRows": [
+      {
+        "seq": "4",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "5",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "6",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "7",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "8",
+        "active": "true",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "9",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "10",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "11",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      },
+      {
+        "seq": "12",
+        "active": "false",
+        "status": "passed",
+        "tag": "BUTTON"
+      }
+    ],
+    "listBox": {
+      "w": 770,
+      "h": 468,
+      "x": 262,
+      "y": 1128,
+      "aspect": 1.645,
+      "visible": true
+    },
+    "listActive": "8",
+    "seekNotice": "누르면 영상이 그 지점으로 이동합니다 (오차 약 ±1초)",
+    "docScrollX": 0
+  },
+  "errors": []
+}

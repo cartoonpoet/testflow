@@ -1,0 +1,17 @@
+[
+  {
+    "id": "820b8d53-6b90-4ae0-b59e-b2ff56181639",
+    "code": "RUN-0269",
+    "head": "실행 현황",
+    "filled": {
+      "title": "재실행 · RUN-0269",
+      "baseUrl": "http://127.0.0.1:4998/record-login.html",
+      "envLabel": "취소-검증",
+      "browser": "chromium",
+      "account": "",
+      "password": "",
+      "secretNotice": "보안상 계정·비밀번호는 저장하지 않습니다. RUN-0269 의 대상 주소·환경·브라우저는 그대로 채웠고, 계정 칸만 직접 입력해 주세요(값이 필요 없는 시나리오면 비워 둔 채로 실행하면 됩니다)."
+    },
+    "errors": []
+  }
+]

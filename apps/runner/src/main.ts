@@ -10,6 +10,7 @@ import {
   RunJobDataSchema,
   collectSecretValues,
   runCancelChannel,
+  runnerCapacityKey,
   runnerHeartbeatKey,
 } from "@testflow/contracts";
 import type { RunJobData } from "@testflow/contracts";
@@ -175,7 +176,9 @@ async function main(): Promise<void> {
     await recorder.close().catch(() => undefined);
     await recordingSubscriber.quit().catch(() => undefined);
     await subscriber.quit().catch(() => undefined);
-    await redis.del(runnerHeartbeatKey(config.runnerId)).catch(() => undefined);
+    await redis
+      .del(runnerHeartbeatKey(config.runnerId), runnerCapacityKey(config.runnerId))
+      .catch(() => undefined);
     await redis.quit().catch(() => undefined);
     await queueConnection.quit().catch(() => undefined);
     await dataSource.destroy().catch(() => undefined);
@@ -186,14 +189,30 @@ async function main(): Promise<void> {
 /** heartbeat 를 즉시 1회 + 주기 갱신. health 가 Runner 기동 직후부터 `ok` 를 보도록. */
 async function startHeartbeat(redis: Redis, config: RunnerConfig): Promise<void> {
   const key = runnerHeartbeatKey(config.runnerId);
+  /*
+   * ★ 라운드 7 — **동시 실행 한도**를 같이 적는다(같은 주기·같은 TTL).
+   *   웹이 "여러 개 병렬 실행"을 말하려면 실제로 몇 개가 동시에 도는지 알아야 하는데,
+   *   그 값은 이 프로세스만 안다. API 가 자기 env 에서 읽으면 설정이 두 벌이 된다.
+   *   heartbeat 값을 JSON 으로 바꾸지 않고 **키를 따로** 둔 이유는 `contracts` 주석 참조 —
+   *   health 판정(`…heartbeat:*` SCAN)이 한 줄도 바뀌지 않아야 한다.
+   */
+  const capacity = runnerCapacityKey(config.runnerId);
   const beat = async (): Promise<void> => {
-    await redis.set(key, new Date().toISOString(), "EX", RUNNER_HEARTBEAT_TTL_SEC).catch(() => undefined);
+    await redis
+      .multi()
+      .set(key, new Date().toISOString(), "EX", RUNNER_HEARTBEAT_TTL_SEC)
+      .set(capacity, String(config.concurrency), "EX", RUNNER_HEARTBEAT_TTL_SEC)
+      .exec()
+      .catch(() => undefined);
   };
   await beat();
   const timer = setInterval(() => void beat(), HEARTBEAT_INTERVAL_MS);
   // Node 가 이 타이머 때문에 종료를 못 하는 일이 없게 한다.
   timer.unref();
-  log(`heartbeat 등록 — ${key} (TTL ${String(RUNNER_HEARTBEAT_TTL_SEC)}s)`);
+  log(
+    `heartbeat 등록 — ${key} (TTL ${String(RUNNER_HEARTBEAT_TTL_SEC)}s) · ` +
+      `capacity=${String(config.concurrency)}`,
+  );
 }
 
 /**

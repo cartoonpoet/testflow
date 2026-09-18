@@ -141,6 +141,17 @@ export const CreateRunRequestSchema = z
   .object({
     scenarioId: z.uuid().optional(),
     suiteId: z.uuid().optional(),
+    /**
+     * ★ 라운드 7 — **여러 시나리오를 한 번에** 실행한다(시나리오 목록의 다중 선택).
+     *
+     * 스위트와 **같은 규약**이다: `batch_id` 하나로 묶인 run N건이 생기고 부모 run 은 없다.
+     * 다른 점은 순서의 출처뿐이다 — 스위트는 `suite_scenarios.sequence`, 여기는
+     * **요청 배열의 순서**다. 서버는 그 순서를 그대로 `batch_sequence` 로 쓴다.
+     *
+     * 상한 50 은 `RunListQuerySchema.limit` 상한(100)의 절반이다 — 한 번의 요청이
+     * 묶음 화면 한 장에 들어가지 않을 만큼 커지지 않게 막는 값이고, DB 상한이 아니다.
+     */
+    scenarioIds: z.array(z.uuid()).min(1).max(50).optional(),
     baseUrl: z.url().max(500).optional(),
     envLabel: z.string().min(1).max(50).optional(),
     browser: BrowserSchema.default("chromium"),
@@ -148,18 +159,28 @@ export const CreateRunRequestSchema = z
     secretKeys: z.array(z.string().min(1).max(100)).default([]),
   })
   .superRefine((dto, ctx) => {
-    if (!dto.scenarioId && !dto.suiteId) {
+    const given = [dto.scenarioId, dto.suiteId, dto.scenarioIds].filter(
+      (value) => value !== undefined,
+    ).length;
+    if (given === 0) {
       ctx.addIssue({
         code: "custom",
         path: ["scenarioId"],
-        message: "scenarioId 또는 suiteId 중 하나는 반드시 필요합니다.",
+        message: "scenarioId · scenarioIds · suiteId 중 하나는 반드시 필요합니다.",
       });
     }
-    if (dto.scenarioId && dto.suiteId) {
+    if (given > 1) {
       ctx.addIssue({
         code: "custom",
         path: ["suiteId"],
-        message: "scenarioId 와 suiteId 를 동시에 지정할 수 없습니다.",
+        message: "scenarioId · scenarioIds · suiteId 중 하나만 지정할 수 있습니다.",
+      });
+    }
+    if (dto.scenarioIds !== undefined && new Set(dto.scenarioIds).size !== dto.scenarioIds.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["scenarioIds"],
+        message: "같은 시나리오를 두 번 담을 수 없습니다.",
       });
     }
   });
@@ -225,6 +246,34 @@ export const CreateRunResponseSchema = z.object({
   position: z.number().int().nonnegative(),
 });
 export type CreateRunResponse = z.infer<typeof CreateRunResponseSchema>;
+
+/**
+ * `GET /api/runs/queue` — **큐가 실제로 어떻게 생겼는가.** (라운드 7)
+ *
+ * ★ 왜 만들었나 — 시나리오를 5건 골라 "한 번에 실행"을 누르면 run 은 5건 생기지만
+ *   **실제로 동시에 도는 것은 Runner 의 `RUNNER_CONCURRENCY` 개수뿐**이다(기본 2).
+ *   화면이 그것을 말하지 않으면 "병렬 실행"이라는 표시 자체가 거짓말이 된다.
+ *   여기서 주는 값은 전부 **관측값**이다 — 설정을 복사해 오지 않는다.
+ */
+export const RunQueueStatusSchema = z.object({
+  /** BullMQ `waiting` 개수(아직 아무도 집어 가지 않은 job). */
+  waiting: z.number().int().nonnegative(),
+  /** BullMQ `active` 개수(Runner 가 집어 가서 도는 중). */
+  active: z.number().int().nonnegative(),
+  /**
+   * 살아 있는 Runner 들의 동시 실행 한도 **합계**. heartbeat 가 없으면 `null` 이다
+   * (Runner 가 안 떠 있거나 구버전 — 한도를 **지어내지 않는다**).
+   */
+  concurrency: z.number().int().positive().nullable(),
+  /** heartbeat 가 살아 있는 Runner 수. */
+  runners: z.number().int().nonnegative(),
+  /**
+   * 대기 중인 job 의 **runId 를 큐 순서대로**. `jobId = runId` 규약을 그대로 쓴다.
+   * 화면이 "이 실행은 대기 N번째"를 계산하는 근거다. 너무 길어지지 않게 앞에서 자른다.
+   */
+  waitingRunIds: z.array(z.string()).max(100),
+});
+export type RunQueueStatus = z.infer<typeof RunQueueStatusSchema>;
 
 /* ────────────────────────────────────────────────────────────
  * 실행 결과

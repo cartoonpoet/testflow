@@ -38,12 +38,30 @@ export type ScenarioTableProps = {
   /** 검색어가 바뀌는 동안 이전 결과를 흐리게 표시한다. */
   dimmed?: boolean;
   now?: Date;
+  /**
+   * ★ 라운드 7 — 다중 선택. 지금 고른 시나리오 id 들.
+   *
+   * 생략하면 이 표는 라운드 6까지와 **완전히 같이** 동작한다(체크박스 열 자체가 없다).
+   */
+  selected?: ReadonlySet<string>;
+  onToggle?: (id: string) => void;
+  /** 이 페이지의 행 전체를 켜고 끈다. */
+  onToggleAll?: (checked: boolean) => void;
 };
 
 const COLUMNS = ["시나리오", "기능", "상태", "최근 결과", "수정일", "작성자"] as const;
 
-export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps) {
+export function ScenarioTable({
+  items,
+  dimmed = false,
+  now,
+  selected,
+  onToggle,
+  onToggleAll,
+}: ScenarioTableProps) {
   const navigate = useNavigate();
+  const selectable = selected !== undefined && onToggle !== undefined;
+  const allChecked = selectable && items.length > 0 && items.every((item) => selected.has(item.id));
 
   return (
     <div
@@ -53,9 +71,23 @@ export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps
         dimmed && "opacity-60",
       )}
     >
-      <table className="w-full min-w-[820px] border-collapse">
+      <table className={cn("w-full border-collapse", selectable ? "min-w-[860px]" : "min-w-[820px]")}>
         <thead>
           <tr>
+            {selectable ? (
+              <th scope="col" className="w-[40px] bg-table-head py-[12px] pl-[15px] text-left">
+                <input
+                  type="checkbox"
+                  data-testid="scenario-select-all"
+                  aria-label="이 페이지의 시나리오 전체 선택"
+                  checked={allChecked}
+                  onChange={(event) => {
+                    onToggleAll?.(event.target.checked);
+                  }}
+                  className="h-[14px] w-[14px] accent-brand"
+                />
+              </th>
+            ) : null}
             {COLUMNS.map((column) => (
               <th
                 key={column}
@@ -76,6 +108,7 @@ export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps
               data-slot="scenario-row"
               aria-label={item.name}
               data-source-type={item.sourceType}
+              data-selected={selectable ? (selected.has(item.id) ? "true" : "false") : undefined}
               onClick={() => {
                 void navigate(editPath(item));
               }}
@@ -86,6 +119,35 @@ export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps
               }}
               className="cursor-pointer outline-none [&:focus-visible>td]:bg-row-hover [&:hover>td]:bg-row-hover"
             >
+              {/*
+                ★ 체크 칸에서 **행 이동을 멈춘다.** 행 전체가 `role="link"` 라
+                  막지 않으면 체크하려던 클릭이 편집 화면으로 튄다. 키보드도 같다 —
+                  `Space` 는 체크박스의 토글 키인데 행의 핸들러가 먼저 먹으면 이동한다.
+              */}
+              {selectable ? (
+                <td
+                  className="border-t border-line py-[15px] pl-[15px]"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    data-testid="scenario-select"
+                    data-scenario-id={item.id}
+                    aria-label={`${item.name} 선택`}
+                    checked={selected.has(item.id)}
+                    onChange={() => {
+                      onToggle(item.id);
+                    }}
+                    className="h-[14px] w-[14px] accent-brand"
+                  />
+                </td>
+              ) : null}
+
               <td className="border-t border-line px-[15px] py-[15px] text-td font-750">
                 <span className="flex items-center gap-[7px]">
                   <span className="min-w-0 truncate">{item.name}</span>

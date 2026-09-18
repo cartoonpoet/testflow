@@ -1,0 +1,32 @@
+{
+  "urlUnchangedOnCheck": true,
+  "barCount": "4",
+  "allOn": "8",
+  "barGoneAfterClear": true,
+  "notice": "Runner 는 한 번에 최대 2건을 동시에 실행합니다. 나머지 2건은 큐에서 차례를 기다리며, 앞 실행이 끝나는 대로 순서대로 시작합니다.",
+  "batchUrl": "http://localhost:4173/runs?batch=957dffec-e358-4cbd-9065-e30847c1d5c7&ids=87c592c6-4862-476c-acaa-4b6d6cc12412,bd42f2b7-0da5-4973-80e0-d863b3c49b24,43a3cf9b-b8e0-43e5-a155-c801aad65952,fb2c00ba-2ff3-4063-a0bf-eb7f45a9e65a",
+  "progress": "실행 중 2 · 대기 2 · 완료 0 · Runner 는 한 번에 최대 2건을 동시에 실행합니다. 나머지는 큐에서 차례를 기다립니다.",
+  "rows": [
+    {
+      "status": "running",
+      "pos": "",
+      "text": "G14-LONG 40단계1 / 4 · RUN-0270 · 0/0 단계실행 중방금 전"
+    },
+    {
+      "status": "running",
+      "pos": "",
+      "text": "G14-A 성공 6단계2 / 4 · RUN-0271 · 0/0 단계실행 중방금 전"
+    },
+    {
+      "status": "queued",
+      "pos": "1",
+      "text": "3G14-E 성공 5단계3 / 4 · RUN-0272 · 0/0 단계 · 큐 대기 1번째대기—"
+    },
+    {
+      "status": "queued",
+      "pos": "2",
+      "text": "4G14-D 성공 5단계4 / 4 · RUN-0273 · 0/0 단계 · 큐 대기 2번째대기—"
+    }
+  ],
+  "errors": []
+}

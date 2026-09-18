@@ -329,3 +329,23 @@ export const RUNNER_HEARTBEAT_TTL_SEC = 30;
 export function runnerHeartbeatKey(runnerId: string): string {
   return `${RUNNER_HEARTBEAT_KEY_PREFIX}${runnerId}`;
 }
+
+/**
+ * Runner 의 **동시 실행 한도**를 알리는 Redis 키의 접두사. (라운드 7)
+ *
+ * heartbeat 와 **같은 주기·같은 TTL** 로 갱신한다. 값은 `RUNNER_CONCURRENCY` 십진수 문자열이다.
+ *
+ * ★ 왜 별도 키인가 — heartbeat 값(ISO 문자열)에 JSON 을 끼워 넣으면 그 값을 읽는
+ *   기존 판정(`health` 의 "키가 있으면 ok")과 형식이 얽힌다. 접두사가 다르면
+ *   health 의 SCAN(`…heartbeat:*`)에 잡히지 않으므로 **기존 판정이 한 줄도 바뀌지 않는다.**
+ *
+ * ★ 왜 필요한가 — 화면이 "병렬로 N건 실행"이라고 말하려면 **실제로 몇 개가 동시에
+ *   도는지**를 알아야 한다. 그 값은 Runner 프로세스만 안다(API 의 env 를 읽으면
+ *   설정이 두 벌이 되어 조용히 거짓말을 한다). 키가 없으면 화면은 "알 수 없음"으로
+ *   떨어지고 한도를 지어내지 않는다.
+ */
+export const RUNNER_CAPACITY_KEY_PREFIX = "testflow:runner:capacity:";
+
+export function runnerCapacityKey(runnerId: string): string {
+  return `${RUNNER_CAPACITY_KEY_PREFIX}${runnerId}`;
+}
