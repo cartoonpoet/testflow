@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { NoticeBox, NoticeLine } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
 import { useStepSync } from "@/features/live";
 import { RUN_STATUS_LABEL } from "@/lib";
-import { useCancelRun, useRunArtifacts, useRunDetail } from "@/hooks/useRuns";
+import { toast } from "@/hooks/useToast";
+import { useCancelRun, useDeleteRun, useRunArtifacts, useRunDetail } from "@/hooks/useRuns";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { RunDeleteDialog } from "./RunDeleteDialog";
 import { RunDialog } from "./RunDialog";
 import { RunLiveScreen } from "./RunScreen";
 import { RunSidePanel } from "./RunSidePanel";
@@ -37,6 +39,7 @@ import { RunSummaryBar } from "./RunSummaryBar";
  */
 export function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
+  const navigate = useNavigate();
   const location = useLocation();
   const maskedVariables = readMaskedVariables(location.state);
   const rerunOf = readRerunOf(location.state);
@@ -50,6 +53,7 @@ export function RunDetailPage() {
    */
   const [railOpen, setRailOpen] = useState(true);
   const [rerunOpen, setRerunOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const detail = useRunDetail(runId);
   const run = detail.data;
@@ -59,6 +63,7 @@ export function RunDetailPage() {
   const artifacts = useRunArtifacts(runId);
   const cancel = useCancelRun(runId);
   const cancelPending = isActive && (cancel.isPending || cancel.isSuccess);
+  const removeRun = useDeleteRun();
 
   /*
    * ★ 라운드 5 — 무대와 스텝 목록을 잇는 단 하나의 손잡이.
@@ -85,45 +90,107 @@ export function RunDetailPage() {
           run === undefined ? "실행 상세를 불러오는 중입니다." : `${run.runCode} · ${run.scenarioName}`
         }
         action={
-          isActive ? (
-            <Button
-              variant="danger"
-              data-slot="run-cancel"
-              disabled={cancelPending}
-              onClick={() => {
-                cancel.mutate();
-              }}
-            >
-              {cancelPending ? "취소 중…" : "■ 실행 중단"}
-            </Button>
-          ) : run === undefined ? undefined : (
-            /*
-             * ★ 라운드 7 — **끝난 실행은 이 화면에서 바로 다시 돌린다.**
-             *   종료 상태 전부(`passed`·`failed`·`timeout`·`cancelled`·`error`)에서 보인다.
-             *   진행 중에는 위 "실행 중단" 이 그 자리를 쓰므로 자연히 안 보인다.
-             *
-             *   시나리오가 삭제되면 `runs.scenario_id` 가 SET NULL 이라 다시 돌릴 대상이
-             *   없다. 그때 버튼을 지우지 않고 **끄고 이유를 붙인다** — 버튼이 사라지면
-             *   사용자는 "왜 어떤 실행에는 재실행이 있고 어떤 실행에는 없나"를 추측한다.
-             */
-            <Button
-              variant="primary"
-              data-slot="run-rerun"
-              disabled={run.scenarioId === null}
-              title={
-                run.scenarioId === null
-                  ? "원본 시나리오가 삭제되어 다시 실행할 수 없습니다."
-                  : undefined
-              }
-              onClick={() => {
-                setRerunOpen(true);
-              }}
-            >
-              ↻ 재실행
-            </Button>
+          run === undefined ? undefined : (
+            <div className="flex gap-[9px]">
+              {/*
+                ★ 라운드 8 — **진행 중이면 끄고 이유를 `title` 로 말한다**(#14 의 재실행 방식).
+                  버튼을 숨기지 않는 이유도 같다 — 사라지면 사용자는 "왜 어떤 실행에는
+                  삭제가 있고 어떤 실행에는 없나"를 추측한다.
+                  라벨은 **"이력 삭제"** 다: 이 화면의 다른 파괴적 버튼("■ 실행 중단")과
+                  혼동되지 않아야 하고, 지워지는 것이 **실행 이력과 그 증적**이지
+                  시나리오가 아니라는 점이 이름에 드러나야 한다.
+              */}
+              <Button
+                variant="danger"
+                data-slot="run-delete-open"
+                data-testid="run-delete-open"
+                disabled={isActive || removeRun.isPending}
+                title={
+                  isActive
+                    ? "진행 중인 실행은 삭제할 수 없습니다. 먼저 실행을 중단하세요."
+                    : undefined
+                }
+                onClick={() => {
+                  setDeleteOpen(true);
+                }}
+              >
+                이력 삭제
+              </Button>
+
+              {isActive ? (
+                <Button
+                  variant="danger"
+                  data-slot="run-cancel"
+                  disabled={cancelPending}
+                  onClick={() => {
+                    cancel.mutate();
+                  }}
+                >
+                  {cancelPending ? "취소 중…" : "■ 실행 중단"}
+                </Button>
+              ) : (
+                /*
+                 * ★ 라운드 7 — **끝난 실행은 이 화면에서 바로 다시 돌린다.**
+                 *   종료 상태 전부(`passed`·`failed`·`timeout`·`cancelled`·`error`)에서 보인다.
+                 *   진행 중에는 위 "실행 중단" 이 그 자리를 쓰므로 자연히 안 보인다.
+                 *
+                 *   시나리오가 삭제되면 `runs.scenario_id` 가 SET NULL 이라 다시 돌릴 대상이
+                 *   없다. 그때 버튼을 지우지 않고 **끄고 이유를 붙인다** — 버튼이 사라지면
+                 *   사용자는 "왜 어떤 실행에는 재실행이 있고 어떤 실행에는 없나"를 추측한다.
+                 */
+                <Button
+                  variant="primary"
+                  data-slot="run-rerun"
+                  disabled={run.scenarioId === null}
+                  title={
+                    run.scenarioId === null
+                      ? "원본 시나리오가 삭제되어 다시 실행할 수 없습니다."
+                      : undefined
+                  }
+                  onClick={() => {
+                    setRerunOpen(true);
+                  }}
+                >
+                  ↻ 재실행
+                </Button>
+              )}
+            </div>
           )
         }
       />
+
+      {/*
+        ★ 이 화면은 증적 목록을 **이미 읽어 놓았다**(`useRunArtifacts`). 그래서 확인
+          대화상자가 "증적 N개 · 합계 M" 을 실제 값으로 적는다.
+      */}
+      {run === undefined ? null : (
+        <RunDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          pending={removeRun.isPending}
+          targets={[
+            {
+              id: run.id,
+              runCode: run.runCode,
+              scenarioName: run.scenarioName,
+              artifacts: artifacts.data,
+            },
+          ]}
+          onConfirm={() => {
+            removeRun.mutate(run.id, {
+              onSuccess: () => {
+                toast(`${run.runCode} 실행 이력을 삭제했습니다.`, { label: "삭제" });
+                setDeleteOpen(false);
+                // 지운 run 의 상세에 머무르면 404 가 난다 — 목록으로 되돌린다.
+                void navigate("/runs");
+              },
+              onError: (error: Error) => {
+                toast(error.message, { label: "삭제 실패", tone: "danger" });
+              },
+            });
+          }}
+        />
+      )}
 
       {/*
         ★ 재실행으로 만들어진 run 이면 **원본과 이어 보인다.**

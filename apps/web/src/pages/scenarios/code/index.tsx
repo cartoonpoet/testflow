@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ScenarioCodeFilenameSchema,
   checkAttachmentReferences,
@@ -11,7 +11,9 @@ import { NoticeBox, NoticeLine, ProjectGate } from "@/components";
 import { Button, Input, PageHead, Panel, Skeleton, StateView } from "@/components/ui";
 import { toast } from "@/hooks/useToast";
 import { useScenarioBuilderMutations, useScenarioDetail } from "@/hooks/useScenarioBuilder";
+import { useDeleteScenario } from "@/hooks/useScenarios";
 import { useScenarioAttachments } from "@/hooks/useScenarioAttachments";
+import { ScenarioDeleteDialog } from "../ScenarioDeleteDialog";
 import {
   extractCodeIssues,
   useSaveScenarioCode,
@@ -35,6 +37,7 @@ const DEFAULT_FILENAME = "scenario.spec.ts";
 
 export function CodeScenarioPage() {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
+  const navigate = useNavigate();
   const detail = useScenarioDetail(scenarioId);
   const code = useScenarioCode(scenarioId);
   const attachments = useScenarioAttachments(scenarioId);
@@ -49,6 +52,8 @@ export function CodeScenarioPage() {
   const [draft, setDraft] = useState<{ filename: string; content: string } | null>(null);
   const [serverIssues, setServerIssues] = useState<readonly CodeValidationIssue[]>([]);
   const [runOpen, setRunOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const removeScenario = useDeleteScenario();
 
   const filename = draft?.filename ?? code.data?.filename ?? DEFAULT_FILENAME;
   const content = draft?.content ?? code.data?.content ?? "";
@@ -105,6 +110,22 @@ export function CodeScenarioPage() {
         description="Playwright 테스트 코드 1개를 넣고 그대로 실행합니다."
         action={
           <div className="flex gap-[8px]">
+            {/*
+              ★ 라운드 8 — 라벨이 **"시나리오 삭제"** 다. 이 화면에는 첨부파일 행마다
+                `삭제` 버튼이 이미 있어서(`AttachmentsField`), 여기에 `삭제` 라고만 적으면
+                "무엇이 지워지는지"가 버튼 이름만으로 갈리지 않는다.
+                위치도 주 동작(저장·실행·발행)에서 **가장 왼쪽으로** 떼어 놓았다.
+            */}
+            <Button
+              variant="danger"
+              data-testid="scenario-delete-open"
+              disabled={detail.data === undefined}
+              onClick={() => {
+                setDeleteOpen(true);
+              }}
+            >
+              시나리오 삭제
+            </Button>
             <Button
               variant="primary"
               data-testid="code-save"
@@ -185,6 +206,42 @@ export function CodeScenarioPage() {
         target={{ scenarioId }}
         targetName={detail.data?.name ?? ""}
       />
+
+      {/*
+        ★ 이 화면은 **개수를 안다** — 첨부 목록도 코드 본문도 이미 읽어 놓았다.
+          그래서 확인 대화상자가 "첨부 N개 · 코드 본문 1건" 을 실제 값으로 적는다.
+          (목록 화면은 모르므로 적지 않는다 — 지어내지 않는다.)
+      */}
+      {detail.data === undefined ? null : (
+        <ScenarioDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          pending={removeScenario.isPending}
+          targets={[
+            {
+              id: detail.data.id,
+              name: detail.data.name,
+              code: detail.data.code,
+              sourceType: detail.data.sourceType,
+              stepCount: detail.data.steps.length,
+              attachmentCount: attachments.data?.items.length,
+              hasCode: code.data === undefined ? undefined : code.data !== null,
+            },
+          ]}
+          onConfirm={() => {
+            removeScenario.mutate(scenarioId, {
+              onSuccess: () => {
+                toast("시나리오를 삭제했습니다.", { label: "삭제" });
+                setDeleteOpen(false);
+                void navigate("/scenarios");
+              },
+              onError: (error: Error) => {
+                toast(error.message, { label: "삭제 실패", tone: "danger" });
+              },
+            });
+          }}
+        />
+      )}
 
       <ProjectGate>
         {detail.isError ? (

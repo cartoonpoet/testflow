@@ -1,9 +1,10 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { resolve } from "node:path";
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { readdir, rm, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
+import { buildRunArtifactKey } from "@testflow/contracts";
 import type { Artifact } from "@testflow/contracts";
 import { ArtifactEntity, RunEntity } from "@testflow/db";
 import { REPO_ROOT_DIR } from "../../common/config/env.js";
@@ -90,8 +91,23 @@ export class RangeNotSatisfiableError extends Error {
  * (02-context "(b) 부가 제약"). Runner 를 다른 호스트로 분리하는 순간
  * `StorageAdapter` 의 S3/MinIO 구현체가 필요해진다.
  */
+/** `purgeRunFiles()` 가 실제로 무엇을 지웠는지. 로그와 검증 증적에 쓴다. */
+export interface PurgedArtifactFiles {
+  files: number;
+  bytes: number;
+}
+
+/**
+ * `purgeRunFiles()` 가 **디렉토리 경로만** 얻기 위해 쓰는 더미 파일명.
+ * 실제로 존재할 필요가 없다 — 필요한 것은 부모 디렉토리(`runs/<runId>`)뿐이다.
+ * (`ScenarioAttachmentService.purgeScenarioFiles()` 의 `PROBE_ATTACHMENT_ID` 와 같은 수법.)
+ */
+const PROBE_ARTIFACT_FILE = "probe.bin";
+
 @Injectable()
 export class ArtifactsService {
+  private readonly logger = new Logger(ArtifactsService.name);
+
   /** 상대 경로면 **레포 루트 기준**으로 해석한다(cwd 가 진입점마다 달라 믿을 수 없다). */
   private readonly root = resolve(REPO_ROOT_DIR, process.env["ARTIFACT_ROOT"] ?? "./artifacts");
 
@@ -167,6 +183,80 @@ export class ArtifactsService {
       range,
     };
   }
+
+  /**
+   * ★ 실행(run)이 삭제될 때 **디스크의 증적 파일까지** 지운다 (라운드 8).
+   *
+   * ════════════════════════════════════════════════════════════════
+   * `artifacts` 행은 `fk_artifacts_run … ON DELETE CASCADE` 가 알아서 지우지만
+   * **파일은 아무도 지우지 않는다.** 이 레포에는 이미 같은 사고 이력이 있다 —
+   * 07-attachments §8: 시나리오 8건을 지운 뒤 `artifacts/scenario-attachments/` 에
+   * **97MB 가 고아로 남아 있었다.** 증적은 영상(webm)·trace(zip)가 섞여 한 실행이
+   * 수십 MB다. 같은 구조를 반복하면 실행 이력을 지울수록 디스크만 찬다.
+   *
+   * ★ **DB 행이 아니라 디렉토리를 지운다.** `artifacts` 행을 훑어 `storage_key` 마다
+   *   지우면 **행이 없는 파일**(Runner 가 파일은 썼는데 INSERT 전에 죽은 경우,
+   *   13-artifacts-on-timeout 이 다룬 그 경로)이 영원히 남는다. `runs/<runId>/` 는
+   *   그 run 전용 디렉토리이므로 통째로 지우는 것이 고아까지 함께 지우는 유일한 방법이다.
+   *
+   * ★ 던지지 않는다. 파일 하나가 안 지워졌다고 삭제가 막히면 사용자는 아무것도 못 지운다
+   *   (`purgeScenarioFiles()` 와 같은 판단). 대신 **로그에는 반드시 남긴다.**
+   * ════════════════════════════════════════════════════════════════
+   */
+  async purgeRunFiles(runId: string): Promise<PurgedArtifactFiles> {
+    const empty: PurgedArtifactFiles = { files: 0, bytes: 0 };
+
+    // 경로를 문자열로 조립하지 않는다 — 유효한 키를 만들어 **검증기를 통과시킨 뒤**
+    // 그 부모 디렉토리를 쓴다. runId 가 오염돼도 `resolveArtifactPath` 가 먼저 막는다.
+    let dir: string;
+    try {
+      dir = dirname(resolveArtifactPath(this.root, buildRunArtifactKey(runId, PROBE_ARTIFACT_FILE)));
+    } catch {
+      // 키가 만들어지지 않는 runId = 애초에 우리가 쓴 적 없는 값이다.
+      return empty;
+    }
+    if (!isInsideRoot(this.root, dir)) return empty;
+
+    const measured = await measureDir(dir);
+    try {
+      await rm(dir, { recursive: true, force: true });
+    } catch (error) {
+      this.logger.error(
+        `증적 파일을 지우지 못했습니다 (run ${runId}, ${dir}): ${String(error)}. ` +
+          "DB 행은 그대로 삭제한다 — 고아 파일이 남았을 수 있다.",
+      );
+      return empty;
+    }
+
+    if (measured.files > 0) {
+      this.logger.log(
+        `증적 파일 삭제: run ${runId} · ${String(measured.files)}개 · ${String(measured.bytes)} bytes`,
+      );
+    }
+    return measured;
+  }
+}
+
+/**
+ * 디렉토리 안 파일 수·바이트 합계.
+ *
+ * `storage_key` 는 하위 디렉토리를 만들 수 없는 형식(`runs/<uuid>/<파일명>`)이라
+ * **한 겹만 본다.** 없으면 0 이다(에러가 아니다 — 증적이 하나도 없는 실행은 흔하다).
+ */
+async function measureDir(dir: string): Promise<PurgedArtifactFiles> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => null);
+  if (entries === null) return { files: 0, bytes: 0 };
+
+  let files = 0;
+  let bytes = 0;
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const info = await stat(join(dir, entry.name)).catch(() => null);
+    if (info === null) continue;
+    files += 1;
+    bytes += info.size;
+  }
+  return { files, bytes };
 }
 
 function toArtifact(row: ArtifactRow): Artifact {

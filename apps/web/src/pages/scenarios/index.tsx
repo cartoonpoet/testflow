@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { bulkDeleteSummary, type ScenarioListItem } from "@testflow/contracts";
 import { ProjectGate } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
 import { RunDialog } from "@/pages/runs/RunDialog";
+import { toast } from "@/hooks/useToast";
 import {
   SCENARIO_PAGE_SIZE,
+  useBulkDeleteScenarios,
   useScenarioFeatures,
   useScenarioFilters,
   useScenarioList,
 } from "@/hooks/useScenarios";
+import { ScenarioDeleteDialog, type ScenarioDeleteTarget } from "./ScenarioDeleteDialog";
 import { ScenarioToolbar } from "./ScenarioToolbar";
 import { ScenarioTable, ScenarioTableSkeleton } from "./ScenarioTable";
 
@@ -28,23 +32,31 @@ export function ScenariosPage() {
   const now = new Date();
 
   /*
-   * ★ 라운드 7 — 다중 선택 실행.
+   * ★ 라운드 7 — 다중 선택 실행. **라운드 8 에서 그 선택을 삭제에도 쓴다.**
    *
-   * id 만이 아니라 **이름까지** 들고 있는 이유는 페이지네이션이다. 2페이지에서 고른
-   * 시나리오를 1페이지로 돌아와 실행할 수 있어야 하는데, 그때 2페이지 목록은 이미
-   * 캐시 밖일 수 있다. 선택은 화면을 넘나들며 살아남고 이름은 다이얼로그 제목에 쓴다.
+   * id 만이 아니라 **행의 요약까지** 들고 있는 이유는 페이지네이션이다. 2페이지에서 고른
+   * 시나리오를 1페이지로 돌아와 실행·삭제할 수 있어야 하는데, 그때 2페이지 목록은 이미
+   * 캐시 밖일 수 있다. 선택은 화면을 넘나들며 살아남는다.
    * (URL 에 넣지 않는다 — 선택은 공유할 상태가 아니고, 링크가 길어지기만 한다.)
+   *
+   * ★ 라운드 8 — 값이 `name` 문자열에서 **요약 객체**로 넓어졌다. 삭제 확인 대화상자가
+   *   "무엇이 지워지는가"를 코드·스텝 수까지 적어야 하는데, 이름만 들고 있으면
+   *   **선택 상태를 두 벌 만들거나** 개수를 지어내게 된다. 선택은 한 벌이다.
    */
-  const [selection, setSelection] = useState<Readonly<Record<string, string>>>({});
+  const [selection, setSelection] = useState<Readonly<Record<string, ScenarioDeleteTarget>>>({});
   const [runOpen, setRunOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const bulkDelete = useBulkDeleteScenarios();
+
   const selectedIds = Object.keys(selection);
   const selectedSet = new Set(selectedIds);
+  const selectedTargets = Object.values(selection);
 
-  const toggle = (id: string, name: string) => {
+  const toggle = (item: ScenarioDeleteTarget) => {
     setSelection((prev) => {
-      if (!Object.hasOwn(prev, id)) return { ...prev, [id]: name };
+      if (!Object.hasOwn(prev, item.id)) return { ...prev, [item.id]: item };
       const next = { ...prev };
-      delete next[id];
+      delete next[item.id];
       return next;
     });
   };
@@ -125,6 +137,21 @@ export function ScenariosPage() {
                   >
                     선택 해제
                   </Button>
+                  {/*
+                    ★ 라운드 8 — 같은 선택 상태에서 곧바로 삭제한다.
+                      위치는 "선택 실행" **왼쪽**이다: 파괴적인 버튼을 주 동작(실행) 자리에
+                      두지 않는다. 라벨도 `삭제` 가 아니라 **"선택 삭제"** 라 무엇을 지우는지
+                      한 단어로 읽힌다(이 화면의 다른 `삭제` 와 섞이지 않는다).
+                  */}
+                  <Button
+                    variant="danger"
+                    data-testid="scenario-selection-delete"
+                    onClick={() => {
+                      setDeleteOpen(true);
+                    }}
+                  >
+                    선택 삭제
+                  </Button>
                   <Button
                     variant="primary"
                     data-testid="scenario-selection-run"
@@ -144,13 +171,13 @@ export function ScenariosPage() {
                 selected={selectedSet}
                 onToggle={(id) => {
                   const item = list.data?.items.find((candidate) => candidate.id === id);
-                  toggle(id, item?.name ?? id);
+                  if (item !== undefined) toggle(toTarget(item));
                 }}
                 onToggleAll={(checked) => {
                   setSelection((prev) => {
                     const next = { ...prev };
                     for (const item of list.data?.items ?? []) {
-                      if (checked) next[item.id] = item.name;
+                      if (checked) next[item.id] = toTarget(item);
                       else delete next[item.id];
                     }
                     return next;
@@ -174,22 +201,72 @@ export function ScenariosPage() {
             baseUrl·계정·비밀번호를 받는 규칙이 두 벌이 되면 한쪽에서 평문이 샌다.
         */}
         {selectedIds.length === 0 ? null : (
-          <RunDialog
-            open={runOpen}
-            onOpenChange={setRunOpen}
-            target={{ scenarioIds: selectedIds }}
-            targetName={selectionLabel(selection)}
-            scenarioCount={selectedIds.length}
-          />
+          <>
+            <RunDialog
+              open={runOpen}
+              onOpenChange={setRunOpen}
+              target={{ scenarioIds: selectedIds }}
+              targetName={selectionLabel(selectedTargets)}
+              scenarioCount={selectedIds.length}
+            />
+
+            {/*
+              ★ 부분 성공이 정상 응답이다 — 진행 중인 실행이 걸린 시나리오는 서버가
+                `skipped` 로 돌려준다. 그래서 성공 결과를 **읽어서** 알린다.
+                지워진 것만 선택에서 빼고, 건너뛴 것은 **선택에 남긴다** —
+                사용자가 취소한 뒤 다시 누를 수 있어야 한다.
+            */}
+            <ScenarioDeleteDialog
+              open={deleteOpen}
+              onOpenChange={setDeleteOpen}
+              targets={selectedTargets}
+              pending={bulkDelete.isPending}
+              onConfirm={() => {
+                bulkDelete.mutate(selectedIds, {
+                  onSuccess: (result) => {
+                    setSelection((prev) => {
+                      const next = { ...prev };
+                      for (const id of result.deleted) delete next[id];
+                      return next;
+                    });
+                    setDeleteOpen(false);
+                    toast(
+                      result.skipped.length === 0
+                        ? bulkDeleteSummary(result, "시나리오")
+                        : `${bulkDeleteSummary(result, "시나리오")} ${result.skipped[0]?.message ?? ""}`,
+                      {
+                        label: "삭제",
+                        tone: result.skipped.length === 0 ? "default" : "danger",
+                      },
+                    );
+                  },
+                  onError: (error: Error) => {
+                    toast(error.message, { label: "삭제 실패", tone: "danger" });
+                  },
+                });
+              }}
+            />
+          </>
         )}
       </ProjectGate>
     </>
   );
 }
 
+/** 목록 1행 → 실행·삭제가 함께 쓰는 선택 항목. 개수는 **목록 응답이 주는 것만** 담는다. */
+function toTarget(item: ScenarioListItem): ScenarioDeleteTarget {
+  return {
+    id: item.id,
+    name: item.name,
+    code: item.code,
+    sourceType: item.sourceType,
+    stepCount: item.stepCount,
+  };
+}
+
 /** 다이얼로그 제목 아래 줄. 이름을 다 늘어놓지 않고 앞 두 건 + 나머지 수로 줄인다. */
-function selectionLabel(selection: Readonly<Record<string, string>>): string {
-  const names = Object.values(selection);
+function selectionLabel(targets: readonly ScenarioDeleteTarget[]): string {
+  const names = targets.map((target) => target.name);
   if (names.length <= 2) return names.join(" · ");
   return `${names.slice(0, 2).join(" · ")} 외 ${String(names.length - 2)}건`;
 }

@@ -1,9 +1,25 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { RUN_STATUSES, isTerminalRunStatus, type RunDetail, type RunStatus } from "@testflow/contracts";
+import {
+  RUN_STATUSES,
+  bulkDeleteSummary,
+  isTerminalRunStatus,
+  type RunDetail,
+  type RunListItem,
+  type RunStatus,
+} from "@testflow/contracts";
 import { ProjectGate, RunRow, StepStatusIcon } from "@/components";
-import { PageHead, Panel, Select, Skeleton, StateView, StatusDot } from "@/components/ui";
+import { Button, PageHead, Panel, Select, Skeleton, StateView, StatusDot } from "@/components/ui";
 import { RUN_STATUS_LABEL, RUN_STATUS_TONE, formatDurationMs, formatRelativeTime } from "@/lib";
-import { useRunDetails, useRunList, useRunQueue } from "@/hooks/useRuns";
+import { toast } from "@/hooks/useToast";
+import {
+  useBulkDeleteRuns,
+  useRunArtifactsMany,
+  useRunDetails,
+  useRunList,
+  useRunQueue,
+} from "@/hooks/useRuns";
+import { RunDeleteDialog, type RunDeleteTarget } from "./RunDeleteDialog";
 
 export { RunDetailPage } from "./RunDetail";
 
@@ -29,6 +45,42 @@ export function RunsPage() {
 
   const list = useRunList({ status });
   const now = new Date();
+
+  /*
+   * ★ 라운드 8 — 실행 이력 다중 선택(삭제용).
+   *
+   * 시나리오 목록의 선택 상태(#14)와 **같은 짜임**이다: id → 행 요약. 페이지를 넘나들어도
+   * 살아남고(이 화면은 페이지네이션이 없지만 상태 필터가 목록을 갈아 끼운다),
+   * 확인 대화상자가 `RUN-…` 과 시나리오 이름을 적는 데 쓴다.
+   *
+   * ★ **진행 중인 실행은 애초에 고를 수 없다.** 서버가 409 로 막는 것을 화면에서도
+   *   같은 규칙으로 막는다 — 고를 수 있게 해 놓고 "지울 수 없다"고 돌려주면
+   *   사용자는 이유를 알 수 없는 실패를 본다.
+   */
+  const [selection, setSelection] = useState<Readonly<Record<string, RunSelection>>>({});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const bulkDelete = useBulkDeleteRuns();
+
+  const selectedIds = Object.keys(selection);
+  const artifactQueries = useRunArtifactsMany(selectedIds, deleteOpen);
+  const deleteTargets: RunDeleteTarget[] = selectedIds.map((id, index) => ({
+    ...(selection[id] as RunSelection),
+    artifacts: artifactQueries[index]?.data,
+  }));
+
+  const toggleRun = (item: RunListItem) => {
+    setSelection((prev) => {
+      if (!Object.hasOwn(prev, item.id)) {
+        return {
+          ...prev,
+          [item.id]: { id: item.id, runCode: item.runCode, scenarioName: item.scenarioName },
+        };
+      }
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+  };
 
   return (
     <>
@@ -68,6 +120,70 @@ export function RunsPage() {
           <BatchPanel batchId={batchId ?? ""} runIds={batchIds} />
         ) : null}
 
+        {selectedIds.length === 0 ? null : (
+          <div
+            data-slot="run-selection-bar"
+            data-selected-count={selectedIds.length}
+            className="mb-[12px] flex flex-wrap items-center gap-[10px] rounded-table border border-line bg-panel px-[15px] py-[11px]"
+          >
+            <strong className="text-[12px]">실행 {String(selectedIds.length)}건 선택됨</strong>
+            <span className="min-w-0 flex-1 truncate text-[10px] text-muted">
+              삭제하면 각 실행의 증적(영상·trace·스크린샷)도 디스크에서 함께 사라집니다.
+              시나리오는 지워지지 않습니다.
+            </span>
+            <Button
+              data-testid="run-selection-clear"
+              onClick={() => {
+                setSelection({});
+              }}
+            >
+              선택 해제
+            </Button>
+            <Button
+              variant="danger"
+              data-testid="run-selection-delete"
+              onClick={() => {
+                setDeleteOpen(true);
+              }}
+            >
+              선택 삭제
+            </Button>
+          </div>
+        )}
+
+        {selectedIds.length === 0 ? null : (
+          <RunDeleteDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            targets={deleteTargets}
+            pending={bulkDelete.isPending}
+            onConfirm={() => {
+              bulkDelete.mutate(selectedIds, {
+                onSuccess: (result) => {
+                  setSelection((prev) => {
+                    const next = { ...prev };
+                    for (const id of result.deleted) delete next[id];
+                    return next;
+                  });
+                  setDeleteOpen(false);
+                  toast(
+                    result.skipped.length === 0
+                      ? bulkDeleteSummary(result, "실행 이력")
+                      : `${bulkDeleteSummary(result, "실행 이력")} ${result.skipped[0]?.message ?? ""}`,
+                    {
+                      label: "삭제",
+                      tone: result.skipped.length === 0 ? "default" : "danger",
+                    },
+                  );
+                },
+                onError: (error: Error) => {
+                  toast(error.message, { label: "삭제 실패", tone: "danger" });
+                },
+              });
+            }}
+          />
+        )}
+
         <Panel title="실행 이력">
           {list.isPending ? <RunListSkeleton /> : null}
 
@@ -91,14 +207,48 @@ export function RunsPage() {
             />
           ) : null}
 
-          {list.data?.map((run) => (
-            <RunRow key={run.id} run={run} now={now} />
-          ))}
+          {list.data?.map((run) => {
+            /*
+             * ★ 진행 중인 실행은 **고를 수 없다** — 서버가 409 로 거부하는 것을 화면도
+             *   같은 규칙으로 막는다. 고를 수 있게 해 놓고 "지울 수 없다"고 돌려주면
+             *   사용자는 이유를 알 수 없는 실패를 본다.
+             *   체크 칸을 **비우지는 않는다**(끄고 이유를 붙인다) — 근거는 `RunRow` 의
+             *   `selectDisabledReason` 주석.
+             */
+            const active = !isTerminalRunStatus(run.status);
+            return (
+              <RunRow
+                key={run.id}
+                run={run}
+                now={now}
+                selected={Object.hasOwn(selection, run.id)}
+                onToggle={
+                  active
+                    ? undefined
+                    : () => {
+                        toggleRun(run);
+                      }
+                }
+                selectDisabledReason={
+                  active
+                    ? "진행 중인 실행은 삭제할 수 없습니다. 먼저 실행을 중단하세요."
+                    : undefined
+                }
+              />
+            );
+          })}
         </Panel>
       </ProjectGate>
     </>
   );
 }
+
+/** 선택된 실행 1건의 요약. 목록이 갈려도(상태 필터) 선택이 살아남게 값을 들고 있는다. */
+type RunSelection = {
+  id: string;
+  runCode: string;
+  scenarioName: string;
+};
 
 /**
  * 묶음 실행 패널.
