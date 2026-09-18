@@ -6,7 +6,7 @@ import {
   type LiveStreamInfo,
   type RunStatus,
 } from "@testflow/contracts";
-import { api, queryKeys } from "@/lib";
+import { api, queryKeys, resolveWebSocketUrlForPage } from "@/lib";
 import { classifyClose, decodeFrame, type DecodedFrame } from "@/features/recorder";
 
 /**
@@ -169,7 +169,9 @@ export function useLiveStream(
    *   **소켓은 서버가 `ended` 를 보내고 1.5초 뒤 스스로 닫을 때까지 살아 있어야 한다.**
    *   여기서 끊으면 마지막 프레임 위에 덮을 상태 배지를 받지 못한다(03-phases 쟁점 3).
    */
-  const wsUrl = info.data?.wsUrl ?? null;
+  const apiWsUrl = info.data?.wsUrl ?? null;
+  const wsUrl =
+    apiWsUrl === null ? null : resolveWebSocketUrlForPage(apiWsUrl, window.location.href);
 
   /* 프레임 핸들러는 렌더마다 새 함수다. 의존성에 넣으면 매 렌더 WS 를 다시 연다. */
   const onFrameRef = useRef(onFrame);

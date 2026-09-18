@@ -7,6 +7,7 @@ import {
   type RecorderClientMessage,
 } from "@testflow/contracts";
 import { decodeFrame, type DecodedFrame } from "./frame";
+import { resolveWebSocketUrlForPage } from "@/lib";
 
 /**
  * 녹화 WS 연결 (Runner 직결 — API 를 중계로 끼우지 않는다).
@@ -63,6 +64,8 @@ export function useRecorderSocket(
   wsUrl: string | null,
   handlers: RecorderSocketHandlers,
 ): RecorderSocket {
+  const browserWsUrl =
+    wsUrl === null ? null : resolveWebSocketUrlForPage(wsUrl, window.location.href);
   const socketRef = useRef<WebSocket | null>(null);
 
   /**
@@ -87,14 +90,14 @@ export function useRecorderSocket(
   }, [handlers]);
 
   useEffect(() => {
-    if (wsUrl === null) return;
+    if (browserWsUrl === null) return;
 
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(browserWsUrl);
     socket.binaryType = "arraybuffer";
     socketRef.current = socket;
 
     socket.onopen = () => {
-      setSocketState({ url: wsUrl, status: "open" });
+      setSocketState({ url: browserWsUrl, status: "open" });
     };
 
     socket.onmessage = (event: MessageEvent<unknown>) => {
@@ -124,7 +127,7 @@ export function useRecorderSocket(
     };
 
     socket.onclose = (event: CloseEvent) => {
-      setSocketState({ url: wsUrl, status: "closed" });
+      setSocketState({ url: browserWsUrl, status: "closed" });
       socketRef.current = null;
       handlersRef.current.onClose?.(classifyClose(event.code, event.reason));
     };
@@ -138,7 +141,7 @@ export function useRecorderSocket(
       }
       socketRef.current = null;
     };
-  }, [wsUrl]);
+  }, [browserWsUrl]);
 
   const send = useCallback((message: RecorderClientMessage): boolean => {
     const socket = socketRef.current;
@@ -160,7 +163,11 @@ export function useRecorderSocket(
   }, []);
 
   const status: RecorderSocketStatus =
-    wsUrl === null ? "idle" : socketState.url === wsUrl ? socketState.status : "connecting";
+    browserWsUrl === null
+      ? "idle"
+      : socketState.url === browserWsUrl
+        ? socketState.status
+        : "connecting";
 
   return { status, send, close };
 }
