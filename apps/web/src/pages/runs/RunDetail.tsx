@@ -2,6 +2,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { NoticeBox, NoticeLine } from "@/components";
 import { Button, PageHead, StateView } from "@/components/ui";
+import { useStepSync } from "@/features/live";
 import { RUN_STATUS_LABEL } from "@/lib";
 import { useCancelRun, useRunArtifacts, useRunDetail } from "@/hooks/useRuns";
 import { useRunEvents } from "@/hooks/useRunEvents";
@@ -46,9 +47,19 @@ export function RunDetailPage() {
   const cancel = useCancelRun(runId);
   const cancelPending = isActive && (cancel.isPending || cancel.isSuccess);
 
+  /*
+   * ★ 라운드 5 — 무대와 스텝 목록을 잇는 단 하나의 손잡이.
+   *
+   * 무대(`RunLiveScreen`)와 목록(`RunStepList`)은 **형제**다. 한쪽이 다른 쪽 안에
+   * 있지 않으므로 상태는 공통 부모인 여기에 있어야 한다. 훅은 조건 없이 부른다 —
+   * 무대가 없는 실행(진행 중인 녹화)에서도 목록의 자동 추적은 그대로 필요하다.
+   */
+  const sync = useStepSync(run);
+
   return (
     <div
       data-slot="run-detail"
+      data-step-sync-mode={sync.mode}
       data-sse-connection={events.connection}
       data-sse-received={events.received}
       data-sse-duplicates={events.duplicates}
@@ -163,7 +174,7 @@ export function RunDetailPage() {
               되기도 안 되기도 하면 그건 기능이 아니라 우연이다.
           */}
           {showStage(run, artifacts.data ?? []) ? (
-            <RunLiveScreen run={run} artifacts={artifacts.data ?? []} />
+            <RunLiveScreen run={run} artifacts={artifacts.data ?? []} sync={sync} />
           ) : null}
 
           <div className="tf-run-layout">
@@ -184,6 +195,7 @@ export function RunDetailPage() {
                   steps={run.steps}
                   sourceType={run.sourceType}
                   active={isActive}
+                  sync={sync}
                 />
               )}
             </div>
