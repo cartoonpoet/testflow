@@ -80,6 +80,11 @@ import type { RunnerConfig } from "../env.js";
 /** `playwright test` 프로세스에 SIGTERM 을 준 뒤 SIGKILL 까지 기다리는 시간. */
 const KILL_GRACE_MS = 5_000;
 
+/**
+ * 중단 시의 우아한 종료 유예는 `RUNNER_GRACEFUL_STOP_MS` 다 —
+ * **근거와 실측표는 `../env.ts` 의 `DEFAULT_GRACEFUL_STOP_MS` 주석**에 있다.
+ */
+
 /** spawn 실패·CLI 부재 등을 사용자에게 설명하는 문구. */
 const MSG = {
   noCode:
@@ -339,6 +344,12 @@ export async function executeCodeRun(params: {
   let errorMessage: string | null = null;
   let artifactCount = 0;
   let stderrTail = "";
+  /**
+   * 우아한 종료 유예를 넘겨 **강제로** 끊었는가. 증적 수습(부분 영상 검증)의 스위치다.
+   * `0` 유예로 설정한 환경(즉시 SIGTERM)도 여기에 들어온다.
+   */
+  let hardKilled = false;
+  const gracefulStopMs = config.gracefulStopMs;
 
   /**
    * ★ 작업공간 생성을 **`try` 안에서** 한다.
@@ -474,22 +485,56 @@ export async function executeCodeRun(params: {
       attachment = startCodeBrowser({ cdpPort: attachPort, session: live, log });
     }
 
-    // ★ 취소·하드 타임아웃이 오면 프로세스를 끊는다. Playwright 는 SIGTERM 에
-    //   `FullResult.status = "interrupted"` 를 보고하고 종료한다 → `cancelled` 로 매핑된다.
-    //   docker 에서는 `docker kill -s TERM` 이 그 신호를 컨테이너 PID 1 로 보낸다 —
-    //   docker **클라이언트**에 SIGTERM 을 줘도 컨테이너 안의 테스트는 멈추지 않는다.
-    let killTimer: NodeJS.Timeout | null = null;
-    abort.onAbort((reason) => {
-      log(`  실행 중단 신호(${reason}) — ${isolated ? "컨테이너" : "playwright 프로세스"} 종료`);
+    /* ── ★★ 취소·하드 타임아웃 — **2단 종료** ────────────────────
+     *
+     * 1단계 `SIGINT`  : Playwright 러너가 유일하게 직접 받는 신호다. 워커를 접으면서
+     *                   `BrowserContext.close()` 가 돌고 **그때 영상이 완성된다**.
+     * 2단계 `SIGTERM` : 유예(`gracefulStopMs`)를 넘기면 더 기다리지 않는다.
+     * 3단계 `SIGKILL` : 그마저 안 죽으면 마지막 수단.
+     *
+     * docker 에서는 신호가 `docker kill -s <sig> <이름>` 으로 간다 — docker **클라이언트**에
+     * 신호를 줘도 컨테이너 안의 테스트는 멈추지 않는다.
+     *
+     * ★ `hardKilled` 를 기록하는 이유: 2단계 이후에 끝난 실행은 영상이 미완성일 수 있어
+     *   증적 수습(부분 파일 검증)을 켜야 한다(`code-artifacts.ts` 의 `salvage`).
+     */
+    const stopTimers: NodeJS.Timeout[] = [];
+    const signal = (kind: "INT" | "TERM" | "KILL"): void => {
       if (container !== null) {
         const handle = container;
-        void handle.terminate();
-        killTimer = setTimeout(() => void handle.forceKill(), KILL_GRACE_MS);
-      } else {
-        child.kill("SIGTERM");
-        killTimer = setTimeout(() => child.kill("SIGKILL"), KILL_GRACE_MS);
+        if (kind === "INT") void handle.interrupt();
+        else if (kind === "TERM") void handle.terminate();
+        else void handle.forceKill();
+        return;
       }
-      killTimer.unref();
+      child.kill(kind === "INT" ? "SIGINT" : kind === "TERM" ? "SIGTERM" : "SIGKILL");
+    };
+    const later = (ms: number, run: () => void): void => {
+      const timer = setTimeout(run, ms);
+      timer.unref();
+      stopTimers.push(timer);
+    };
+
+    abort.onAbort((reason) => {
+      const target = isolated ? "컨테이너" : "playwright 프로세스";
+      if (gracefulStopMs <= 0) {
+        log(`  실행 중단 신호(${reason}) — 유예 0 · ${target} 즉시 종료`);
+        hardKilled = true;
+        signal("TERM");
+        later(KILL_GRACE_MS, () => signal("KILL"));
+        return;
+      }
+      log(
+        `  실행 중단 신호(${reason}) — ${target}에 SIGINT · ` +
+          `영상 flush 유예 ${String(gracefulStopMs)}ms`,
+      );
+      signal("INT");
+      later(gracefulStopMs, () => {
+        hardKilled = true;
+        log(`  ★ 우아한 종료 유예(${String(gracefulStopMs)}ms) 초과 — SIGTERM (영상이 미완성일 수 있다)`);
+        signal("TERM");
+        later(KILL_GRACE_MS, () => signal("KILL"));
+      });
     });
 
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -508,7 +553,7 @@ export async function executeCodeRun(params: {
       child.once("error", (error: Error) => resolve({ code: null, spawnError: error }));
       child.once("close", (code) => resolve({ code, spawnError: null }));
     });
-    if (killTimer !== null) clearTimeout(killTimer);
+    for (const timer of stopTimers) clearTimeout(timer);
 
     // 마지막 이벤트까지 처리가 끝나야 결과 집계가 맞는다.
     await sink.close();
@@ -562,15 +607,6 @@ export async function executeCodeRun(params: {
       }
     }
 
-    /* ── 증적 — ★ run.finished 보다 먼저 ─────────────── */
-    const artifacts = await collectPlaywrightArtifacts({
-      runId: job.runId,
-      outputDir: ws.outputDir,
-      artifactRoot: config.artifactRoot,
-      reporter,
-      log,
-    });
-    artifactCount = artifacts.published;
   } catch (error) {
     status = "error";
     errorMessage = error instanceof Error ? error.message : String(error);
@@ -579,6 +615,38 @@ export async function executeCodeRun(params: {
     // 실행 중인 스텝이 있었다면 `failed` 가 아니라 `skipped` 로 접는다.
     await reporter.skipRunningSteps().catch(() => undefined);
   } finally {
+    /* ── ★★ 증적 — **어느 경로로 끝나도** 여기를 지난다 ─────────────
+     *
+     * 예전에는 `try` 안의 정상 종료 경로에만 있었다. 그래서 작업공간 생성·spawn 이
+     * 던진 경우(=`catch`)에는 증적이 통째로 사라졌다. `finally` 로 내리면 성공·실패·
+     * 타임아웃·취소·예외가 전부 같은 한 줄을 탄다.
+     *
+     * 순서 규약은 그대로다 — 이 블록은 `runFinished()` **앞**에서 돈다(`artifact.ready`
+     * 가 `run.finished` 보다 먼저 나간다).
+     *
+     * ★ 실패를 삼키되 조용히 넘기지 않는다. 증적 때문에 예외가 나가면 `runFinished()` 가
+     *   실행되지 않아 **run 이 영영 `running` 에 남는다.** 증적은 부가물이고 status 확정은
+     *   계약이다 — 둘 중 하나를 포기해야 한다면 증적이다.
+     */
+    if (workspace !== null) {
+      const outputDir = workspace.outputDir;
+      try {
+        const artifacts = await collectPlaywrightArtifacts({
+          runId: job.runId,
+          outputDir,
+          artifactRoot: config.artifactRoot,
+          reporter,
+          // 강제 종료했다면 Playwright 가 영상을 옮기지 못했을 수 있다 →
+          // 내부 디렉토리의 부분 파일까지 훑고 **재생 가능한 것만** 올린다.
+          salvage: hardKilled,
+          log,
+        });
+        artifactCount = artifacts.published;
+      } catch (error) {
+        log(`run ${job.runId} ★ 증적 수집 실패(실행 확정은 계속한다): ${reporter.mask(describeError(error))}`);
+      }
+    }
+
     // ★ 어떤 경로로 끝나도 정리한다(성공·실패·취소·타임아웃·예외).
     //   이벤트 싱크(HTTP 서버)를 닫지 않으면 run 마다 포트가 하나씩 남는다.
     //   스트림 정리는 **증적 수집이 끝난 뒤**다 — `ARTIFACT_SETTLE_MS` 와 같은 이유로

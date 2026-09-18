@@ -24,7 +24,7 @@
  * 생기지만 **그때도 "붙기 전"의 로그는 못 받는다.** 그래서 이번에는 만들지 않는다 —
  * 빈 `console.log` 증적을 만들어 두면 사용자는 "콘솔에 아무것도 없었다"로 오독한다.
  */
-import { readdir, stat } from "node:fs/promises";
+import { open, readdir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { ARTIFACT_CONTENT_TYPE, buildRunArtifactKey } from "@testflow/contracts";
 import type { ArtifactType } from "@testflow/contracts";
@@ -104,6 +104,102 @@ export async function scanPlaywrightOutput(dir: string, depth = 0): Promise<Foun
   return found.sort((a, b) => (a.type === b.type ? a.path.localeCompare(b.path) : a.type.localeCompare(b.type)));
 }
 
+/* ────────────────────────────────────────────────────────────
+ * ★★ 강제 종료 뒤의 수습 — 부분 영상
+ * ──────────────────────────────────────────────────────────── */
+
+/** WebM(Matroska) 파일 머리 4바이트 — EBML 매직. */
+const EBML_MAGIC = Buffer.from([0x1a, 0x45, 0xdf, 0xa3]);
+/** Matroska `Cluster` 엘리먼트 ID. 이것이 있어야 **디코드할 프레임이 하나라도** 있다. */
+const CLUSTER_ID = Buffer.from([0x1f, 0x43, 0xb6, 0x75]);
+/** Cluster 를 찾을 때 읽어 볼 앞부분. 첫 Cluster 는 헤더 직후에 온다. */
+const WEBM_PROBE_BYTES = 1024 * 1024;
+/** 이보다 작으면 헤더뿐이다(프레임 0장). */
+const MIN_PLAYABLE_WEBM_BYTES = 4 * 1024;
+
+/**
+ * ★ **"파일이 있다"와 "재생된다"는 다르다.** 부분 webm 을 올릴지 버릴지 여기서 가른다.
+ *
+ * SIGKILL 로 끊기면 `out/.playwright-artifacts-<n>/<guid>.webm` 에 브라우저가 쓰던 파일이
+ * 그대로 남는다. 그중에는 **EBML 헤더만 있고 프레임이 0장인 것**이 섞인다. 그것을 증적으로
+ * 올리면 화면은 `<video>` 를 그리고, 사용자는 재생 버튼을 눌렀다가 `MEDIA_ERR_SRC_NOT_SUPPORTED`
+ * 를 본다. **없는 것보다 나쁘다** — "증적이 남지 않았습니다"는 사실이지만 깨진 영상은 고장이다.
+ * 그래서 세 가지를 확인하고 하나라도 어긋나면 **버린다**:
+ *
+ * | 검사 | 근거 |
+ * |---|---|
+ * | 4KB 이상 | 그 아래는 EBML/Segment 헤더뿐이다(프레임 0장) |
+ * | 머리 4바이트 `1A 45 DF A3` | webm 이 아닌 쓰레기를 거른다 |
+ * | `Cluster`(`1F 43 B6 75`) 존재 | 실제 프레임 데이터가 시작된 표식. 없으면 디코드할 것이 없다 |
+ *
+ * 통과한 파일은 **길이(Duration)·Cues 가 없을 수 있다.** 그래도 Chromium 은 스트리밍 webm 으로
+ * 재생한다 — 진행 바가 안 잡힐 뿐 화면은 보인다. 그 정도는 "없는 것"보다 확실히 낫다.
+ */
+export async function isPlayableWebm(path: string): Promise<boolean> {
+  let size: number;
+  try {
+    size = (await stat(path)).size;
+  } catch {
+    return false;
+  }
+  if (size < MIN_PLAYABLE_WEBM_BYTES || size > MAX_ARTIFACT_BYTES) return false;
+
+  const handle = await open(path, "r").catch(() => null);
+  if (handle === null) return false;
+  try {
+    const length = Math.min(size, WEBM_PROBE_BYTES);
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, 0);
+    const head = buffer.subarray(0, bytesRead);
+    if (!head.subarray(0, 4).equals(EBML_MAGIC)) return false;
+    return head.includes(CLUSTER_ID);
+  } catch {
+    return false;
+  } finally {
+    await handle.close().catch(() => undefined);
+  }
+}
+
+/**
+ * Playwright 내부 임시 디렉토리(`.playwright-artifacts-<n>`)에 남은 **영상만** 줍는다.
+ *
+ * ★ 영상만이다. 같은 디렉토리에는 trace 조립용 `*.jpeg` screencast 프레임이 수십 장 쌓이는데
+ *   (`classify()` 주석의 실측: 취소 1건에 46장) 그건 사용자에게 보여 줄 증적이 아니다.
+ *   `trace.zip` 은 packing 이 끝나야 존재하므로 애초에 여기 없다.
+ */
+async function salvagePartialVideos(outputDir: string): Promise<FoundFile[]> {
+  let entries: string[];
+  try {
+    entries = await readdir(outputDir);
+  } catch {
+    return [];
+  }
+
+  const found: FoundFile[] = [];
+  for (const entry of entries) {
+    if (!entry.startsWith(".playwright-artifacts-")) continue;
+    const dir = join(outputDir, entry);
+    let names: string[];
+    try {
+      names = await readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (extname(name).toLowerCase() !== ".webm") continue;
+      const path = join(dir, name);
+      if (!(await isPlayableWebm(path))) continue;
+      const size = await stat(path).then(
+        (info) => info.size,
+        () => 0,
+      );
+      if (size === 0) continue;
+      found.push({ path, type: "video", size });
+    }
+  }
+  return found.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 /** 증적 종류 → `runs/<runId>/` 아래에서 쓸 기본 파일명. */
 const BASE_NAME: Readonly<Record<string, string>> = {
   video: "video.webm",
@@ -144,10 +240,35 @@ export async function collectPlaywrightArtifacts(params: {
   outputDir: string;
   artifactRoot: string;
   reporter: RunReporter;
+  /**
+   * ★ 강제 종료(SIGTERM/SIGKILL) 뒤인가. `true` 면 Playwright 가 영상을 제자리로 옮기지
+   * 못했을 수 있으므로 내부 임시 디렉토리의 **부분 영상까지** 훑는다 —
+   * 단, `isPlayableWebm()` 을 통과한 것만 올린다.
+   *
+   * 평소에는 `false` 다. 정상 종료에서 내부 디렉토리를 훑으면 packing 전의 중간
+   * 산출물을 증적으로 올리게 된다(`isInternalDir()` 주석의 실측).
+   */
+  salvage?: boolean;
   log?: (message: string) => void;
 }): Promise<CodeArtifactResult> {
   const storage: RunnerStorageAdapter = new LocalDiskStorage(params.artifactRoot);
   const files = await scanPlaywrightOutput(params.outputDir);
+
+  if (params.salvage === true && !files.some((file) => file.type === "video")) {
+    // ★ 제자리에 옮겨진 영상이 **하나도 없을 때만** 줍는다. 정상적으로 옮겨진 영상이
+    //   있는데 임시 파일까지 올리면 같은 화면이 두 벌이 되고, 어느 쪽이 완전한지
+    //   사용자가 판단하게 된다.
+    const salvaged = await salvagePartialVideos(params.outputDir);
+    if (salvaged.length > 0) {
+      params.log?.(
+        `  [증적] ★ 강제 종료 수습 — 미완성 영상 ${String(salvaged.length)}건을 검증 통과 후 올린다 ` +
+          `(${salvaged.map((file) => String(file.size)).join("·")}B)`,
+      );
+      files.push(...salvaged);
+    } else {
+      params.log?.("  [증적] 강제 종료 수습 — 재생 가능한 부분 영상이 없다(올리지 않는다)");
+    }
+  }
 
   const counters = new Map<ArtifactType, number>();
   const byType: Record<string, number> = {};

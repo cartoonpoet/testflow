@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RunDetail } from "@testflow/contracts";
+import { isTerminalRunStatus, type RunDetail } from "@testflow/contracts";
 import {
   buildVideoTimeline,
   liveActiveSequence,
@@ -46,7 +46,21 @@ import {
  * `scroll-behavior: auto !important`(globals.css)는 **JS 가 명시한 `behavior` 를
  * 덮지 못한다** — 명시값이 CSS 보다 우선이다. 그래서 JS 에서도 직접 판단해야 한다.
  */
-export type StepSyncMode = "live" | "video";
+/**
+ * 무엇이 `activeSequence` 를 정하고 있는가.
+ *
+ * | 값 | 뜻 |
+ * |---|---|
+ * | `video` | `<video>` 의 재생 시각이 정한다(끝난 실행을 다시 보는 중) |
+ * | `live`  | 아직 **도는 중**인 실행의 진행 상태가 정한다 |
+ * | `ended` | 실행은 끝났는데 **다시 볼 영상이 없다** — 마지막 스텝에서 굳어 있다 |
+ *
+ * ★ `ended` 를 따로 둔 이유는 진단이다. 라운드 6 이전에는 영상이 없는 끝난 실행도
+ *   `live` 로 나와(`data-step-sync-mode="live"`) DOM 만 보면 **끝난 실행이 라이브 모드로
+ *   멈춰 있는 것처럼** 읽혔다. 실제 실측에서 그 오독이 일어났다. 화면 동작은 `live` 와
+ *   같지만(둘 다 run 상태가 강조를 정한다) **사실은 다른 상황이므로 이름도 달라야 한다.**
+ */
+export type StepSyncMode = "live" | "video" | "ended";
 
 export type StepSyncHandle = {
   /** 지금 강조하고 따라갈 스텝. 없으면 `null`. */
@@ -66,6 +80,24 @@ export type StepSyncHandle = {
   /** 영상 모드일 때 화면에 밝힐 오차(초). 아니면 `null`. */
   readonly toleranceSec: number | null;
 };
+
+/**
+ * 지금 무엇이 강조 스텝을 정하는가.
+ *
+ * ★ `ended` 는 **`live` 와 같은 값을 쓰지만 이름이 다르다.** 끝난 실행에 영상이 없으면
+ *   강조는 마지막 스텝에서 멈추는 것이 맞고(그 이상 알 수 있는 것이 없다), 그것을
+ *   `live` 라고 부르면 DOM 을 보는 사람이 "왜 끝난 실행이 라이브지"를 먼저 의심하게 된다.
+ *   실제로 라운드 6 진단에서 `timeout` 으로 끝난 실행이 `data-step-sync-mode="live"` 로
+ *   남아 그 오독이 일어났다.
+ *
+ * 훅 밖으로 뺀 이유는 **단위 테스트**다 — 이 레포에는 훅 렌더 하네스가 없고
+ * (새 의존성을 넣지 않는다) 판단 자체는 순수 함수라 그대로 검증할 수 있다.
+ */
+export function stepSyncMode(run: RunDetail | undefined, videoAttached: boolean): StepSyncMode {
+  if (videoAttached) return "video";
+  if (run !== undefined && isTerminalRunStatus(run.status)) return "ended";
+  return "live";
+}
 
 export function useStepSync(run: RunDetail | undefined): StepSyncHandle {
   /*
@@ -94,7 +126,7 @@ export function useStepSync(run: RunDetail | undefined): StepSyncHandle {
   const [resumeTicket, setResumeTicket] = useState(0);
 
   const steps = run?.steps ?? EMPTY_STEPS;
-  const mode: StepSyncMode = videoAttached ? "video" : "live";
+  const mode = stepSyncMode(run, videoAttached);
 
   const timeline: VideoTimeline | null =
     mode === "video" ? buildVideoTimeline(steps, videoDuration) : null;

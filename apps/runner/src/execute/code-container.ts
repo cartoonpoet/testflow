@@ -158,7 +158,17 @@ export interface CodeContainerSpec {
 export interface CodeContainerHandle {
   readonly containerName: string;
   readonly child: ChildProcess;
-  /** `docker kill` — SIGTERM 이 컨테이너 PID 1(부트스트랩)로 간다. */
+  /**
+   * ★ **우아한 중단 1단계** — `docker kill -s INT`.
+   *
+   * Playwright 테스트 러너가 **유일하게 직접 받는 신호가 SIGINT 다**(실측: 1.63.0 의
+   * `FixedNodeSIGINTHandler` 는 `process.on("SIGINT")` 하나만 건다). SIGTERM 은 핸들러가
+   * 없어 Node 기본 동작으로 **즉사**하고, 그러면 `BrowserContext.close()` 가 돌지 않아
+   * **영상이 `out/.playwright-artifacts-N/` 안에 미완성으로 남는다.**
+   * SIGINT 를 받으면 러너가 워커를 접으며 컨텍스트를 닫아 영상을 `video.webm` 으로 옮긴다.
+   */
+  interrupt(): Promise<void>;
+  /** `docker kill -s TERM` — SIGINT 유예를 넘겼을 때의 2단계. */
   terminate(): Promise<void>;
   /** 마지막 수단. */
   forceKill(): Promise<void>;
@@ -250,6 +260,12 @@ export async function spawnCodeContainer(
   return {
     containerName: name,
     child,
+    interrupt: async () => {
+      // `--init`(tini) 이 PID 1 이고 부트스트랩이 그 자식이다. tini 는 받은 신호를
+      // 자식에게 그대로 넘기고, 부트스트랩도 `SIGINT` 를 playwright 에게 넘긴다
+      // (`pw-container-boot.ts` 의 시그널 전달 루프). 그래서 3단을 거쳐 러너에 닿는다.
+      await exec(bin, ["kill", "-s", "INT", name]).catch(() => undefined);
+    },
     terminate: async () => {
       // `docker kill -s TERM` — 부트스트랩이 SIGTERM 을 자식(playwright)에게 넘긴다.
       // Playwright 는 SIGTERM 에 `interrupted` 를 보고하고 종료한다 → `cancelled` 로 매핑된다.

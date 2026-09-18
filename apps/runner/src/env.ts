@@ -40,6 +40,46 @@ function bool(key: string, fallback: boolean): boolean {
   return value === "true" || value === "1" || value === "yes";
 }
 
+/**
+ * ★★ 중단(타임아웃·취소) 시 **kill 하기 전에 주는 유예** — 영상이 여기서 결정된다.
+ *
+ * ## 왜 필요한가 (실측으로 확정한 사실 3개)
+ * ① Playwright 는 **`BrowserContext.close()` 가 돌아야** 영상 파일을 완성한다. 녹화는
+ *    브라우저가 `out/.playwright-artifacts-<worker>/<guid>.webm` 에 쓰고 있고, 테스트가
+ *    끝날 때 러너가 그것을 `out/<테스트-슬러그>/video.webm` 으로 **옮긴다.**
+ * ② 우리 증적 스캐너는 `.` 로 시작하는 내부 디렉토리를 건너뛴다(`code-artifacts.ts`).
+ *    즉 **옮겨지기 전에 죽으면 증적은 0건이다** — 배포 서버에서 본 RUN-0011~0014 가 정확히 이것이다.
+ * ③ Playwright 1.63.0 러너가 **직접 핸들링하는 신호는 `SIGINT` 뿐이다**
+ *    (`FixedNodeSIGINTHandler` — `process.on("SIGINT")` 하나). `SIGTERM` 은 핸들러가 없어
+ *    Node 기본 동작으로 즉사하고 ①이 돌지 않는다.
+ *
+ * 그래서 중단은 **2단**이다 — `SIGINT`(우아한 종료) → 유예 초과 시 `SIGTERM`/`SIGKILL`.
+ *
+ * ## 유예 값의 근거 — **실측표** (`.pipeline/20260917-231945/13-artifacts-on-timeout.md` §3)
+ * `docker` 격리 · 45초 하드 타임아웃 · `waitForTimeout(600s)` 로 절대 안 끝나는 시나리오 · 각 3회.
+ *
+ * | 유예 | 증적 건수 | trace | 영상 `duration` | seek | 판정 |
+ * |---|---|---|---|---|---|
+ * | **0ms**(= 고치기 전) | 1 (수습분만) | ✖ | **Infinity** | ✖ | 부분 파일. 재생은 되나 **탐색 불가** |
+ * | 2,000ms | 2 | ✖ | 3회 중 **1회 Infinity** | 1/3 실패 | **불안정** |
+ * | **5,000ms** | **3** | ✔ | 46.16 · 46.24 · 46.44 | ✔ | 3/3 성공 — **이 환경의 최소값** |
+ * | 10,000ms | 3 | ✔ | 46.04 · 46.40 · 46.04 | ✔ | 3/3 성공 |
+ * | 15,000ms | 3 | ✔ | 46.20 · 46.00 · 46.32 | ✔ | 3/3 성공 — 10초 대비 **이득 0** |
+ *
+ * **10초를 고른 이유** — 최소값(5초)을 그대로 쓰지 않는다.
+ *  - 2초에서 **3회 중 1회**가 무너졌다. 조금만 모자라면 절반이 아니라 "가끔"이 된다.
+ *  - 유예가 덮어야 하는 일은 컨텍스트 close + **trace packing** 인데, 실측 trace 가
+ *    4스텝에 **2.9MB** 다. 사용자의 실제 시나리오는 **33스텝**이라 그만큼 더 걸린다.
+ *    5초는 이 환경의 4스텝짜리에 딱 맞는 값이지 여유가 아니다.
+ *  - 15초는 10초보다 나은 점이 하나도 없었다.
+ *  - 300초 하드 타임아웃 기준 **+3.3%**. 그 대가로 "어디서 왜 멈췄는지"를 본다.
+ *
+ * 환경이 느리면 `RUNNER_GRACEFUL_STOP_MS` 로 늘린다. `0` 을 주면 이 단계를 건너뛴다 —
+ * 그때도 증적이 0건이 되지는 않는다(부분 파일 수습이 받친다). 다만 **탐색이 안 되는
+ * 영상**이 되고 trace 는 사라진다. 위 표의 첫 줄이 그 상태다.
+ */
+export const DEFAULT_GRACEFUL_STOP_MS = 10_000;
+
 /** 실행 격리 방식. 기본은 `local` 이다 — 사유는 `execute/container.ts` 상단 주석 참조. */
 export type ExecutionMode = "local" | "docker";
 
@@ -51,6 +91,15 @@ export interface RunnerConfig {
   keepArtifactsOnSuccess: boolean;
   /** run 1건의 하드 타임아웃. 넘기면 `timeout` 상태로 확정한다. */
   runTimeoutMs: number;
+  /**
+   * ★ 중단(타임아웃·취소) 시 **kill 하기 전에 주는 유예**. 이 시간 동안 Playwright 가
+   * `BrowserContext.close()` 를 돌려 **영상 파일을 완성한다** — 근거·실측표는 바로 위
+   * `DEFAULT_GRACEFUL_STOP_MS` 주석.
+   *
+   * `0` 을 주면 예전 동작(즉시 SIGTERM)으로 돌아간다. 그때는 영상이 미완성으로 남고
+   * 증적 수습(부분 파일 검증)만이 방어선이다.
+   */
+  gracefulStopMs: number;
   headless: boolean;
   executionMode: ExecutionMode;
   docker: { image: string; memory: string; cpus: string };
@@ -106,6 +155,8 @@ export function loadConfig(): RunnerConfig {
     artifactRoot: resolveArtifactRoot(),
     keepArtifactsOnSuccess: bool("KEEP_ARTIFACTS_ON_SUCCESS", false),
     runTimeoutMs: Math.max(10_000, int("RUNNER_RUN_TIMEOUT_MS", 300_000)),
+    // 상한 60초 — 그보다 길면 "취소를 눌렀는데 안 멈춘다"가 된다. 하한은 0(= 끄기)이다.
+    gracefulStopMs: Math.min(60_000, Math.max(0, int("RUNNER_GRACEFUL_STOP_MS", DEFAULT_GRACEFUL_STOP_MS))),
     headless: bool("RUNNER_HEADLESS", true),
     executionMode: mode === "docker" ? "docker" : "local",
     docker: {

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { scrollBehavior } from "./useStepSync";
+import type { RunDetail, RunStatus } from "@testflow/contracts";
+import { scrollBehavior, stepSyncMode } from "./useStepSync";
 
 /**
  * `prefers-reduced-motion` 분기를 **함수 단위로** 고정한다.
@@ -42,5 +43,35 @@ describe("scrollBehavior", () => {
   it("window 가 없으면(SSR·테스트 환경) auto 로 떨어진다", () => {
     Reflect.deleteProperty(globalThis, "window");
     expect(scrollBehavior()).toBe("auto");
+  });
+});
+
+/**
+ * ★ 끝난 실행에 영상이 없을 때 `live` 로 남지 않는다 (라운드 6).
+ *
+ * 실측에서 `timeout` 으로 끝난 실행이 `data-step-sync-mode="live"` 로 남아
+ * "끝난 실행인데 라이브 모드"로 읽혔다. 화면 동작은 같지만 이름이 사실과 달랐다.
+ */
+describe("stepSyncMode", () => {
+  const run = (status: RunStatus): RunDetail => ({ status }) as unknown as RunDetail;
+
+  it("영상이 붙어 있으면 언제나 video — 그 시간축이 강조를 정한다", () => {
+    expect(stepSyncMode(run("timeout"), true)).toBe("video");
+    expect(stepSyncMode(run("running"), true)).toBe("video");
+  });
+
+  it("아직 도는 중이면 live", () => {
+    expect(stepSyncMode(run("running"), false)).toBe("live");
+    expect(stepSyncMode(run("queued"), false)).toBe("live");
+  });
+
+  it("★ 끝났는데 영상이 없으면 ended — timeout·cancelled 도 끝난 실행이다", () => {
+    for (const status of ["passed", "failed", "error", "cancelled", "timeout"] as const) {
+      expect(stepSyncMode(run(status), false)).toBe("ended");
+    }
+  });
+
+  it("run 을 아직 못 읽었으면 live (로딩 중)", () => {
+    expect(stepSyncMode(undefined, false)).toBe("live");
   });
 });
