@@ -1,6 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { cn } from "cn";
-import { SCENARIO_STATUS_LABEL, type ScenarioListItem } from "@testflow/contracts";
+import {
+  SCENARIO_SOURCE_TYPE_LABEL,
+  SCENARIO_STATUS_LABEL,
+  type ScenarioListItem,
+} from "@testflow/contracts";
 import { Skeleton, StatusDot } from "@/components/ui";
 import {
   EMPTY_MARK,
@@ -71,20 +75,40 @@ export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps
               tabIndex={0}
               data-slot="scenario-row"
               aria-label={item.name}
+              data-source-type={item.sourceType}
               onClick={() => {
-                void navigate(`/scenarios/${item.id}`);
+                void navigate(editPath(item));
               }}
               onKeyDown={(event) => {
                 if (event.key !== "Enter" && event.key !== " ") return;
                 event.preventDefault();
-                void navigate(`/scenarios/${item.id}`);
+                void navigate(editPath(item));
               }}
               className="cursor-pointer outline-none [&:focus-visible>td]:bg-row-hover [&:hover>td]:bg-row-hover"
             >
               <td className="border-t border-line px-[15px] py-[15px] text-td font-750">
-                {item.name}
+                <span className="flex items-center gap-[7px]">
+                  <span className="min-w-0 truncate">{item.name}</span>
+                  {/*
+                    ★ 열을 늘리지 않는다 — 시안의 6열 구조를 유지한다.
+                      원본 종류는 시나리오 이름 옆의 작은 태그로만 구분한다.
+                  */}
+                  <span
+                    data-slot="source-tag"
+                    className="shrink-0 rounded-tag bg-tag px-[6px] py-[2px] text-[9px] font-medium text-tag-ink"
+                  >
+                    {SCENARIO_SOURCE_TYPE_LABEL[item.sourceType]}
+                  </span>
+                </span>
                 <small className="mt-[3px] block font-medium text-muted">
-                  {formatScenarioMeta(item.code, item.stepCount)}
+                  {/*
+                    코드 시나리오는 `stepCount` 가 항상 0 이다(스텝 테이블에 행이 없다).
+                    "0개 스텝" 은 사실이지만 오해를 만든다 — 그 자리에 코드임을 적는다.
+                    **목록 응답에 코드 본문은 없다**(서버가 1:1 분리 테이블로 막았다).
+                  */}
+                  {item.sourceType === "code"
+                    ? `${item.code} · 코드 실행`
+                    : formatScenarioMeta(item.code, item.stepCount)}
                 </small>
               </td>
               <td className="border-t border-line px-[15px] py-[15px] text-td">
@@ -110,6 +134,11 @@ export function ScenarioTable({ items, dimmed = false, now }: ScenarioTableProps
       </table>
     </div>
   );
+}
+
+/** 편집 화면은 원본 종류로 갈린다 — 코드 시나리오에 빌더·인스펙터는 의미가 없다. */
+function editPath(item: ScenarioListItem): string {
+  return item.sourceType === "code" ? `/scenarios/${item.id}/code` : `/scenarios/${item.id}`;
 }
 
 function LastResultCell({ item }: { item: ScenarioListItem }) {

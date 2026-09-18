@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { ProjectGate } from "@/components";
 import { Button, PageHead, Panel, StateView } from "@/components/ui";
 import { toast } from "@/hooks/useToast";
@@ -86,6 +86,15 @@ export function ScenarioBuilderPage() {
     mutations.insertStep.isPending;
 
   const runnerReady = health.data?.runner === "ok";
+
+  /*
+   * ★ 라운드 2 — 코드 시나리오는 빌더가 아니라 코드 화면으로 간다.
+   *   `sourceType` 은 생성 후 바뀌지 않으므로 이 분기는 한 번만 일어난다.
+   *   (직접 URL 을 친 경우·옛 링크를 위한 안전망이다. 목록·생성 화면은 애초에 갈라 보낸다.)
+   */
+  if (detail.data !== undefined && detail.data.sourceType === "code") {
+    return <Navigate to={`/scenarios/${scenarioId}/code`} replace />;
+  }
 
   return (
     <>

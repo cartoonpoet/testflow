@@ -598,7 +598,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 두 경로로 각각 만들어 **서로 다른 화면으로 이동**한다.
   ② 기본 선택이 "녹화" 라서 **기존 사용자의 조작이 그대로다**.
   ③ `style={{` 0건 · HEX 리터럴 0건(grep 으로 확인).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.2: 코드 에디터 패널
 - **파일**: `apps/web/src/pages/scenarios/code/CodeEditorPanel.tsx` (신규 생성), `apps/web/src/pages/scenarios/code/index.tsx` (신규 생성)
@@ -611,7 +611,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① `import fs from "fs"` 를 넣으면 **저장 전에** 줄 번호와 함께 오류가 보이고
   저장 버튼이 막힌다. ② 정상 코드는 저장되고 새로고침 후에도 남아 있다.
   ③ `pnpm build` 후 **초기 로드 JS 가 523.83KB 에서 유의미하게 늘지 않는다**(수치를 기록한다).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.3: `.spec.ts` 업로드 + codegen 반입 안내
 - **파일**: `apps/web/src/pages/scenarios/code/CodeUploadField.tsx` (신규 생성)
@@ -623,7 +623,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **재사용**: `Button` · `NoticeBox`(amber notice 패턴) · `toast`.
 - **완료 기준**: ① 실제 codegen 산출물 `.spec.ts` 파일을 올려 저장 → 실행까지 이어진다(Gen-Phase 6 에서 재확인).
   ② `.txt` / 300KB 파일은 거부되고 한국어 사유가 표시된다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.4: 라이브 캔버스 컴포넌트 (입력 없음)
 - **파일**: `apps/web/src/features/live/LiveCanvas.tsx` (신규 생성), `apps/web/src/features/live/index.ts` (신규)
@@ -636,7 +636,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
   **픽셀 샘플링으로도** 확인한다. PoC 가 쓴 검증 방식 그대로).
   ② `ended` 이후에도 마지막 프레임이 남아 있다. ③ 캔버스에 클릭·키 입력이 **전송되지 않는다**
   (네트워크 탭에 C→S 메시지 0건).
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.5: 라이브 스트림 훅
 - **파일**: `apps/web/src/hooks/useLiveStream.ts` (신규 생성)
@@ -650,7 +650,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 토큰 거부 시 화면에 한국어 사유가 뜬다.
   ② 실행이 끝나면 **연결이 스스로 닫힌다**(`data-live-connection` 진단 속성으로 관측).
   ③ react-hooks lint 경고 0건.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.6: 실행 현황 화면 — 정적 목업을 라이브 스트림으로 교체 ★
 - **파일**: `apps/web/src/pages/runs/RunSidePanel.tsx` (수정)
@@ -665,7 +665,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 코드 시나리오 실행 중 화면에 **실제 테스트 화면이 움직인다**(스크린샷 2장 시차 비교).
   ② 녹화 시나리오 실행은 **라운드 1과 동일한 화면**이다(회귀).
   ③ `grep -c FakeLoginMock` = **0**. ④ HEX 리터럴 0건 · `style={{` 0건.
-- **상태**: [ ]
+- **상태**: [x]
 
 ### Task 5.7: 스텝 목록 — 코드 실행의 "대기 행 없음" 대응
 - **파일**: `apps/web/src/pages/runs/RunStepList.tsx` · `RunSummaryBar.tsx` (수정)
@@ -677,7 +677,7 @@ Runner 실행 엔진(Gen-Phase 3)과 라이브 스트림(Gen-Phase 4)을 **나�
 - **완료 기준**: ① 코드 실행 중 M 이 1→2→3… 으로 커져도 화면이 깨지지 않고 되돌아가는 프레임이 0건이다.
   ② 녹화 실행의 `pending → running → passed` 3단계 관측이 **라운드 1과 동일**하다(회귀).
   ③ `lib/run-events.spec.ts` 10건이 그대로 통과한다.
-- **상태**: [ ]
+- **상태**: [x]
 
 ---
 

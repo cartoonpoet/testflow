@@ -151,15 +151,23 @@ export function RunDetailPage() {
 
           <div className="tf-run-layout">
             <div className="min-w-0">
-              {run.steps.length === 0 ? (
+              {run.steps.length === 0 && !(run.sourceType === "code" && isActive) ? (
                 <div className="rounded-panel border border-line bg-panel">
                   <StateView
                     title="표시할 단계가 없습니다"
-                    description="스텝이 없는 시나리오이거나 실행 준비 중입니다."
+                    description={
+                      run.sourceType === "code"
+                        ? "코드 실행은 단계를 미리 알 수 없습니다. 이 실행에서는 보고된 단계가 없습니다."
+                        : "스텝이 없는 시나리오이거나 실행 준비 중입니다."
+                    }
                   />
                 </div>
               ) : (
-                <RunStepList steps={run.steps} />
+                <RunStepList
+                  steps={run.steps}
+                  sourceType={run.sourceType}
+                  active={isActive}
+                />
               )}
             </div>
 

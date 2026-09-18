@@ -49,6 +49,14 @@ export const queryKeys = {
    */
   scenario: (id: string, advanced = false) =>
     (advanced ? ["scenarios", id, "advanced"] : ["scenarios", id]) as readonly string[],
+  /**
+   * 코드 시나리오 본문(`GET /api/scenarios/:id/code`). 라운드 2 추가.
+   * 상세(`scenario`)와 **분리한다** — 목록·상세가 코드 본문을 끌고 오지 않는 서버 구조
+   * (04-gen-2 §6)를 캐시에서도 깨지 않기 위해서다.
+   */
+  scenarioCode: (id: string) => ["scenarios", id, "code"] as const,
+  /** 실행 라이브 스트림 접속 정보(`GET /api/runs/:id/live`). 토큰이 실려 있어 캐시 수명이 짧다. */
+  runLive: (id: string) => ["runs", id, "live"] as const,
   suites: (projectId: string) => ["projects", projectId, "suites"] as const,
   suite: (id: string) => ["suites", id] as const,
   runs: (filters?: Readonly<Record<string, unknown>>) =>

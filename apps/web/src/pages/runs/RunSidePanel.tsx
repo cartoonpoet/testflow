@@ -1,7 +1,8 @@
 import type * as React from "react";
 import { cn } from "cn";
-import type { Artifact, RunDetail } from "@testflow/contracts";
+import { isTerminalRunStatus, type Artifact, type RunDetail } from "@testflow/contracts";
 import { Skeleton, StateView } from "@/components/ui";
+import { LiveCanvas } from "@/features/live";
 import {
   ARTIFACT_TYPE_LABEL,
   EMPTY_MARK,
@@ -23,10 +24,19 @@ import {
  *   .run-meta     padding 18px / white / border / radius 16px / margin-top 15px
  *   .kv           flex space-between / padding 8px 0 / border-bottom 1px #edf0ee / 11px
  *
- * ★ 브라우저 목업 자리에 **실행 중에는 최신 스크린샷 증적**을 넣는다(Task 11.5).
- *   증적이 없을 때만 시안의 정적 가짜 로그인 화면을 그리고, 그 아래에
- *   "미리보기" 라고 적어 실제 화면으로 오해하지 않게 한다.
- *   MVP 의 실행은 headless 라 실시간 화면 스트리밍이 없다 — 있는 척하지 않는다.
+ * ★ 라운드 2 — 브라우저 화면 자리의 **정적 가짜 로그인 목업(라운드 1 `.fake-login`)을 폐기**했다.
+ *   표시 우선순위는 이렇다:
+ *
+ *   | # | 조건 | 표시 |
+ *   |---|---|---|
+ *   | 1 | 코드 실행 + 스트림 연결됨 | **라이브 캔버스** |
+ *   | 2 | 코드 실행 종료 + 프레임 있음 | **마지막 프레임 + 상태 배지** (캔버스를 비우지 않는다) |
+ *   | 3 | 실패 스크린샷 증적 있음 | 스크린샷 |
+ *   | 4 | 아무것도 없음 | **중립 안내** (가짜 로그인 화면을 다시 만들지 않는다) |
+ *
+ *   **녹화 기반 실행(`sourceType === "steps"`)에는 라이브가 없다** — Runner 가 그 경로에
+ *   스트림을 배선하지 않았다(04-gen-4 전달 6번). 그때는 3·4 만 쓰고, 그 사실을
+ *   화면에 한 줄로 적는다. 있는 척하지 않는다.
  */
 export type RunSidePanelProps = {
   run: RunDetail;
@@ -51,6 +61,21 @@ export function RunSidePanel({
   maskedVariables,
 }: RunSidePanelProps) {
   const screenshot = latestScreenshot(artifacts);
+  const isCode = run.sourceType === "code";
+  const liveEnabled = isCode && !isTerminalRunStatus(run.status);
+  const video = artifacts.find((artifact) => artifact.type === "video");
+
+  const still =
+    screenshot === undefined ? (
+      <NoScreenView code={isCode} />
+    ) : (
+      <img
+        data-slot="run-screenshot"
+        src={screenshot.url}
+        alt={`실패 스텝 ${String(screenshot.stepSequence ?? 0)} 스크린샷`}
+        className="max-h-full max-w-full rounded-[6px] border border-fake-line object-contain"
+      />
+    );
 
   return (
     <aside data-slot="run-side">
@@ -64,16 +89,21 @@ export function RunSidePanel({
           </div>
         </div>
 
-        <div className="grid aspect-[16/10] place-items-center bg-browser-screen p-[35px] max-mobile:p-[20px]">
-          {screenshot === undefined ? <FakeLoginMock /> : (
-            <img
-              data-slot="run-screenshot"
-              src={screenshot.url}
-              alt={`실패 스텝 ${String(screenshot.stepSequence ?? 0)} 스크린샷`}
-              className="max-h-full max-w-full rounded-[6px] border border-fake-line object-contain"
-            />
-          )}
-        </div>
+        {isCode ? (
+          <LiveCanvas
+            runId={run.id}
+            enabled={liveEnabled}
+            videoUrl={video?.url}
+            fallback={still}
+          />
+        ) : (
+          <div
+            data-slot="run-still"
+            className="grid aspect-[16/10] place-items-center bg-browser-screen p-[35px] max-mobile:p-[20px]"
+          >
+            {still}
+          </div>
+        )}
       </div>
 
       <div className="mt-[15px] rounded-panel border border-line bg-panel p-[18px]">
@@ -92,6 +122,12 @@ export function RunSidePanel({
         </Kv>
         <Kv label="영상 녹화">사용 (실패 시 보관)</Kv>
         <Kv label="실패 시 Trace">사용</Kv>
+        <Kv label="원본">{isCode ? "코드 (.spec.ts)" : "녹화 스텝"}</Kv>
+        {/*
+          ★ 있는 척하지 않는다 — 코드 실행 경로는 page 를 우리가 소유하지 않아
+            콘솔·네트워크 리스너를 걸 자리가 없다(04-gen-3 전달 6번 · 04-gen-4 전달 11번).
+        */}
+        {isCode ? <Kv label="콘솔·네트워크 로그">수집하지 않습니다</Kv> : null}
       </div>
 
       {maskedVariables === undefined ? null : (
@@ -189,28 +225,26 @@ function Kv({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 /**
- * 시안 `.fake-login` — 정적 목업이다.
+ * 보여 줄 화면이 하나도 없을 때의 **중립 안내**.
  *
- * ★ 실제 대상 화면이 아니다. 실행은 headless 라 화면이 웹으로 오지 않는다.
- *   실패 스크린샷 증적이 생기면 이 자리를 그 이미지가 대신한다.
+ * ★ 라운드 1의 정적 가짜 로그인 화면(시안 `.fake-login`)을 대신한다.
+ *   그 목업은 실제 실행 화면으로 오해되기 쉬웠고, 라운드 2에서 코드 실행에는
+ *   **진짜 화면이 오기 때문에** 두 가지가 나란히 있으면 어느 쪽이 진짜인지 알 수 없다.
+ *   그래서 목업을 지우고 "무엇이 없는지"만 적는다.
  */
-function FakeLoginMock() {
+function NoScreenView({ code }: { code: boolean }) {
   return (
-    <div className="w-full text-center">
-      <div className="mx-auto w-[80%] max-w-[260px] rounded-[13px] border border-fake-line bg-panel p-[22px] text-left">
-        <h3 className="mb-[18px] text-[16px]">로그인</h3>
-        <div className="mt-[8px] flex h-[31px] items-center rounded-[7px] border border-fake-input-line px-[9px] text-[9px] text-fake-ink">
-          아이디
-        </div>
-        <div className="mt-[8px] flex h-[31px] items-center rounded-[7px] border border-fake-input-line px-[9px] text-[9px] text-fake-ink">
-          {MASK}
-        </div>
-        <div className="mt-[12px] grid h-[32px] place-items-center rounded-[7px] bg-brand text-[9px] text-white">
-          로그인
-        </div>
+    <div className="w-full max-w-[280px] text-center">
+      <div
+        aria-hidden="true"
+        className="mx-auto grid h-[38px] w-[38px] place-items-center rounded-full bg-wait text-[15px] text-wait-ink"
+      >
+        ◇
       </div>
-      <p className="m-0 mt-[12px] text-[10px] text-fake-ink">
-        화면 미리보기 — 실제 실행 화면이 아닙니다
+      <p className="m-0 mt-[12px] text-[11px] leading-[1.6] text-fake-ink">
+        {code
+          ? "표시할 실행 화면이 아직 없습니다. 실행이 시작되면 이 자리에 실제 브라우저 화면이 그려집니다."
+          : "녹화 기반 실행은 실행 화면이 스트리밍되지 않습니다. 실패하면 스크린샷·영상 증적이 이 자리에 표시됩니다."}
       </p>
     </div>
   );
