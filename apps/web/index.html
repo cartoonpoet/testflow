@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TestFlow</title>
+    <!--
+      파비콘 — 모던 브라우저는 svg 를 집고, 못 쓰는 브라우저는 ico 로 떨어진다.
+      ico 안에는 16·32·48 PNG 가 들어 있다(PNG 를 담는 Vista+ ICO 형식).
+      순서가 중요하다: `rel="icon"` 선언 중 **뒤에 오는 것**이 우선이라, svg 를
+      ico 뒤에 둔다. `sizes="any"` 는 svg 가 벡터임을 알려 래스터보다 우선하게 한다.
+      themeColor 는 두지 않는다 — 브랜드가 주는 이득보다 주소창 색 강제의 부작용이 크다.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,54 @@
+{
+  "icons": [
+    {
+      "rel": "icon",
+      "href": "http://localhost:4174/favicon.ico",
+      "type": null,
+      "sizes": "32x32",
+      "status": 200,
+      "ctype": "image/x-icon",
+      "bytes": 2899
+    },
+    {
+      "rel": "icon",
+      "href": "http://localhost:4174/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "status": 200,
+      "ctype": "image/svg+xml",
+      "bytes": 1357
+    },
+    {
+      "rel": "apple-touch-icon",
+      "href": "http://localhost:4174/apple-touch-icon.png",
+      "type": null,
+      "sizes": null,
+      "status": 200,
+      "ctype": "image/png",
+      "bytes": 2321
+    }
+  ],
+  "initialJs": 0,
+  "jsFiles": [
+    {
+      "u": "http://localhost:4174/assets/dist-Bf4qbvgc.js",
+      "s": 0
+    },
+    {
+      "u": "http://localhost:4174/assets/vendor-react-p8dv98dL.js",
+      "s": 0
+    },
+    {
+      "u": "http://localhost:4174/assets/index-BatdnudU.js",
+      "s": 0
+    },
+    {
+      "u": "http://localhost:4174/assets/dashboard-bofJ19Gq.js",
+      "s": 0
+    },
+    {
+      "u": "http://localhost:4174/assets/components-jszb_MuU.js",
+      "s": 0
+    }
+  ]
+}

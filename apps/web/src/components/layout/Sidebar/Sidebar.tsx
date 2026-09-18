@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { NavLink } from "react-router-dom";
 import { NAV_GROUPS, type NavEntry } from "./navigation";
+import { TestFlowMark } from "./TestFlowMark";
 
 /**
  * 시안 `.sidebar` 1:1.
@@ -28,9 +29,7 @@ export function Sidebar({ projectName, open, onNavigate }: SidebarProps) {
       )}
     >
       <div className="flex h-[42px] items-center gap-[11px] px-[10px] text-[18px] font-850 tracking-logo">
-        <span className="grid h-[30px] w-[30px] place-items-center rounded-chip bg-logo-mark text-[12px] text-logo-mark-ink">
-          TF
-        </span>
+        <TestFlowMark className="h-[30px] w-[30px]" />
         TestFlow
       </div>
 
