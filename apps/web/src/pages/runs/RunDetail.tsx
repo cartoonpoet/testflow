@@ -5,6 +5,7 @@ import { Button, PageHead, StateView } from "@/components/ui";
 import { RUN_STATUS_LABEL } from "@/lib";
 import { useCancelRun, useRunArtifacts, useRunDetail } from "@/hooks/useRuns";
 import { useRunEvents } from "@/hooks/useRunEvents";
+import { RunLiveScreen } from "./RunScreen";
 import { RunSidePanel } from "./RunSidePanel";
 import { RunStepList, RunStepListSkeleton } from "./RunStepList";
 import { RunSummaryBar } from "./RunSummaryBar";
@@ -14,6 +15,12 @@ import { RunSummaryBar } from "./RunSummaryBar";
  *
  *   .run-summary (다크 요약바)  +  .run-layout = grid minmax(0,1fr) 360px
  *   좌측 `.execution` 스텝 리스트 / 우측 브라우저 목업 + 실행 정보 + 증적
+ *
+ * ## ★ 라운드 3 — 라이브 화면이 2단 그리드 밖으로 나왔다
+ * 코드 실행이면 요약바 **바로 아래에 전폭 라이브 무대**(`RunLiveScreen`)가 온다.
+ * 시안의 `1fr 360px` 자체는 그대로 두되(스텝 리스트 + 실행 정보·증적), 실제 스트림만
+ * 그 밖으로 뺀 것이다. 근거는 `RunScreen.tsx` / `globals.css > tf-live-stage` 주석 참조 —
+ * 360px 은 1280px 프레임의 **28%** 라 프레임 안의 글자가 읽히지 않는다.
  *
  * ## 실시간 반영
  * 실행이 끝나지 않은 동안에만 SSE 를 연다(`useRunEvents`). 종료 이벤트가 오면
@@ -148,6 +155,10 @@ export function RunDetailPage() {
               <p className="m-0 mt-[5px] text-[11px] leading-[1.5]">{run.errorMessage}</p>
             </div>
           )}
+
+          {run.sourceType === "code" ? (
+            <RunLiveScreen run={run} artifacts={artifacts.data ?? []} />
+          ) : null}
 
           <div className="tf-run-layout">
             <div className="min-w-0">

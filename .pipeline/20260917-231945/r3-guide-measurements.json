@@ -1,0 +1,167 @@
+{
+  "lan": "http://172.22.87.132:4175",
+  "results": [
+    {
+      "name": "사이드바에 HELP 그룹과 '가이드' 항목이 있다",
+      "pass": true
+    },
+    {
+      "name": "사이드바 클릭으로 /guide 진입",
+      "pass": true,
+      "detail": "http://localhost:4175/guide"
+    },
+    {
+      "name": "브레드크럼 = '프로젝트명 / 가이드'",
+      "pass": true,
+      "detail": "법무 통합 포털 / 가이드"
+    },
+    {
+      "name": "사이드바 '가이드' 가 active 표시",
+      "pass": true
+    },
+    {
+      "name": "렌더된 `##` 절 제목 6개가 원본과 일치",
+      "pass": true,
+      "detail": "1. AI에게 그대로 붙여넣을 프롬프트 / 2. 제약 6가지 — 왜 그런지 / 3. 만든 코드를 넣고 실행하기 / 4. 자주 겪는 문제 / 5. 지금 지원하지 않는 것 / 6. 좋은 테스트를 만드는 요령"
+    },
+    {
+      "name": "렌더된 `###` 소절 제목 6개가 원본과 일치",
+      "pass": true,
+      "detail": "1. import은 @playwright/test만 / 2. 파일 1개, test() 1개 / 3. URL은 상대 경로로 / 4. 값을 코드에 박지 마세요 / 5. 요소를 찾는 방법 / 6. 파일 업로드"
+    },
+    {
+      "name": "목차 링크 개수 = 절 6 + 소절 6",
+      "pass": true,
+      "detail": "12"
+    },
+    {
+      "name": "목차 앵커 12개 전부 해당 절로 이동 + 탑바에 가리지 않음",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "복사 버튼은 2개만 (프롬프트 + 환경변수 예시)",
+      "pass": true,
+      "detail": "2"
+    },
+    {
+      "name": "★ HTTPS/localhost 복사 결과가 프롬프트 전문과 완전 일치",
+      "pass": true,
+      "detail": "876자"
+    },
+    {
+      "name": "복사 후 버튼이 '복사됨' 으로 바뀐다",
+      "pass": true
+    },
+    {
+      "name": "복사 토스트가 뜬다",
+      "pass": true,
+      "detail": "복사됨클립보드에 복사했습니다 — AI 대화 맨 앞에 붙여넣을 프롬프트"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @1440px",
+      "pass": true,
+      "detail": "scrollWidth=1440 client=1440"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @1200px",
+      "pass": true,
+      "detail": "scrollWidth=1200 client=1200"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @1050px",
+      "pass": true,
+      "detail": "scrollWidth=1050 client=1050"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @900px",
+      "pass": true,
+      "detail": "scrollWidth=900 client=900"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @760px",
+      "pass": true,
+      "detail": "scrollWidth=760 client=760"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @480px",
+      "pass": true,
+      "detail": "scrollWidth=480 client=480"
+    },
+    {
+      "name": "본문이 가로로 넘치지 않는다 @360px",
+      "pass": true,
+      "detail": "scrollWidth=360 client=360"
+    },
+    {
+      "name": "코드 블록 전부 overflow-x:auto (스크롤이 블록 안에서만)",
+      "pass": true,
+      "detail": "7개"
+    },
+    {
+      "name": "표 래퍼 전부 overflow-x:auto",
+      "pass": true,
+      "detail": "3개"
+    },
+    {
+      "name": "360px 에서 표는 상자 안에서 스크롤, 페이지는 안 넘침",
+      "pass": true,
+      "detail": "표 3/3 내부스크롤, body초과=0"
+    },
+    {
+      "name": "1050px 이하: 목차가 본문 위로 올라오고 sticky 해제",
+      "pass": true,
+      "detail": "{\"tocY\":-3234,\"bodyY\":-2828,\"position\":\"static\"}"
+    },
+    {
+      "name": "1051px 이상: 목차가 sticky",
+      "pass": true,
+      "detail": "sticky"
+    },
+    {
+      "name": "콘솔 에러 0건 (secure)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "prefers-reduced-motion: 전환·스크롤 애니메이션 없음",
+      "pass": true,
+      "detail": "{\"reduce\":true,\"transition\":\"0s\",\"scroll\":\"auto\"}"
+    },
+    {
+      "name": "콘솔 에러 0건 (reduced-motion)",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "★ 이 페이지는 진짜 비-secure context 다",
+      "pass": true,
+      "detail": "{\"isSecureContext\":false,\"hasClipboard\":false,\"origin\":\"http://172.22.87.132:4175\"}"
+    },
+    {
+      "name": "★ 비-secure 에서 navigator.clipboard 가 없다 (폴백이 필요한 이유)",
+      "pass": true,
+      "detail": "false"
+    },
+    {
+      "name": "★ 폴백 성공: 버튼이 '복사됨' 으로 바뀐다 (execCommand 경로)",
+      "pass": true,
+      "detail": "✓ 복사됨"
+    },
+    {
+      "name": "★ 폴백 성공 토스트('복사됨')",
+      "pass": true,
+      "detail": "복사됨클립보드에 복사했습니다 — AI 대화 맨 앞에 붙여넣을 프롬프트"
+    },
+    {
+      "name": "★ 비-secure(HTTP) 에서 실제 복사된 텍스트가 프롬프트 전문과 완전 일치",
+      "pass": true,
+      "detail": "876자 일치"
+    },
+    {
+      "name": "콘솔 에러 0건 (비-secure)",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

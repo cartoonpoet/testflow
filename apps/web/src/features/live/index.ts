@@ -5,3 +5,5 @@
  * 입력 역주입이 없고 수명주기(run 종료 = 스트림 종료)가 달라 화면 조각은 따로 둔다.
  */
 export * from "./LiveCanvas";
+export * from "./LiveStage";
+export * from "./useExpand";
