@@ -1,31 +1,30 @@
 /**
- * 가이드 화면의 **본문 데이터**.
+ * 가이드 화면의 **본문 데이터. 이 파일이 이 문서의 단일 출처다.**
  *
- * ## 왜 데이터로 빼는가 — 원본 마크다운과의 단일 출처 전략
+ * ## 왜 데이터로 빼는가
  *
- * 이 화면의 내용은 새로 쓴 글이 아니라 `docs/AI로-테스트코드-만들기.md` 를 옮긴 것이다.
- * 같은 글이 두 곳에 있으면 반드시 갈라진다. 그렇다고 `react-markdown` 을 넣으면
- * 초기 로드 번들이 커진다(라운드 3 의 전제가 깨진다 — 08-code-editor 참고).
+ * 처음에는 `docs/` 의 md 가 원본이고 이 파일이 그 사본이었다
+ * (`content.spec.ts` 가 md 를 `?raw` 로 읽어 글자 단위로 대조했다).
+ * **그 md 를 지우고 이 화면을 단일 출처로 삼기로 결정**했으므로 사본이 아니라 원본이다.
+ * 내용을 고칠 곳은 여기 한 곳이다.
  *
- * 그래서 **문장을 원본 마크다운 문법 그대로 문자열에 담고**, 블록 구조만 TSX 가 그린다.
+ * `react-markdown` 을 넣지 않은 이유는 그대로다 — 초기 로드 번들이 커져
+ * 라운드 3 의 전제가 깨진다(08-code-editor 참고). 그래서 **문장은 마크다운 문법 그대로**
+ * 문자열에 담고 블록 구조만 TSX 가 그린다.
  *   - 인라인 서식(`**굵게**` `*기울임*` `` `코드` ``)은 `InlineMd` 가 런타임에 해석한다.
- *     규칙 3개짜리라 파서라 부를 것도 없고 번들에 미치는 영향이 사실상 0 이다.
- *   - 덕분에 `content.spec.ts` 가 **원본 md 파일을 `?raw` 로 읽어** 이 파일의 문자열과
- *     **글자 단위로 대조**할 수 있다. 원본이 고쳐졌는데 화면이 안 따라오면 테스트가 깨진다.
- *     → 원본 md 가 단일 출처로 남고, 이 파일은 그 출처에 **테스트로 묶인 사본**이다.
+ *     규칙 3개짜리라 파서라 부를 것도 없고 번들 영향이 사실상 0 이다.
+ *   - `InlineMd` 가 모르는 문법(링크·이미지)을 쓰면 **화면에 원문이 그대로 노출된다.**
+ *     `content.spec.ts` 가 그것을 막는다.
  *
- * 마크다운 문법을 그대로 두는 것이 핵심이다. 여기서 `**` 를 떼고 `<strong>` 으로 바꿔 쓰면
- * 대조가 불가능해지고 단일 출처 전략이 무너진다.
+ * 마크다운 문법을 그대로 두는 것이 핵심이다. `**` 를 떼고 `<strong>` 으로 바꿔 쓰면
+ * 문장과 서식이 뒤섞여 이 파일을 글로 읽을 수 없게 된다.
  */
 
-/** 원본 문서 경로. 화면 하단에 표기해 "어디를 고쳐야 하는지"를 남긴다. */
-export const GUIDE_SOURCE_PATH = "docs/AI로-테스트코드-만들기.md";
-
-/** 원본 md 의 H1. */
+/** H1. */
 export const GUIDE_TITLE = "AI로 TestFlow 테스트 코드 만들기";
 
 export type GuideTable = {
-  /** 빈 문자열이면 시각적으로 비어 있는 머리칸(원본 md 의 `| | 대안 |`). */
+  /** 빈 문자열이면 시각적으로 비어 있는 머리칸. */
   readonly head: readonly string[];
   readonly rows: readonly (readonly string[])[];
 };
@@ -43,14 +42,14 @@ export type QaItem = {
 
 export type GuideBlock =
   | { readonly kind: "p"; readonly text: string }
-  /** 원본 md 의 인용문(`>`). amber notice 로 그린다. */
+  /** 인용문(`>`) 성격의 강조. amber notice 로 그린다. */
   | { readonly kind: "note"; readonly text: string }
   | {
       readonly kind: "code";
       readonly code: string;
       /** `ts` 만 구문 강조한다. 프롬프트는 코드가 아니라 평문이다. */
       readonly lang: "ts" | "text";
-      /** 코드 블록 머리에 붙는 설명. UI 크롬이라 원본 md 에는 없다. */
+      /** 코드 블록 머리에 붙는 설명. UI 크롬이다. */
       readonly caption?: string;
       /** 복사 버튼을 붙일지. 붙이는 기준은 `GuidePage` 주석 참고. */
       readonly copy?: boolean;
@@ -64,7 +63,7 @@ export type GuideBlock =
 export type GuideSection = {
   /** 앵커 id. 목차가 `#<id>` 로 이동한다. */
   readonly id: string;
-  /** 원본 md 의 `##` 제목 그대로. */
+  /** `##` 수준의 절 제목. */
   readonly title: string;
   readonly blocks: readonly GuideBlock[];
 };
@@ -73,8 +72,8 @@ export type GuideSection = {
  * ★ AI 에게 붙여넣을 프롬프트 — 이 문서의 **핵심 산출물**이다.
  *
  * 템플릿 리터럴 안의 백틱은 `\`` 로 이스케이프돼 있다(런타임 값에는 영향이 없다).
- * 사람이 이스케이프를 틀리기 쉬운 자리라, `content.spec.ts` 가 원본 md 의 펜스 블록과
- * **완전 일치**를 검사한다.
+ * 사람이 이스케이프를 틀리기 쉬운 자리다. 복사 버튼이 이 문자열을 그대로 클립보드에 넣으므로
+ * 여기가 틀어지면 사용자가 잘못된 프롬프트를 AI 에 붙여넣는다.
  */
 export const AI_PROMPT = `Playwright 테스트 코드를 만들어 줘. 아래 제약을 반드시 지켜.
 
@@ -95,7 +94,7 @@ export const AI_PROMPT = `Playwright 테스트 코드를 만들어 줘. 아래 �
 
 TypeScript로 작성하고, 파일명은 \`<이름>.spec.ts\` 형식으로 알려줘.`;
 
-/* ── 원본 md 의 ```ts 펜스 블록 6개 ─────────────────────────── */
+/* ── ```ts 코드 블록 ───────────────────────────────────────── */
 
 const CODE_IMPORTS = `import { test, expect } from '@playwright/test';   // ✅
 
@@ -142,7 +141,7 @@ await page.locator('input[type="file"]').setInputFiles(['파일-1.docx', '파일
 await page.locator('input[type="file"]').setInputFiles(path.resolve('test-data', f));      // ❌
 await page.locator('input[type="file"]').setInputFiles('/home/qa/파일-1.docx');             // ❌`;
 
-/** 원본 md 의 모든 ```ts 블록. spec 이 md 와 집합 비교한다. */
+/** 화면이 그리는 모든 ```ts 블록. */
 export const TS_CODE_BLOCKS: readonly string[] = [
   CODE_IMPORTS,
   CODE_URL,
@@ -152,7 +151,7 @@ export const TS_CODE_BLOCKS: readonly string[] = [
   CODE_UPLOAD,
 ];
 
-/** 원본 md 의 도입부(H1 과 첫 `##` 사이). */
+/** 도입부(제목과 첫 절 사이). */
 export const GUIDE_INTRO: readonly GuideBlock[] = [
   {
     kind: "p",

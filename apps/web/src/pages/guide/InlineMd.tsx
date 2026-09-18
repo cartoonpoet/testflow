@@ -2,10 +2,10 @@ import { Fragment } from "react";
 import type * as React from "react";
 
 /**
- * 원본 md 문장의 **인라인 서식만** 해석해 그린다.
+ * `content.ts` 문장의 **인라인 서식만** 해석해 그린다.
  *
  * 규칙은 3개뿐이다 — `` `코드` `` · `**굵게**` · `*기울임*`.
- * 원본 `docs/AI로-테스트코드-만들기.md` 본문에 실제로 쓰인 인라인 문법이 이 3개가 전부다
+ * `content.ts` 본문에 실제로 쓰이는 인라인 문법이 이 3개가 전부다
  * (`content.spec.ts` 가 md 를 훑어 다른 문법이 새로 들어오면 알려준다).
  *
  * ★ 마크다운 라이브러리를 넣지 않는 이유는 `content.ts` 머리말 참고 — 초기 로드 번들.
@@ -17,7 +17,7 @@ import type * as React from "react";
 const INLINE_PATTERN = /`([^`]+)`|\*\*([\s\S]+?)\*\*|\*([^*\n]+?)\*/g;
 
 export type InlineMdProps = {
-  /** 원본 md 문장 그대로. */
+  /** 마크다운 문법이 담긴 문장 그대로. */
   text: string;
 };
 
