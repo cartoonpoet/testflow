@@ -8,8 +8,8 @@
  * 자동 측정은 `measure.ts` 가 이 파일의 `startPoc()` 를 재사용한다.
  *
  * 사용:
- *   yarn workspace @testflow/runner poc:serve -- --target local
- *   yarn workspace @testflow/runner poc:serve -- --target playwright-dev --quality 40
+ *   pnpm --filter @testflow/runner poc:serve -- --target local
+ *   pnpm --filter @testflow/runner poc:serve -- --target playwright-dev --quality 40
  */
 import { chromium, type Browser, type Page } from "playwright";
 
@@ -30,7 +30,7 @@ export const TARGETS = {
    * 주소를 확보하면 환경변수로만 넘긴다:
    *
    * ```bash
-   * yarn workspace @testflow/runner build:poc
+   * pnpm --filter @testflow/runner build:poc
    * POC_CUSTOM_URL="https://staging.내부도메인/login" \
    *   node apps/runner/dist-poc/poc/measure.js --target custom
    * ```

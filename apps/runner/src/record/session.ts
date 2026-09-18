@@ -122,7 +122,7 @@ export function resolveInjectedScriptPath(): string {
   }
   throw new Error(
     `injected.js 를 찾지 못했습니다(${candidates.join(", ")}). ` +
-      `\`yarn workspace @testflow/runner build\` 로 tsconfig.injected.json 을 빌드했는지 확인하세요.`,
+      `\`pnpm --filter @testflow/runner build\` 로 tsconfig.injected.json 을 빌드했는지 확인하세요.`,
   );
 }
 

@@ -15,7 +15,7 @@
  * ## 실행
  * ```
  * # MySQL·Redis·API·Runner 를 띄운 뒤
- * yarn workspace @testflow/runner build:poc
+ * pnpm --filter @testflow/runner build:poc
  * node apps/runner/dist-poc/poc/poc3-roundtrip.js
  * node apps/runner/dist-poc/poc/poc3-roundtrip.js --local-only    # 네트워크가 막힌 환경
  * ```
