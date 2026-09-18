@@ -70,6 +70,12 @@ export const queryKeys = {
    */
   scenarioAttachments: (id: string) => ["scenarios", id, "attachments"] as const,
   /**
+   * 실행에 필요한 변수 목록(`GET /api/scenarios/:id/variables`). 라운드 9 추가.
+   * `scenarioCode`·`scenarioAttachments` 와 **같은 이유**로 상세와 분리한다 —
+   * 이 답을 만들려면 서버가 코드 본문을 읽어야 하고, 필요한 화면은 실행 다이얼로그 하나다.
+   */
+  scenarioVariables: (id: string) => ["scenarios", id, "variables"] as const,
+  /**
    * 실행 라이브 스트림 접속 정보(`GET /api/runs/:id/live`). 토큰이 실려 있어 캐시 수명이 짧다.
    *
    * ★ **일부러 `["runs", id, …]` 아래에 두지 않는다** (Gen-Phase 6 에서 실측으로 발견한 버그).

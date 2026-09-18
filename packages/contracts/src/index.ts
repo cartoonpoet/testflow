@@ -11,6 +11,7 @@ export * from "./codegen.js";
 export * from "./pw-step-title.js";
 export * from "./suite.js";
 export * from "./run.js";
+export * from "./run-variables.js";
 export * from "./recording.js";
 export * from "./events.js";
 export * from "./storage.js";

@@ -164,8 +164,11 @@ const IMPORT_PATTERNS: readonly RegExp[] = [
  * 이유: 주석 처리해 둔 `// import fs from "fs"` 가 오류로 잡히면 저장이 막힌다.
  * 오탐으로 사용자를 막는 것은 이 함수의 목적(UX 안내)과 정반대다.
  * 문자열 리터럴 안의 `//` 를 주석으로 오인하지 않도록 따옴표·템플릿 리터럴 상태도 같이 따라간다.
+ *
+ * ★ `run-variables.ts` 도 **같은 함수**를 쓴다(주석에 적어 둔 `TESTFLOW_VAR_*` 를 실제
+ *   참조로 오인하지 않기 위해). 두 벌을 두면 한쪽만 고쳐져 규칙이 어긋난다.
  */
-function blankComments(content: string): string {
+export function blankComments(content: string): string {
   const out = content.split("");
   let state: "code" | "line" | "block" | "single" | "double" | "template" = "code";
   for (let i = 0; i < content.length; i += 1) {
