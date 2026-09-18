@@ -194,8 +194,21 @@ export function mergePlaywrightConfig(
       ...userUse,
       headless: overrides.headless,
       viewport: { width: overrides.viewport.width, height: overrides.viewport.height },
-      // 증적 — 성공한 실행은 Playwright 가 스스로 지운다(Task 3.6 "성공은 증적 없음").
-      video: "retain-on-failure",
+      /*
+       * 증적.
+       *
+       * ★ 라운드 4 — `video` 만 `"on"` 으로 바꿨다. **성공한 실행도 영상을 남긴다.**
+       *   사용자 요구가 "테스트 한 거를 다시 보고 싶다" 이고, `retain-on-failure` 는
+       *   **성공한 실행에 영상이 아예 없다**(Playwright 가 지운다). "다시 보기" 버튼이
+       *   실패한 실행에만 나타나는 것은 기능이 없는 것과 같다.
+       *
+       *   대가는 디스크다. 실측(1280×800 · webm): 테스트 1건당 **초당 약 25~45KB**,
+       *   30초짜리 실행이 약 1MB 다. 하루 200 실행이면 **약 200MB/일 · 6GB/월**.
+       *   `trace`(실행당 0.7MB+)·`screenshot` 은 그대로 실패 시에만 남긴다 — 그 둘은
+       *   "다시 보기"가 아니라 **디버깅** 용이고, 영상보다 비싸면서 성공 실행에서는
+       *   볼 이유가 없다.
+       */
+      video: "on",
       trace: "retain-on-failure",
       screenshot: "only-on-failure",
       launchOptions: {

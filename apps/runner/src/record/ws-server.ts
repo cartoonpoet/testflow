@@ -12,6 +12,7 @@ import {
   WS_CLOSE_UNAUTHORIZED,
   isTerminalRunStatus,
   liveStreamTokenKey,
+  liveStreamTokenMemberKey,
   recordingTokenKey,
 } from "@testflow/contracts";
 import type { RunStatus } from "@testflow/contracts";
@@ -349,6 +350,30 @@ export async function startRecordingWsServer(
     }
   }
 
+  /**
+   * ★ 라운드 4 — 같은 run 의 **여러 토큰**을 허용한다(다중 뷰어).
+   *
+   * 단일 슬롯(`liveStreamTokenKey`)은 그대로 먼저 본다 — 기존 동작·기존 테스트가 그대로다.
+   * 거기서 어긋나면 **해시별 키**(`liveStreamTokenMemberKey`)를 한 번 더 본다. 이것이
+   * 없으면 두 번째 탭이 토큰을 받는 순간 첫 탭의 재접속이 4401 이 된다.
+   *
+   * ★ 해시별 키는 **존재 여부만** 본다. 값이 아니라 **키 이름 자체가 sha256(token)** 이라
+   *   제시한 토큰을 해시해야만 그 키에 닿을 수 있다(추측 불가는 그대로다). 비교 대상이
+   *   비밀값이 아니므로 타이밍 안전 비교가 필요 없다.
+   */
+  async function liveTokenAccepted(
+    runId: string,
+    token: string | null,
+    stored: string | null,
+  ): Promise<boolean> {
+    if (verifyStreamTokenHash(token, stored)) return true;
+    if (token === null || token === "") return false;
+    const exists = await redis
+      .exists(liveStreamTokenMemberKey(runId, hashStreamToken(token)))
+      .catch(() => 0);
+    return exists === 1;
+  }
+
   async function admitLive(ws: WebSocket, runId: string, token: string | null): Promise<void> {
     if (liveStreams === null) {
       ws.close(WS_CLOSE_SESSION_GONE, "live stream is not enabled");
@@ -358,7 +383,7 @@ export async function startRecordingWsServer(
     // ★ 실행 스트림 키 공간에서만 읽는다. 녹화 토큰(`testflow:rec:token:`)은 여기서
     //   절대 보이지 않는다 — 그것이 키 공간 분리의 전부다(쟁점 3).
     const stored = await redis.get(liveStreamTokenKey(runId)).catch(() => null);
-    if (!verifyStreamTokenHash(token, stored)) {
+    if (!(await liveTokenAccepted(runId, token, stored))) {
       log(`run ${runId} 라이브 접속 거부 — 토큰 불일치/부재 (close ${String(WS_CLOSE_UNAUTHORIZED)})`);
       ws.close(WS_CLOSE_UNAUTHORIZED, "invalid live stream token");
       return;
@@ -405,19 +430,24 @@ export async function startRecordingWsServer(
     };
 
     ws.binaryType = "nodebuffer";
-    const replaced = session.attach(sink);
-    if (replaced !== null) {
-      // sink 는 1개다. 새 뷰어가 이긴다(새로고침으로 잠시 두 소켓이 겹치는 것이 정상이다).
-      replaced.finish();
-    }
-    log(`run ${runId} 라이브 뷰어 접속`);
+    /*
+     * ★ 라운드 4 — **기존 뷰어를 끊지 않는다.** 04-gen-4 결정 7의 "최신이 이긴다"(sink 1개)
+     *   를 되돌렸다: 두 탭에서 같은 run 을 열면 먼저 연 탭이 조용히 끊겼기 때문이다.
+     *   `attach()` 안에서 **캐시된 마지막 프레임이 즉시 이 소켓으로** 나간다 —
+     *   화면이 정지한 순간에 붙어도 검은 캔버스가 되지 않는 지점이 거기다.
+     */
+    session.attach(sink);
+    log(`run ${runId} 라이브 뷰어 접속 — 현재 뷰어 ${String(session.viewerCount)}명`);
 
     // ★ 단방향 — 받은 메시지를 파싱조차 하지 않는다.
     ws.on("message", () => undefined);
 
     ws.on("close", () => {
       session.detach(sink);
-      log(`run ${runId} 라이브 뷰어 종료 — 백프레셔 드롭 ${String(droppedBackpressure)}건`);
+      log(
+        `run ${runId} 라이브 뷰어 종료 — 백프레셔 드롭 ${String(droppedBackpressure)}건. ` +
+          `남은 뷰어 ${String(session.viewerCount)}명(다른 뷰어는 계속 받는다)`,
+      );
     });
   }
 

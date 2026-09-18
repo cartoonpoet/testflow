@@ -100,6 +100,18 @@ export interface ScreencastHandle {
   getPageScale(): PageScaleInfo;
   /** CDP `Page.getLayoutMetrics` 로 지금 값을 다시 읽는다. 보조 세션이 없으면 항등값. */
   refreshPageScale(): Promise<PageScaleInfo>;
+  /**
+   * ★ **키프레임 1장을 지금 찍는다** (`Page.captureScreenshot`).
+   *
+   * screencast 는 **변경분만** 송출한다 — 정지한 화면에서는 프레임이 생기지 않는다
+   * (04-gen-3 §"계획과 다르게 한 것"). 그래서 **늦게 붙은 뷰어에게 첫 화면을 보장**하려면
+   * 지금 상태를 한 번 찍어 주는 경로가 따로 필요하다.
+   *
+   * - `onFrame` 을 거치지 않는다. 호출부가 받은 프레임을 원하는 곳으로 보낸다.
+   * - 보조 CDP 세션이 없으면(`trackPageScale:false` + playwright 드라이버) `null` 이다.
+   * - **던지지 않는다.** page 가 닫히는 중이면 `null` — 라이브는 실행의 전제가 아니다.
+   */
+  captureKeyframe(): Promise<ScreencastFrame | null>;
   /** 송출한 프레임 수 / 인코딩된 총 바이트. */
   stats(): { frames: number; bytes: number };
   stop(): Promise<void>;
@@ -235,6 +247,35 @@ export const startScreencast: StartScreencast = async (page, options) => {
       if (!cdp) return pageScale;
       pageScale = await readLayoutMetrics(cdp);
       return pageScale;
+    },
+    captureKeyframe: async () => {
+      if (!cdp || stopped) return null;
+      try {
+        /*
+         * ★ `page.screenshot()` 이 아니라 CDP 를 직접 쓴다. Playwright 의 스크린샷은
+         *   기본값 `caret:"hide"` 로 **페이지에 스타일을 주입**하고 폰트·애니메이션을
+         *   기다린다 — 실행 중인 남의 테스트에 개입하는 짓이다. `Page.captureScreenshot`
+         *   은 렌더러의 현재 프레임을 그대로 읽을 뿐이다(screencast 와 같은 출처).
+         */
+        const shot = await cdp.send("Page.captureScreenshot", {
+          format: "jpeg",
+          quality,
+          captureBeyondViewport: false,
+        });
+        const data = Buffer.from(shot.data, "base64");
+        if (data.byteLength === 0) return null;
+        const nowMs = Date.now();
+        return {
+          data,
+          timestamp: nowMs,
+          viewportWidth: size.width,
+          viewportHeight: size.height,
+          capturedAtMs: nowMs,
+        };
+      } catch {
+        // page 가 닫히는 중이거나 렌더러가 바쁘다 — 다음 프레임이 곧 온다. 조용히 넘긴다.
+        return null;
+      }
     },
     stats: () => ({ frames, bytes }),
     stop: async () => {

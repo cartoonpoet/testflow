@@ -124,6 +124,24 @@ export function liveStreamTokenKey(runId: string): string {
 }
 
 /**
+ * ★ 라운드 4 — **토큰 1개 슬롯을 벗어나기 위한 보조 키** (다중 뷰어).
+ *
+ * `liveStreamTokenKey()` 는 run 당 슬롯이 **하나**라 `GET /api/runs/:id/live` 를 두 번
+ * 부르면 **먼저 받은 토큰이 즉시 무효**가 된다. 한 탭만 볼 때는 문제가 없었지만, 같은 run 을
+ * 두 탭에서 동시에 열면 두 번째 탭의 발급이 첫 탭의 핸드셰이크를 앞질러 **4401** 을 만든다
+ * (실측 가능한 경합이다).
+ *
+ * 그래서 발급할 때 **해시별 키를 하나 더** 쓴다. 같은 run 의 토큰이 TTL 안에서 여러 개
+ * 공존하고, 각자 자기 TTL 로 사라진다. 키 공간 접두사는 그대로이므로 **녹화 ↔ 실행 분리는
+ * 한 글자도 흔들리지 않는다**(`testflow:run:token:` 으로 시작하는 것은 여전히 실행뿐이다).
+ *
+ * ⚠️ 해시(hex 64자)만 넣어라 — 평문 토큰을 키에 넣으면 Redis 에 평문이 남는다.
+ */
+export function liveStreamTokenMemberKey(runId: string, tokenHash: string): string {
+  return `${LIVE_STREAM_TOKEN_KEY_PREFIX}${runId}:${tokenHash}`;
+}
+
+/**
  * `GET /api/runs/:id/live` 응답.
  *
  * `wsUrl` 은 API 포트가 아니라 **`RUNNER_WS_PORT`** 를 가리킨다 (`/live/:runId?token=…`).

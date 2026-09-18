@@ -34,6 +34,24 @@
  * `{t:"state", state:"ended"}` 를 보내고 **`LIVE_STREAM_ENDED_LINGER_MS` 뒤에 close 1000**
  * (정상 종료)한다. 비정상 close code 를 주면 웹의 close 분류가 "오류"로 읽고 화면을 지운다.
  * 마지막 프레임은 **실패 직전 화면**이라 정보가 가장 많다(쟁점 3).
+ *
+ * ## ★★ 라운드 4 — 늦게 붙은 뷰어에게 **첫 프레임을 보장**한다
+ * `page.screencast` 는 **변경분만** 송출한다(04-gen-3 실측 기록). 화면이 정지한 순간
+ * (assertion 대기·`waitForTimeout`)에 새 뷰어가 붙으면 **프레임이 한 장도 오지 않는다** —
+ * 실행 중인데도 캔버스가 검은 채로 남는다. 실측으로 확인된 버그다.
+ *
+ * 두 겹으로 막는다:
+ *  1. **마지막 프레임 캐시** — 세션이 최근 JPEG **1장**(수십 KB)을 들고 있다가 `attach()`
+ *     즉시 보낸다. 비용이 0 이고 화면에 개입하지 않는다.
+ *  2. **키프레임 강제 캡처** — 캐시가 비었을 때만(= 이 page 의 첫 프레임이 아직 없을 때)
+ *     `keyframeProvider` 로 CDP `Page.captureScreenshot` 을 1회 요청한다. 실행 중인 페이지에
+ *     개입하는 비용이 있어 **캐시가 비었을 때만** 쓴다(조합 전략).
+ *
+ * ## ★★ 라운드 4 — sink 1개 제약을 풀었다 (다중 뷰어)
+ * 04-gen-4 결정 7은 "최신이 이긴다"(sink 1개)였다. 두 탭에서 같은 run 을 열면 **먼저 연 탭이
+ * 끊긴다.** 관전이 실제 요구가 됐으므로 `Set<LiveStreamSink>` 브로드캐스트로 바꿨다.
+ * 프레임 1장을 N 개 소켓에 `send` 할 뿐이고, **백프레셔 판단은 여전히 소켓별**이다
+ * (`ws-server.ts` 가 각자 `bufferedAmount` 를 본다) — 느린 뷰어가 빠른 뷰어를 끌어내리지 않는다.
  */
 import type { LiveStreamServerMessage, LiveStreamState, RunStatus } from "@testflow/contracts";
 
@@ -76,7 +94,30 @@ export interface LiveStreamStats {
   framesDroppedNoViewer: number;
   ended: boolean;
   viewerCount: number;
+  /** ★ 캐시된 마지막 프레임을 그대로 보내 준 횟수(늦게 붙은 뷰어 수와 같다). */
+  cachedFramesReplayed: number;
+  /** ★ 캐시가 비어 CDP 캡처를 요청한 횟수. */
+  keyframesRequested: number;
+  /** 그중 실제로 프레임을 얻은 횟수. */
+  keyframesDelivered: number;
 }
+
+/**
+ * 캐시가 비었을 때 **지금 화면 1장**을 만들어 주는 공급자. `code-browser.ts` 가 꽂는다.
+ *
+ * 없거나(`null`) 붙은 page 가 없으면 `null` 을 돌려준다 — 그때는 진짜로 보여 줄 화면이 없다
+ * (`between-tests`). 실패해도 **던지지 않는다**: 라이브는 실행의 전제가 아니다.
+ */
+export type LiveKeyframeProvider = () => Promise<LiveStreamFrame | null>;
+
+/**
+ * 키프레임 캡처를 이 간격보다 자주 하지 않는다.
+ *
+ * 뷰어 여러 개가 동시에 붙으면(새로고침 연타·두 탭 동시 열기) 같은 화면을 여러 번 찍게 된다.
+ * `Page.captureScreenshot` 은 실행 중인 페이지의 렌더러를 잠깐 쓰므로 공짜가 아니다.
+ * 이 간격 안의 요청은 **직전 결과(= 캐시)** 로 답한다.
+ */
+export const LIVE_KEYFRAME_MIN_INTERVAL_MS = 700;
 
 /**
  * run 1건의 스트림 세션.
@@ -85,7 +126,7 @@ export interface LiveStreamStats {
  * 떨어진다(뷰어가 없어도 세션은 살아 있고, 프레임은 버려진다).
  */
 export class LiveStreamSession {
-  private sink: LiveStreamSink | null = null;
+  private readonly sinks = new Set<LiveStreamSink>();
   private state: LiveStreamState = "between-tests";
   private attachedPages = 0;
   private sawFrameOnCurrentPage = false;
@@ -95,34 +136,67 @@ export class LiveStreamSession {
   private framesForwarded = 0;
   private framesDroppedNoViewer = 0;
 
+  /**
+   * ★ 마지막으로 흘려보낸 프레임 1장. **늦게 붙은 뷰어의 첫 화면**이 된다.
+   *
+   * 메모리는 JPEG 한 장(q60·1280×800 실측 20~60KB)뿐이고 세션당 1개다. 프레임이 올 때마다
+   * 덮어쓰므로 누적되지 않는다.
+   */
+  private lastFrame: LiveStreamFrame | null = null;
+  private keyframeProvider: LiveKeyframeProvider | null = null;
+  /** 진행 중인 캡처. 뷰어 N 명이 동시에 붙어도 캡처는 1회다. */
+  private keyframeInFlight: Promise<void> | null = null;
+  private lastKeyframeAtMs = 0;
+  private cachedFramesReplayed = 0;
+  private keyframesRequested = 0;
+  private keyframesDelivered = 0;
+
   constructor(readonly runId: string) {}
 
   /* ── 뷰어 ─────────────────────────────────────────────── */
 
   /**
-   * 뷰어를 붙인다. **sink 는 1개다**(04-gen-7 이슈 4번과 같은 제약 — 관전 기능이 생기면
-   * 그때 다중 sink 로 넓힌다). 새 뷰어가 오면 **최신이 이긴다** — 새로고침으로 만든
-   * 두 번째 연결을 거부하면 이전 소켓이 아직 닫히지 않은 사이에 사용자가 화면을 못 본다.
+   * ★ 키프레임 공급자를 꽂는다(`code-browser.ts`). 없으면 캐시만으로 동작한다 —
+   * 그 경우에도 "정지 화면 + 캐시 있음"은 즉시 보인다.
    */
-  attach(sink: LiveStreamSink): LiveStreamSink | null {
-    const previous = this.sink;
-    this.sink = sink;
-    // 붙는 즉시 현재 상태를 알려 준다 — 그래야 첫 프레임 전에도 오버레이가 맞는다.
+  setKeyframeProvider(provider: LiveKeyframeProvider | null): void {
+    this.keyframeProvider = provider;
+  }
+
+  /**
+   * 뷰어를 붙인다. **여러 명이 동시에 붙을 수 있다**(라운드 4 — sink 1개 제약 해제).
+   * 기존 뷰어를 끊지 않는다: 두 탭에서 같은 run 을 열면 **둘 다** 본다.
+   *
+   * 붙는 즉시 세 가지를 준다 —
+   *  ① 현재 상태 메시지(첫 프레임 전에도 오버레이가 맞는다),
+   *  ② 캐시된 마지막 프레임(있으면) — **이 한 줄이 "늦게 접속해도 즉시 보인다"의 전부다**,
+   *  ③ 캐시가 없으면 키프레임 캡처 요청(비동기. page 가 없으면 아무 일도 일어나지 않는다).
+   */
+  attach(sink: LiveStreamSink): void {
+    this.sinks.add(sink);
     sink.message({
       t: "state",
       state: this.state,
       ...(this.endedStatus === null ? {} : { runStatus: this.endedStatus }),
     });
+
+    const cached = this.lastFrame;
+    if (cached !== null) {
+      this.cachedFramesReplayed += 1;
+      sink.frame(cached);
+    } else if (!this.ended) {
+      this.requestKeyframe();
+    }
+
     if (this.ended) this.scheduleFinish();
-    return previous;
   }
 
   detach(sink: LiveStreamSink): void {
-    if (this.sink === sink) this.sink = null;
+    this.sinks.delete(sink);
   }
 
   get viewerCount(): number {
-    return this.sink === null ? 0 : 1;
+    return this.sinks.size;
   }
 
   /* ── page 수명 (code-browser 가 호출한다) ─────────────── */
@@ -130,6 +204,12 @@ export class LiveStreamSession {
   pageAttached(): void {
     this.attachedPages += 1;
     this.sawFrameOnCurrentPage = false;
+    /*
+     * ★ 새 page 가 붙었는데 그 화면이 정지해 있으면 screencast 가 프레임을 내지 않는다.
+     *   보고 있던 뷰어는 **이전 테스트의 마지막 화면**에 멈춘 채로 남는다.
+     *   그래서 뷰어가 있을 때만 키프레임을 한 장 당겨 온다(없으면 비용을 치르지 않는다).
+     */
+    if (this.sinks.size > 0 && !this.ended) this.requestKeyframe();
   }
 
   pageDetached(): void {
@@ -145,17 +225,19 @@ export class LiveStreamSession {
 
   pushFrame(frame: LiveStreamFrame): void {
     if (this.ended) return;
+    // ★ 뷰어가 없어도 캐시는 채운다 — 다음에 붙는 뷰어의 첫 화면이 여기서 나온다.
+    this.lastFrame = frame;
     if (!this.sawFrameOnCurrentPage) {
       this.sawFrameOnCurrentPage = true;
       this.setState("live");
     }
-    const sink = this.sink;
-    if (sink === null) {
+    if (this.sinks.size === 0) {
       this.framesDroppedNoViewer += 1;
       return;
     }
     this.framesForwarded += 1;
-    sink.frame(frame);
+    // 백프레셔 판단은 소켓별이다(`ws-server.ts`). 느린 뷰어가 빠른 뷰어를 끌어내리지 않는다.
+    for (const sink of [...this.sinks]) sink.frame(frame);
   }
 
   /* ── 오류 / 종료 ──────────────────────────────────────── */
@@ -165,7 +247,7 @@ export class LiveStreamSession {
    * 실행의 전제가 아니다(Task 4.4 규칙).
    */
   error(code: string, message: string): void {
-    this.sink?.message({ t: "error", code, message: message.slice(0, 300) });
+    this.broadcast({ t: "error", code, message: message.slice(0, 300) });
   }
 
   /**
@@ -177,7 +259,7 @@ export class LiveStreamSession {
     this.ended = true;
     this.endedStatus = runStatus;
     this.state = "ended";
-    this.sink?.message({ t: "state", state: "ended", runStatus });
+    this.broadcast({ t: "state", state: "ended", runStatus });
     this.scheduleFinish();
   }
 
@@ -190,13 +272,13 @@ export class LiveStreamSession {
    *   내려가는 것이 정상 경로이므로, 이 분기가 사실상 기본 경로다.
    */
   dispose(): void {
+    this.keyframeProvider = null;
     if (this.ended && this.lingerTimer !== null) return;
     if (this.lingerTimer !== null) {
       clearTimeout(this.lingerTimer);
       this.lingerTimer = null;
     }
-    this.sink?.finish();
-    this.sink = null;
+    this.finishAll();
   }
 
   stats(): LiveStreamStats {
@@ -207,23 +289,67 @@ export class LiveStreamSession {
       framesDroppedNoViewer: this.framesDroppedNoViewer,
       ended: this.ended,
       viewerCount: this.viewerCount,
+      cachedFramesReplayed: this.cachedFramesReplayed,
+      keyframesRequested: this.keyframesRequested,
+      keyframesDelivered: this.keyframesDelivered,
     };
+  }
+
+  /** 테스트·진단용. 캐시가 채워졌는지만 본다(바이트는 노출하지 않는다). */
+  hasCachedFrame(): boolean {
+    return this.lastFrame !== null;
   }
 
   /* ── 내부 ─────────────────────────────────────────────── */
 
+  private broadcast(message: LiveStreamServerMessage): void {
+    for (const sink of [...this.sinks]) sink.message(message);
+  }
+
+  private finishAll(): void {
+    for (const sink of [...this.sinks]) sink.finish();
+    this.sinks.clear();
+  }
+
   private setState(next: LiveStreamState): void {
     if (this.ended || this.state === next) return;
     this.state = next;
-    this.sink?.message({ t: "state", state: next });
+    this.broadcast({ t: "state", state: next });
+  }
+
+  /**
+   * ★ 키프레임 1장을 당겨 온다. **동기로 돌려주지 않는다** — `attach()` 가 이것을 기다리면
+   *   상태 메시지조차 늦어진다. 결과는 `pushFrame()` 을 통해 **모든 뷰어**에게 간다
+   *   (그 과정에서 캐시도 채워지므로 다음 뷰어는 캡처 없이 즉시 본다).
+   *
+   * 실패·부재는 **조용히 넘긴다.** page 가 없으면 진짜로 보여 줄 화면이 없고, 그 사실은
+   * `between-tests` 상태가 이미 말하고 있다.
+   */
+  private requestKeyframe(): void {
+    const provider = this.keyframeProvider;
+    if (provider === null || this.keyframeInFlight !== null) return;
+    const now = Date.now();
+    if (now - this.lastKeyframeAtMs < LIVE_KEYFRAME_MIN_INTERVAL_MS) return;
+    this.lastKeyframeAtMs = now;
+    this.keyframesRequested += 1;
+
+    this.keyframeInFlight = provider()
+      .then((frame) => {
+        if (frame === null || this.ended) return;
+        this.keyframesDelivered += 1;
+        this.pushFrame(frame);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        this.keyframeInFlight = null;
+      });
   }
 
   private scheduleFinish(): void {
     if (this.lingerTimer !== null) return;
     this.lingerTimer = setTimeout(() => {
       this.lingerTimer = null;
-      this.sink?.finish();
-      this.sink = null;
+      this.finishAll();
     }, LIVE_STREAM_ENDED_LINGER_MS);
     this.lingerTimer.unref();
   }

@@ -165,8 +165,21 @@ export class ArtifactCollector {
   async finalize(params: { failed: boolean; traceSaved: boolean }): Promise<number> {
     const keep = params.failed || this.keepOnSuccess;
     if (!keep) {
+      /*
+       * ★ 라운드 4 — 성공한 실행에서도 **영상만은 남긴다.**
+       *
+       * 사용자 요구가 "테스트 한 거를 다시 보고 싶다" 이고, 그것은 성공·실패를 가리지 않는다.
+       * 코드 실행 경로도 같은 판단을 했다(`pw-config.ts` 의 `video: "on"`) — 두 경로가
+       * 다른 정책을 쓰면 "어떤 실행은 다시 보기가 되고 어떤 실행은 안 되는" 꼴이 된다.
+       *
+       * trace·console·network 는 그대로 버린다. 그것들은 **디버깅** 자료라 성공한 실행에서
+       * 볼 이유가 없고, trace 는 실행당 0.7MB 이상으로 영상보다 비싼 경우가 많다.
+       */
+      const successVideo = await this.findVideoFile();
+      const publishedVideo =
+        successVideo === null ? 0 : await this.store("video", "video.webm", successVideo);
       await this.cleanup();
-      return 0;
+      return publishedVideo;
     }
 
     let published = 0;

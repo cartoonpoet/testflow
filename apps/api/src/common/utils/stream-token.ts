@@ -4,6 +4,7 @@ import {
   LIVE_STREAM_TOKEN_TTL_SEC,
   recordingTokenKey,
   liveStreamTokenKey,
+  liveStreamTokenMemberKey,
 } from "@testflow/contracts";
 
 /**
@@ -97,7 +98,14 @@ export interface IssuedStreamToken {
   expiresAt: string;
 }
 
-/** 토큰을 발급하고 해시만 TTL 과 함께 Redis 에 둔다. */
+/**
+ * 토큰을 발급하고 해시만 TTL 과 함께 Redis 에 둔다.
+ *
+ * ★ 라운드 4 — `live` 는 **해시별 키를 하나 더** 쓴다(`liveStreamTokenMemberKey`).
+ *   run 당 슬롯이 하나뿐이면 같은 run 을 두 탭에서 열 때 두 번째 발급이 첫 탭의 토큰을
+ *   무효화해 **4401** 이 난다. 두 키를 다 쓰면 기존 경로(단일 슬롯 `GET`)는 그대로 살고,
+ *   앞선 토큰도 자기 TTL 동안 유효하다. 녹화 경로는 **한 글자도 바뀌지 않는다.**
+ */
 export async function issueStreamToken(
   store: StreamTokenStore,
   keyspace: StreamTokenKeyspace,
@@ -105,7 +113,11 @@ export async function issueStreamToken(
 ): Promise<IssuedStreamToken> {
   const ttlSec = streamTokenTtlSec(keyspace);
   const token = generateStreamToken();
-  await store.set(streamTokenKey(keyspace, id), hashStreamToken(token), "EX", ttlSec);
+  const hash = hashStreamToken(token);
+  await store.set(streamTokenKey(keyspace, id), hash, "EX", ttlSec);
+  if (keyspace === "live") {
+    await store.set(liveStreamTokenMemberKey(id, hash), "1", "EX", ttlSec);
+  }
   return {
     token,
     expiresAt: new Date(Date.now() + ttlSec * 1000).toISOString(),
