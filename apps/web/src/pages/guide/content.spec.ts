@@ -76,6 +76,23 @@ describe("가이드 화면 데이터", () => {
     expect(body.replace(/`[^`]*`/g, "")).not.toMatch(/\[[^\]]*\]\([^)]*\)/);
   });
 
+  it("`코드` 를 **굵게** 안에 넣지 않는다 (백틱이 화면에 그대로 보인다)", () => {
+    /*
+     * ★ `InlineMd` 는 **중첩을 모른다.** 규칙 3개가 교대(alternation)로만 붙어 있어서
+     *   `**… `코드` …**` 를 만나면 바깥 `**` 가 먼저 잡히고 안쪽 백틱은 **글자로 남는다.**
+     *   화면에 `` `change` `` 처럼 백틱이 그대로 노출된다 — 링크·이미지와 같은 종류의 사고다.
+     *   실제로 이 검사를 넣기 전에 본문 11곳에서 백틱이 새고 있었다.
+     *   고치는 법은 간단하다: 코드 칩을 굵게 밖으로 빼라 (``**파일 1개** · `test()` **1개**``).
+     */
+    const leaks: string[] = [];
+    for (const line of proseStrings()) {
+      for (const match of line.matchAll(/\*\*([\s\S]+?)\*\*/g)) {
+        if ((match[1] ?? "").includes("`")) leaks.push(match[0]);
+      }
+    }
+    expect(leaks).toEqual([]);
+  });
+
   it("핵심 산출물과 절 구조가 비어 있지 않다", () => {
     // AI 프롬프트는 이 화면의 존재 이유다. 복사 버튼이 빈 문자열을 복사하면 안 된다.
     expect(AI_PROMPT.trim().length).toBeGreaterThan(200);
@@ -88,5 +105,22 @@ describe("가이드 화면 데이터", () => {
     }
     expect(TS_CODE_BLOCKS.length).toBeGreaterThan(0);
     for (const code of TS_CODE_BLOCKS) expect(code.trim()).not.toBe("");
+  });
+
+  it("AI 프롬프트가 길이 예산 안에 있다", () => {
+    /*
+     * ★ 프롬프트는 **길어질수록 효과가 떨어진다.** AI 가 앞부분을 흘린다.
+     *   실전 함정을 반영하면서 항목을 늘리고 싶은 유혹이 계속 생기는 자리라,
+     *   "늘릴 수는 있지만 공짜가 아니다" 를 여기서 숫자로 못 박는다.
+     *   넘기고 싶으면 **기존 항목을 묶어서** 자리를 만들어라.
+     */
+    const items = AI_PROMPT.split("\n").filter((line) => /^\d+\. /.test(line));
+    expect(items.length).toBeLessThanOrEqual(10);
+    expect(AI_PROMPT.length).toBeLessThanOrEqual(1800);
+
+    // 번호가 1부터 빠짐없이 이어져야 한다 — 본문이 "제약 1번" 처럼 번호로 가리킨다.
+    expect(items.map((line) => Number(line.split(".")[0]))).toEqual(
+      items.map((_, index) => index + 1),
+    );
   });
 });

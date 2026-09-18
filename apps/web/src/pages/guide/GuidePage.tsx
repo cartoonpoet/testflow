@@ -113,11 +113,15 @@ function SubToc({ section }: { section: GuideSection }) {
 
   return (
     /*
-     * 760px 이하에서는 소절 목차를 감춘다. 한 단으로 접히면 목차가 본문 위에 통째로
-     * 쌓이는데, 12줄짜리 목차가 첫 화면을 다 먹으면 "문서"가 아니라 "메뉴"로 보인다.
-     * 절 6개만 남기면 4~5줄이라 바로 아래 본문이 함께 보인다.
+     * ★ **한 단으로 접히는 순간**(compact, 1050px 이하) 소절 목차를 감춘다.
+     * 목차가 본문 위에 통째로 쌓이는데, 22줄짜리 목차가 첫 화면을 다 먹으면
+     * "문서"가 아니라 "메뉴"로 보인다. 절 7개만 남기면 5~6줄이라 바로 아래 본문이 함께 보인다.
+     *
+     * 원래 기준은 `max-mobile`(760px)이었다. 절이 6→7 개, 소절이 12→15 개로 늘어난 뒤
+     * **1050px 에서 목차가 641px**(900px 뷰포트의 71%)까지 자라는 것을 실측하고 기준을
+     * 옮겼다 — 감추는 이유 자체가 "한 단으로 접혀서" 이므로 `max-compact` 가 맞는 기준이다.
      */
-    <ol className="m-0 mb-[4px] list-none border-l border-hairline p-0 pl-[10px] max-mobile:hidden">
+    <ol className="m-0 mb-[4px] list-none border-l border-hairline p-0 pl-[10px] max-compact:hidden">
       {headings.map((heading) => (
         <li key={heading.id}>
           <a
