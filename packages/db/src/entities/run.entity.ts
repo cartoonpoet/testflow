@@ -10,8 +10,8 @@ import {
   Unique,
 } from "typeorm";
 import type { Relation } from "typeorm";
-import { BROWSERS, RUN_STATUSES } from "@testflow/contracts";
-import type { Browser, RunStatus } from "@testflow/contracts";
+import { BROWSERS, RUN_STATUSES, SCENARIO_SOURCE_TYPES } from "@testflow/contracts";
+import type { Browser, RunStatus, ScenarioSourceType } from "@testflow/contracts";
 import type { ProjectEntity } from "./project.entity.js";
 import type { ScenarioEntity } from "./scenario.entity.js";
 import type { SuiteEntity } from "./suite.entity.js";
@@ -68,6 +68,17 @@ export class RunEntity {
 
   @Column({ name: "browser", type: "varchar", length: 20, default: BROWSERS[0] })
   browser!: Browser;
+
+  /**
+   * 실행 시점 **스냅샷** — 이 실행이 녹화 스텝을 돌린 것인지 사용자 코드를 돌린 것인지.
+   *
+   * `scenarios` 를 조인하지 않는 이유는 `scenarioName`·`baseUrl` 과 같다:
+   * **시나리오가 삭제돼도 이력이 남아야 한다**(`scenario_id` 는 NULL 이 될 수 있다).
+   * 화면이 이 값으로 "라이브 뷰를 열지 / 대기 행을 그릴지"를 가른다.
+   * 채우기·응답 노출 배선은 Gen-Phase 2 Task 2.6 이 한다(마이그레이션 011 이 컬럼을 이미 만든다).
+   */
+  @Column({ name: "source_type", type: "enum", enum: SCENARIO_SOURCE_TYPES, default: "steps" })
+  sourceType!: ScenarioSourceType;
 
   @Column({ name: "status", type: "enum", enum: RUN_STATUSES, default: "queued" })
   status!: RunStatus;

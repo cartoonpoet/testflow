@@ -3,6 +3,7 @@ import { BullModule } from "@nestjs/bullmq";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { RUN_QUEUE_NAME } from "@testflow/contracts";
 import { ProjectEntity, RunEntity, StepResultEntity } from "@testflow/db";
+import { LiveStreamController } from "./live-stream.controller.js";
 import { RunsController } from "./runs.controller.js";
 import { RunsService } from "./runs.service.js";
 import { RunEventsService, RunsSseController } from "./runs.sse.js";
@@ -22,7 +23,7 @@ import { RunEventsService, RunsSseController } from "./runs.sse.js";
     TypeOrmModule.forFeature([RunEntity, StepResultEntity, ProjectEntity]),
     BullModule.registerQueue({ name: RUN_QUEUE_NAME }),
   ],
-  controllers: [RunsController, RunsSseController],
+  controllers: [RunsController, RunsSseController, LiveStreamController],
   providers: [RunsService, RunEventsService],
   exports: [RunsService, RunEventsService],
 })

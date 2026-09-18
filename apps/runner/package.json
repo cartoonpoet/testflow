@@ -16,9 +16,11 @@
     "clean": "rm -rf dist dist-poc .turbo *.tsbuildinfo",
     "build:poc": "tsc -p tsconfig.poc.json",
     "poc:serve": "pnpm build:poc && node dist-poc/poc/poc1.js",
-    "poc:measure": "pnpm build:poc && node dist-poc/poc/measure.js"
+    "poc:measure": "pnpm build:poc && node dist-poc/poc/measure.js",
+    "poc:r2": "pnpm build:poc && node dist-poc/poc/r2/r2.js"
   },
   "dependencies": {
+    "@playwright/test": "1.63.0",
     "@testflow/contracts": "workspace:*",
     "@testflow/db": "workspace:*",
     "bullmq": "6.3.6",

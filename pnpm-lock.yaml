@@ -114,6 +114,9 @@ importers:
 
   apps/runner:
     dependencies:
+      '@playwright/test':
+        specifier: 1.63.0
+        version: 1.63.0
       '@testflow/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -602,6 +605,11 @@ packages:
 
   '@oxc-project/types@0.150.0':
     resolution: {integrity: sha512-rDS5/31E9HfPl/CIzGrn0DOlvBbXFseQ5URJ9sYMfstbKLD/c6Gm9vmRzRGDdAXyOIL4zmO37lc9RIwYqVruZw==}
+
+  '@playwright/test@1.63.0':
+    resolution: {integrity: sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   '@radix-ui/number@1.1.3':
     resolution: {integrity: sha512-Road2bidD0uu/1BGDOWNdPI06g0lIRy6IF9GZcIrDK2KGItfor8IQwQa+yM2ERgHM1MmHxaxpTzk0/Jp42lNfA==}
@@ -3443,6 +3451,10 @@ snapshots:
       typeorm: 1.1.1(ioredis@6.0.0)(mysql2@3.24.4(@types/node@22.20.3))
 
   '@oxc-project/types@0.150.0': {}
+
+  '@playwright/test@1.63.0':
+    dependencies:
+      playwright: 1.63.0
 
   '@radix-ui/number@1.1.3': {}
 

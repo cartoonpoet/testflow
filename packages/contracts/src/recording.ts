@@ -92,6 +92,49 @@ export function recordingTokenKey(sessionId: string): string {
   return `${RECORDING_TOKEN_KEY_PREFIX}${sessionId}`;
 }
 
+/* ────────────────────────────────────────────────────────────
+ * 실행 라이브 스트림 토큰  (라운드 2 — 03-phases 쟁점 3)
+ * ──────────────────────────────────────────────────────────── */
+
+/**
+ * ★ **토큰 규약은 녹화와 똑같고, 키 공간만 다르다.**
+ *
+ * `sha256` + `timingSafeEqual` + Redis 해시 저장 + 즉시 폐기 — 위 녹화 토큰 설계를
+ * 그대로 쓴다. 해시/비교 함수를 **복사하지 않는다**: API 의
+ * `common/utils/stream-token.ts`(Gen-Phase 2 Task 2.5)로 일반화하고
+ * 녹화 경로가 그것을 쓰도록 바꾼다. 녹화 토큰의 **키 접두사·TTL·동작은 변하지 않아야 한다.**
+ *
+ * ★ **키 공간은 반드시 분리한다.** `testflow:rec:token:` ↔ `testflow:run:token:`.
+ *   같은 공간을 쓰면 **녹화 토큰으로 실행 스트림에 붙을 수 있다**(그 반대도 마찬가지).
+ *   접두사 하나가 그 경계 전부다.
+ */
+export const LIVE_STREAM_TOKEN_KEY_PREFIX = "testflow:run:token:";
+
+/**
+ * 라이브 스트림 토큰 TTL(초).
+ *
+ * 녹화(600초)보다 짧다. 녹화는 사람이 브라우저를 조작하는 시간이지만, 라이브 스트림 토큰은
+ * **발급 직후 WS 접속에 한 번 쓰이고 버려진다**(연결이 살아 있는 동안 토큰은 다시 필요 없다).
+ * 짧을수록 유출 창이 좁다.
+ */
+export const LIVE_STREAM_TOKEN_TTL_SEC = 120;
+
+export function liveStreamTokenKey(runId: string): string {
+  return `${LIVE_STREAM_TOKEN_KEY_PREFIX}${runId}`;
+}
+
+/**
+ * `GET /api/runs/:id/live` 응답.
+ *
+ * `wsUrl` 은 API 포트가 아니라 **`RUNNER_WS_PORT`** 를 가리킨다 (`/live/:runId?token=…`).
+ * 종료된 run(`isTerminalRunStatus`)에는 발급하지 않는다 — 끝난 실행에 스트림을 열어 주지 않는다(404).
+ */
+export const LiveStreamInfoSchema = z.object({
+  wsUrl: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+});
+export type LiveStreamInfo = z.infer<typeof LiveStreamInfoSchema>;
+
 /**
  * 세션 제어 채널. API 가 publish 하고 Runner 가 subscribe 한다.
  * `stop`/`DELETE` 요청이 왔을 때 Runner 에게 브라우저를 접으라고 알리는 유일한 경로다

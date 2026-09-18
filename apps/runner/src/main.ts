@@ -15,6 +15,7 @@ import {
 import type { RunJobData } from "@testflow/contracts";
 import { createDataSourceOptions } from "@testflow/db";
 import { RunAbortHandle, executeRun } from "./execute/executor.js";
+import { LiveStreamRegistry } from "./execute/live-stream.js";
 import { maskSecretText } from "./mask.js";
 import { loadConfig } from "./env.js";
 import type { RunnerConfig } from "./env.js";
@@ -78,13 +79,25 @@ async function main(): Promise<void> {
   await startHeartbeat(redis, config);
   await startCancelListener(subscriber);
 
+  /**
+   * ★ 실행 라이브 스트림 레지스트리 (라운드 2 Task 4.4).
+   *
+   * **BullMQ Worker(프레임 생산)와 WS 서버(프레임 소비)가 이 객체 하나로 만난다.**
+   * 둘이 같은 프로세스에서 도는 것이 전제다 — Playwright 가 Runner 에만 있으므로
+   * 라운드 1의 녹화 세션과 같은 구조다(04-gen-7). 프로세스를 쪼개려면 프레임을
+   * Redis 로 흘려야 하고 그 순간 지연 예산이 무너진다.
+   */
+  const liveStreams = new LiveStreamRegistry();
+
   // 녹화 WS 서버 — BullMQ Worker 와 같은 프로세스에서 돈다(Playwright 는 Runner 에만 있다).
+  // `/rec/:sessionId`(녹화) + `/live/:runId`(실행 라이브) 두 경로를 같은 포트에서 연다.
   const recorder = await startRecordingWsServer({
     config,
     redis,
     subscriber: recordingSubscriber,
     dataSource,
     log,
+    liveStreams,
   });
 
   const worker = new Worker<RunJobData>(
@@ -107,7 +120,15 @@ async function main(): Promise<void> {
       }, config.runTimeoutMs);
 
       try {
-        const result = await executeRun({ job: data, config, dataSource, redis, abort, log });
+        const result = await executeRun({
+          job: data,
+          config,
+          dataSource,
+          redis,
+          abort,
+          log,
+          liveStreams,
+        });
         // ★ 반환값은 BullMQ job 에 저장된다. **평문 변수를 넣지 않는다.**
         return {
           status: result.status,
@@ -150,6 +171,7 @@ async function main(): Promise<void> {
   setupShutdown(async () => {
     log("종료 신호 수신 — 진행 중인 실행을 마치고 정리합니다.");
     await worker.close();
+    liveStreams.closeAll();
     await recorder.close().catch(() => undefined);
     await recordingSubscriber.quit().catch(() => undefined);
     await subscriber.quit().catch(() => undefined);

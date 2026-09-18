@@ -1,10 +1,20 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  generateStreamToken,
+  hashStreamToken,
+  matchesStreamTokenHash,
+} from "../../common/utils/stream-token.js";
 
 /**
  * ★ 녹화 세션 토큰 — 발급(API)과 검증(Runner)의 단일 규약.
  *
- * Gen-Phase 7(Task 7.2)의 WS 서버가 **이 파일의 `hashRecordingToken` 과
- * `verifyRecordingToken` 을 그대로 구현**해야 한다. 규약 전문은
+ * ## 라운드 2에서 바뀐 것 (03-phases Task 2.5)
+ * 해시·비교 구현이 **`common/utils/stream-token.ts` 로 일반화**됐다. 실행 라이브 스트림
+ * (`testflow:run:token:`)이 같은 규약을 써야 하는데 **복사하면 두 벌이 어긋난다**(쟁점 3).
+ * 이 파일은 이제 녹화 경로의 **이름만 유지하는 얇은 위임**이다 —
+ * **동작·키 접두사(`testflow:rec:token:`)·TTL(600초)은 한 글자도 바뀌지 않았다.**
+ * `recording-token.spec.ts` 9건이 그 사실의 안전망이다(수정하지 않았다).
+ *
+ * Gen-Phase 7(Task 7.2)의 WS 서버는 여전히 아래 규약을 그대로 구현하면 된다. 규약 전문은
  * `@testflow/contracts` 의 `RECORDING_TOKEN_KEY_PREFIX` JSDoc 에 있다.
  *
  * 요약:
@@ -18,11 +28,11 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 /** base64url 43자. `?token=` 쿼리스트링에 그대로 실을 수 있다(URL 안전). */
 export function generateRecordingToken(): string {
-  return randomBytes(32).toString("base64url");
+  return generateStreamToken();
 }
 
 export function hashRecordingToken(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex");
+  return hashStreamToken(token);
 }
 
 /**
@@ -32,9 +42,5 @@ export function hashRecordingToken(token: string): string {
  * 항상 타이밍 안전 경로를 탄다(토큰을 한 바이트씩 맞춰 보는 공격 차단).
  */
 export function verifyRecordingToken(token: string, storedHash: string | null): boolean {
-  if (storedHash === null || storedHash.length === 0) return false;
-  const actual = Buffer.from(hashRecordingToken(token), "hex");
-  const expected = Buffer.from(storedHash, "hex");
-  if (actual.length !== expected.length || expected.length === 0) return false;
-  return timingSafeEqual(actual, expected);
+  return matchesStreamTokenHash(token, storedHash);
 }

@@ -25,6 +25,12 @@ export type RunSummaryBarProps = {
 export function RunSummaryBar({ run, cancelPending = false }: RunSummaryBarProps) {
   const { summary } = run;
   const isRunning = run.status === "running" || run.status === "queued";
+  /**
+   * ★ 코드 실행은 **M(총 단계 수)이 실행 중에 커진다**(03-phases 쟁점 2).
+   *   숫자가 갑자기 늘어나는 이유를 안 적으면 "뭔가 잘못됐다"로 읽힌다.
+   *   되돌아가지 않는 것(단조 증가)은 `lib/run-events.ts` 의 `monotonic()` 이 보장한다.
+   */
+  const growingTotal = run.sourceType === "code" && isRunning;
 
   const headline = cancelPending
     ? `${summary.envLabel} 환경 — 취소 중`
@@ -50,20 +56,27 @@ export function RunSummaryBar({ run, cancelPending = false }: RunSummaryBarProps
         </p>
       </div>
 
-      <div
-        data-slot="run-state"
-        className="flex items-center gap-[9px] font-850 text-run-state"
-      >
-        {isRunning && !cancelPending ? (
-          <span
-            aria-hidden="true"
-            data-slot="pulse"
-            className="h-[9px] w-[9px] rounded-full bg-run-state animate-pulse-dot"
-          />
+      <div data-slot="run-state" className="max-mobile:text-left text-right">
+        <div className="flex items-center gap-[9px] font-850 text-run-state max-mobile:justify-start">
+          {isRunning && !cancelPending ? (
+            <span
+              aria-hidden="true"
+              data-slot="pulse"
+              className="h-[9px] w-[9px] rounded-full bg-run-state animate-pulse-dot"
+            />
+          ) : null}
+          <span data-slot="run-progress">
+            {String(summary.currentStep)} / {String(summary.totalSteps)} 단계
+          </span>
+        </div>
+        {growingTotal ? (
+          <p
+            data-slot="run-progress-note"
+            className="m-0 mt-[4px] text-[10px] text-run-summary-ink"
+          >
+            총 단계 수는 실행하면서 확정됩니다
+          </p>
         ) : null}
-        <span data-slot="run-progress">
-          {String(summary.currentStep)} / {String(summary.totalSteps)} 단계
-        </span>
       </div>
     </div>
   );

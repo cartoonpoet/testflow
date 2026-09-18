@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { ProjectGate } from "@/components";
 import { Button, PageHead, Panel, StateView } from "@/components/ui";
 import { toast } from "@/hooks/useToast";
@@ -14,6 +14,7 @@ import {
 } from "@/hooks/useScenarioBuilder";
 import { RunDialog } from "@/pages/runs/RunDialog";
 import { BuilderHeader } from "./BuilderHeader";
+import { CodeExportModal } from "./CodeExportModal";
 import { Inspector } from "./Inspector";
 import { RecorderPanel } from "./RecorderPanel";
 import { StepList } from "./StepList";
@@ -45,6 +46,7 @@ export function ScenarioBuilderPage() {
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const advancedDetail = useAdvancedScenarioDetail(scenarioId, advanced);
 
   const recording = useRecording({
@@ -87,6 +89,15 @@ export function ScenarioBuilderPage() {
 
   const runnerReady = health.data?.runner === "ok";
 
+  /*
+   * ★ 라운드 2 — 코드 시나리오는 빌더가 아니라 코드 화면으로 간다.
+   *   `sourceType` 은 생성 후 바뀌지 않으므로 이 분기는 한 번만 일어난다.
+   *   (직접 URL 을 친 경우·옛 링크를 위한 안전망이다. 목록·생성 화면은 애초에 갈라 보낸다.)
+   */
+  if (detail.data !== undefined && detail.data.sourceType === "code") {
+    return <Navigate to={`/scenarios/${scenarioId}/code`} replace />;
+  }
+
   return (
     <>
       <PageHead
@@ -102,6 +113,16 @@ export function ScenarioBuilderPage() {
               }}
             >
               임시 저장
+            </Button>
+            <Button
+              data-testid="export-code"
+              disabled={detail.data === undefined || steps.length === 0}
+              title={steps.length === 0 ? "단계가 있어야 코드를 만들 수 있습니다" : undefined}
+              onClick={() => {
+                setExportOpen(true);
+              }}
+            >
+              코드로 내보내기
             </Button>
             <Button
               data-testid="run-open"
@@ -133,6 +154,20 @@ export function ScenarioBuilderPage() {
           </div>
         }
       />
+
+      {/*
+        ★ 열려 있을 때만 마운트한다 — 닫으면 생성 시각·복사 상태가 자연히 초기화되고
+          `?advanced=1` 쿼리(css 후보 원본)도 캐시에서 함께 정리된다.
+      */}
+      {!exportOpen ? null : (
+        <CodeExportModal
+          open
+          onOpenChange={setExportOpen}
+          scenarioId={scenarioId}
+          scenarioName={detail.data?.name ?? ""}
+          scenarioCode={detail.data?.code ?? ""}
+        />
+      )}
 
       <RunDialog
         open={runOpen}

@@ -2,12 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { Redis } from "ioredis";
-import {
-  DEFAULT_VIEWPORT,
-  RECORDING_TOKEN_TTL_SEC,
-  recordingControlChannel,
-  recordingTokenKey,
-} from "@testflow/contracts";
+import { DEFAULT_VIEWPORT, recordingControlChannel } from "@testflow/contracts";
 import type {
   ApiTestStep,
   CreateRecordingDto,
@@ -23,8 +18,8 @@ import {
   TestStepEntity,
 } from "@testflow/db";
 import { REDIS_CLIENT } from "../../common/redis/redis.module.js";
+import { issueStreamToken, revokeStreamToken } from "../../common/utils/stream-token.js";
 import { toApiSteps, toTestStep } from "../scenarios/step.mapper.js";
-import { generateRecordingToken, hashRecordingToken } from "./recording-token.js";
 
 /**
  * 녹화 세션 수명주기.
@@ -85,18 +80,13 @@ export class RecordingsService {
     );
 
     // ★ 평문 토큰은 응답으로만 나간다. Redis 에는 해시만 TTL 과 함께 남는다.
-    const token = generateRecordingToken();
-    await this.redis.set(
-      recordingTokenKey(session.id),
-      hashRecordingToken(token),
-      "EX",
-      RECORDING_TOKEN_TTL_SEC,
-    );
+    //   키 접두사(`testflow:rec:token:`)와 TTL(600초)은 keyspace `"recording"` 이 정한다.
+    const { token, expiresAt } = await issueStreamToken(this.redis, "recording", session.id);
 
     return {
       sessionId: session.id,
       wsUrl: buildRecorderWsUrl(session.id, token),
-      expiresAt: new Date(Date.now() + RECORDING_TOKEN_TTL_SEC * 1000).toISOString(),
+      expiresAt,
       viewport,
     };
   }
@@ -152,7 +142,7 @@ export class RecordingsService {
 
   /** 토큰 폐기 + Runner 에게 신호. 토큰을 지우는 순간 WS 재접속이 막힌다. */
   private async revokeSession(sessionId: string, kind: "stop" | "dispose"): Promise<void> {
-    await this.redis.del(recordingTokenKey(sessionId));
+    await revokeStreamToken(this.redis, "recording", sessionId);
     await this.redis.publish(
       recordingControlChannel(sessionId),
       JSON.stringify({ t: kind, sessionId, at: new Date().toISOString() }),

@@ -9,5 +9,7 @@
     "tsBuildInfoFile": "dist-poc/.tsbuildinfo"
   },
   "include": ["poc/**/*.ts", "src/record/screencast.ts", "src/record/input-bridge.ts"],
-  "exclude": ["node_modules", "dist", "dist-poc"]
+  // `poc/r2/pw/` 는 **Playwright 가 직접 TS 로 로드**한다(config·reporter·fixture·사용자 spec).
+  // tsc 로 컴파일하면 dist-poc 에 사본이 생겨 Playwright 가 어느 쪽을 로드했는지 흐려진다.
+  "exclude": ["node_modules", "dist", "dist-poc", "poc/r2/pw"]
 }

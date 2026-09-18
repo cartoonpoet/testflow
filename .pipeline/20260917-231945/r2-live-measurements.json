@@ -1,0 +1,257 @@
+{
+  "generatedAt": "2026-09-18",
+  "criteria": {
+    "latencyP95Ms": 200,
+    "fps": 10
+  },
+  "modes": {
+    "local": {
+      "client": {
+        "elapsedSeconds": 20.0032001953125,
+        "received": 264,
+        "rendered": 264,
+        "droppedClient": 0,
+        "bytes": 5818355,
+        "wsErrors": 0,
+        "fps": 13.197888209000935,
+        "mbps": 2.326969662129746,
+        "latencyDrawMs": {
+          "n": 264,
+          "min": 9.066162109375,
+          "p50": 11.197998046875,
+          "p95": 14.007080078125,
+          "max": 19.496337890625
+        },
+        "latencyPaintMs": {
+          "n": 264,
+          "p50": 12.486083984375,
+          "p95": 15.60693359375
+        }
+      },
+      "canvasSample": {
+        "distinctColors": 53,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "canvasSampleAfterEnd": {
+        "distinctColors": 56,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "closeInfo": {
+        "code": 1000,
+        "reason": "run finished",
+        "wasClean": true,
+        "atMs": 1789685537970.9001
+      },
+      "run": {
+        "runCode": "RUN-0095",
+        "status": "passed",
+        "sourceType": "code",
+        "totalSteps": 16,
+        "passedSteps": 16,
+        "durationMs": 28103,
+        "errorMessage": null
+      },
+      "textLog": [
+        {
+          "atMs": 1789685508469,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 0
+        },
+        {
+          "atMs": 1789685514798.1,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 0
+        },
+        {
+          "atMs": 1789685522096.9001,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 96
+        },
+        {
+          "atMs": 1789685522201.3,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 96
+        },
+        {
+          "atMs": 1789685529363.7002,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 190
+        },
+        {
+          "atMs": 1789685529476.4001,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 191
+        },
+        {
+          "atMs": 1789685535701.9001,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 274
+        },
+        {
+          "atMs": 1789685536467.9001,
+          "msg": {
+            "t": "state",
+            "state": "ended",
+            "runStatus": "passed"
+          },
+          "renderedSoFar": 274
+        }
+      ],
+      "wsUrl": "ws://127.0.0.1:4100/live/9739f31b-bc21-4049-ab19-2a2ba7d210ed?token=<redacted>",
+      "sawFirstFrame": true
+    },
+    "docker": {
+      "client": {
+        "elapsedSeconds": 20.003300048828127,
+        "received": 229,
+        "rendered": 229,
+        "droppedClient": 0,
+        "bytes": 4779902,
+        "wsErrors": 0,
+        "fps": 11.448111033729944,
+        "mbps": 1.9116453738462122,
+        "latencyDrawMs": {
+          "n": 229,
+          "min": 11.13720703125,
+          "p50": 16.14892578125,
+          "p95": 65.44384765625,
+          "max": 85.093017578125
+        },
+        "latencyPaintMs": {
+          "n": 229,
+          "p50": 17.777099609375,
+          "p95": 66.94384765625
+        }
+      },
+      "canvasSample": {
+        "distinctColors": 46,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "canvasSampleAfterEnd": {
+        "distinctColors": 48,
+        "center": [
+          244,
+          248,
+          247
+        ]
+      },
+      "closeInfo": {
+        "code": 1000,
+        "reason": "run finished",
+        "wasClean": true,
+        "atMs": 1789687799072.0999
+      },
+      "run": {
+        "runCode": "RUN-0107",
+        "status": "passed",
+        "sourceType": "code",
+        "totalSteps": 16,
+        "passedSteps": 16,
+        "durationMs": 26336,
+        "errorMessage": null
+      },
+      "textLog": [
+        {
+          "atMs": 1789687771353.0999,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 0
+        },
+        {
+          "atMs": 1789687774454.2,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 0
+        },
+        {
+          "atMs": 1789687782130.2,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 83
+        },
+        {
+          "atMs": 1789687782367.4,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 83
+        },
+        {
+          "atMs": 1789687789605.0999,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 173
+        },
+        {
+          "atMs": 1789687789847.5999,
+          "msg": {
+            "t": "state",
+            "state": "live"
+          },
+          "renderedSoFar": 173
+        },
+        {
+          "atMs": 1789687796249.5,
+          "msg": {
+            "t": "state",
+            "state": "between-tests"
+          },
+          "renderedSoFar": 247
+        },
+        {
+          "atMs": 1789687797566.5,
+          "msg": {
+            "t": "state",
+            "state": "ended",
+            "runStatus": "passed"
+          },
+          "renderedSoFar": 247
+        }
+      ],
+      "wsUrl": "ws://127.0.0.1:4100/live/6e9a6e16-a7c8-4954-808c-e81a55cb253e?token=<redacted>",
+      "sawFirstFrame": true
+    }
+  }
+}

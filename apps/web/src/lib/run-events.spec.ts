@@ -33,6 +33,8 @@ function detail(overrides: Partial<RunDetail> = {}): RunDetail {
     envLabel: "스테이징",
     baseUrl: "https://staging.example.com",
     browser: "chromium",
+    // 라운드 2 추가 필드(`RunSchema.sourceType`). 이 테스트는 녹화 실행을 다룬다.
+    sourceType: "steps",
     status: "queued",
     runnerId: null,
     totalSteps: 3,
@@ -172,6 +174,109 @@ describe("applyRunEvent", () => {
     });
 
     expect(next).toBe(base);
+  });
+});
+
+/**
+ * 라운드 2 — 코드 실행(`sourceType === "code"`)은 스텝을 미리 시딩할 수 없고
+ * 총 단계 수가 실행 중에 늘어난다(03-phases 쟁점 2). 화면이 그것을 견디는지 고정한다.
+ */
+describe("applyRunEvent — 코드 실행 (라운드 2)", () => {
+  /** 코드 실행의 출발점: 스텝 0건 · totalSteps 0. */
+  function codeDetail(): RunDetail {
+    return detail({
+      sourceType: "code",
+      status: "running",
+      totalSteps: 0,
+      steps: [],
+      summary: {
+        envLabel: "스테이징",
+        baseUrl: "https://staging.example.com",
+        browser: "chromium",
+        runnerId: null,
+        startedAt: null,
+        totalSteps: 0,
+        currentStep: 0,
+      },
+    });
+  }
+
+  it("★ 시딩되지 않은 step.started 가 행을 새로 만든다 (대기 행이 없다)", () => {
+    const next = applyRunEvent(codeDetail(), {
+      event: "step.started",
+      runId: RUN_ID,
+      sequence: 1,
+      name: 'Navigate "/login"',
+      totalSteps: 1,
+      at: AT,
+    });
+
+    expect(next.steps).toHaveLength(1);
+    expect(next.steps[0]?.status).toBe("running");
+    expect(next.steps[0]?.nameSnapshot).toBe('Navigate "/login"');
+    expect(next.totalSteps).toBe(1);
+  });
+
+  it("★ M(총 단계 수)이 커져도 되돌아가지 않는다 (단조 증가)", () => {
+    let state = codeDetail();
+    for (const totalSteps of [1, 2, 3]) {
+      state = applyRunEvent(state, {
+        event: "step.started",
+        runId: RUN_ID,
+        sequence: totalSteps,
+        name: `스텝 ${String(totalSteps)}`,
+        totalSteps,
+        at: AT,
+      });
+    }
+    expect(state.summary.totalSteps).toBe(3);
+
+    // 재연결 재전송으로 **과거의 작은 값**이 뒤늦게 들어온다.
+    const late = applyRunEvent(state, {
+      event: "step.started",
+      runId: RUN_ID,
+      sequence: 1,
+      name: "스텝 1",
+      totalSteps: 1,
+      at: AT,
+    });
+
+    expect(late.totalSteps).toBe(3);
+    expect(late.summary.totalSteps).toBe(3);
+    expect(late.summary.currentStep).toBe(3);
+  });
+
+  it("step.finished 만 온 단계도 행이 생기고 sequence 순으로 정렬된다", () => {
+    const seeded = applyRunEvent(codeDetail(), {
+      event: "step.finished",
+      runId: RUN_ID,
+      sequence: 2,
+      result: step(2, { status: "passed", durationMs: 120 }),
+      at: AT,
+    });
+    const next = applyRunEvent(seeded, {
+      event: "step.finished",
+      runId: RUN_ID,
+      sequence: 1,
+      result: step(1, { status: "passed", durationMs: 90 }),
+      at: AT,
+    });
+
+    expect(next.steps.map((item) => item.sequence)).toEqual([1, 2]);
+    expect(next.passedSteps).toBe(2);
+  });
+
+  it("★ 녹화 실행에는 행을 새로 만들지 않는다 (회귀 방지)", () => {
+    const next = applyRunEvent(detail({ steps: [] }), {
+      event: "step.started",
+      runId: RUN_ID,
+      sequence: 1,
+      name: "스텝 1",
+      totalSteps: 3,
+      at: AT,
+    });
+
+    expect(next.steps).toHaveLength(0);
   });
 });
 

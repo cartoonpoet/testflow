@@ -17,6 +17,8 @@ export function toRun(entity: RunEntity): Run {
     envLabel: entity.envLabel,
     baseUrl: entity.baseUrl,
     browser: entity.browser,
+    // ★ `scenarios` 조인이 아니라 `runs.source_type` 스냅샷이다 — 시나리오를 지워도 남는다.
+    sourceType: entity.sourceType,
     status: entity.status,
     runnerId: entity.runnerId,
     totalSteps: entity.totalSteps,

@@ -49,6 +49,13 @@ const NewScenarioPage = lazy(async () => ({
 const ScenarioBuilderPage = lazy(async () => ({
   default: (await import("@/pages/scenarios/builder")).ScenarioBuilderPage,
 }));
+/**
+ * 코드 시나리오 편집 화면(라운드 2). 빌더와 **다른 청크**다 —
+ * 코드 화면에는 녹화 클라이언트가 없고, 빌더를 쓰는 사용자에게 코드 화면은 죽은 코드다.
+ */
+const CodeScenarioPage = lazy(async () => ({
+  default: (await import("@/pages/scenarios/code")).CodeScenarioPage,
+}));
 const RunsPage = lazy(async () => ({
   default: (await import("@/pages/runs")).RunsPage,
 }));
@@ -76,6 +83,7 @@ export const router = createBrowserRouter([
       { path: "scenarios", element: withSuspense(<ScenariosPage />) },
       { path: "scenarios/new", element: withSuspense(<NewScenarioPage />) },
       { path: "scenarios/:scenarioId", element: withSuspense(<ScenarioBuilderPage />) },
+      { path: "scenarios/:scenarioId/code", element: withSuspense(<CodeScenarioPage />) },
       { path: "runs", element: withSuspense(<RunsPage />) },
       { path: "runs/:runId", element: withSuspense(<RunDetailPage />) },
       { path: "suites", element: withSuspense(<SuitesPage />) },
