@@ -35,9 +35,26 @@ export type LiveCanvasProps = {
   videoUrl?: string | undefined;
   /** 프레임이 한 장도 없을 때 대신 그릴 것 — 실패 스크린샷 또는 중립 안내. */
   fallback: React.ReactNode;
+  /**
+   * 캔버스 우상단에 "영상으로 보기" **왼쪽**에 끼워 넣을 버튼(확대/축소 등).
+   *
+   * 확대 버튼을 `LiveStage` 가 자기 자리에 절대배치하면 이 버튼과 좌표가 겹친다.
+   * 겹침을 막으려고 양쪽이 각자 offset 을 계산하면 둘 중 하나만 고쳐도 어긋난다 →
+   * **우상단 배치는 여기 한 줄에만** 두고, 바깥은 내용만 넘긴다.
+   */
+  topRight?: React.ReactNode;
+  /** 확대 모드에서 캔버스 하단에 겹쳐 띄울 진행 표시. */
+  footer?: React.ReactNode;
 };
 
-export function LiveCanvas({ runId, enabled, videoUrl, fallback }: LiveCanvasProps) {
+export function LiveCanvas({
+  runId,
+  enabled,
+  videoUrl,
+  fallback,
+  topRight,
+  footer,
+}: LiveCanvasProps) {
   /*
    * 평평하게 받는다. `renderer.remote.w` 처럼 **ref 를 들고 있는 객체를 통해** 값을 읽으면
    * `react-hooks/refs` 가 "렌더 중 ref 접근"으로 본다(`StreamCanvas` 가 props 를
@@ -69,7 +86,16 @@ export function LiveCanvas({ runId, enabled, videoUrl, fallback }: LiveCanvasPro
         height={remote.h}
         aria-label="실행 중인 브라우저 화면"
         data-testid="live-canvas"
-        className={cn("block h-full w-full bg-browser", canvasVisible ? "" : "hidden")}
+        className={cn(
+          /*
+           * ★ `object-contain` — 종횡비 보증. 바깥 상자는 `aspect-[16/10]` 이고
+           *   프레임도 1280×800(=16:10)이라 지금은 두 값이 같지만, Runner 의 뷰포트가
+           *   바뀌면(`frame.width/height` 가 헤더로 온다) 상자와 프레임 비가 어긋난다.
+           *   그때 `h-full w-full` 만 있으면 **화면이 눌려 그려진다.** 레터박스가 정답이다.
+           */
+          "block h-full w-full bg-browser object-contain",
+          canvasVisible ? "" : "hidden",
+        )}
       />
 
       {watching ? (
@@ -125,22 +151,38 @@ export function LiveCanvas({ runId, enabled, videoUrl, fallback }: LiveCanvasPro
         </div>
       )}
 
-      {videoUrl === undefined ? null : (
-        <div className="absolute right-[10px] top-[10px]">
-          <button
-            type="button"
-            data-testid="live-video-toggle"
-            onClick={() => {
-              setShowVideo((prev) => !prev);
-            }}
-            className={cn(
-              "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",
-              "transition-colors duration-150 hover:border-btn-hover-line hover:bg-btn-hover-bg",
-              "focus-visible:border-brand focus-visible:shadow-focus-ring focus-visible:outline-none",
-            )}
-          >
-            {watching ? "실행 화면으로" : "영상으로 보기"}
-          </button>
+      {/*
+        확대 모드에서만 오는 진행 스트립. **레이아웃 높이를 먹지 않게** 겹친다 —
+        높이를 먹으면 16:10 무대의 폭 계산(`tf-live-stage-expanded`)이 그만큼 줄어든다.
+      */}
+      {footer == null || watching ? null : (
+        <div
+          data-slot="live-footer"
+          className="absolute inset-x-0 bottom-0 bg-live-strip px-[14px] py-[9px] text-white"
+        >
+          {footer}
+        </div>
+      )}
+
+      {topRight == null && videoUrl === undefined ? null : (
+        <div className="absolute right-[10px] top-[10px] flex items-center gap-[8px]">
+          {topRight}
+          {videoUrl === undefined ? null : (
+            <button
+              type="button"
+              data-testid="live-video-toggle"
+              onClick={() => {
+                setShowVideo((prev) => !prev);
+              }}
+              className={cn(
+                "rounded-btn border border-line bg-panel px-[10px] py-[6px] text-[10px] font-bold text-ink",
+                "transition-colors duration-150 hover:border-btn-hover-line hover:bg-btn-hover-bg",
+                "focus-visible:border-brand focus-visible:shadow-focus-ring focus-visible:outline-none",
+              )}
+            >
+              {watching ? "실행 화면으로" : "영상으로 보기"}
+            </button>
+          )}
         </div>
       )}
     </div>
