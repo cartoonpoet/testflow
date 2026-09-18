@@ -225,6 +225,13 @@ export function CodeScenarioPage() {
                   방어는 실행 격리가 담당합니다 — 신뢰할 수 없는 코드를 넣지 마세요.
                 </NoticeLine>
                 <NoticeLine>
+                  ★ <strong>비밀번호를 코드에 직접 적지 마세요.</strong> 코드 본문은 그대로
+                  저장되고, 실패하면 Playwright 가 실패한 줄의 앞뒤를 서버 로그에 출력합니다 —
+                  그 값은 마스킹되지 않습니다. 실행 요청에서 입력한 값을{" "}
+                  <code className="font-mono">process.env[&quot;TESTFLOW_VAR_password&quot;]</code>{" "}
+                  로 읽으면 단계 제목 · 로그 · 증적 어디에도 남지 않습니다.
+                </NoticeLine>
+                <NoticeLine>
                   코드 실행은 <strong>콘솔·네트워크 로그를 수집하지 않습니다.</strong> 실패 시
                   영상 · Trace · 스크린샷만 남습니다.
                 </NoticeLine>

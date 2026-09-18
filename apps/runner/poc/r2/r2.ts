@@ -6,8 +6,7 @@
  * 재현:
  *   pnpm --filter @testflow/runner build:poc
  *   node dist-poc/poc/r2/r2.js --mode c            # reporter 만 (경로 C 판정)
- *   node dist-poc/poc/r2/r2.js --mode a            # fixture 주입 (@playwright/test shim)
- *   node dist-poc/poc/r2/r2.js --mode b            # launchServer + connectOptions + CDP
+ * *   node dist-poc/poc/r2/r2.js --mode b            # launchServer + connectOptions + CDP
  *   node dist-poc/poc/r2/r2.js --mode d            # launchOptions CDP 포트 + connectOverCDP
  *   node dist-poc/poc/r2/r2.js --all               # 전 모드 + JSON 산출
  *   node dist-poc/poc/r2/r2.js --mode d --spec functional --workers 2
@@ -20,7 +19,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,10 +47,16 @@ const RUNNER_DIR = resolve(R2_DIST_DIR, "../../../");
 const PW_DIR = resolve(RUNNER_DIR, "poc/r2/pw");
 const PW_BIN = resolve(RUNNER_DIR, "node_modules/.bin/playwright");
 
-export type Mode = "a" | "a0" | "b" | "c" | "d";
+/**
+ * ★ 경로 A(`@playwright/test` 해석 가로채기 shim)와 그 음성 대조군 A0 는
+ *   **라운드 2 Gen-Phase 6 에서 코드째 폐기했다.** 측정값은 문서
+ *   (`.pipeline/20260917-231945/r2-poc-live-stream.md`)에 남아 있고, 구현은 남기지 않는다 —
+ *   모듈 해석을 가로채는 가짜 `@playwright/test` 패키지가 레포에 있는 것 자체가 위험하고
+ *   (03-phases 리스크 1: "경로 A 로는 가지 않는다"), 남아 있으면 후퇴 경로로 오인된다.
+ *   후퇴가 필요하면 **경로 B** 를 쓴다.
+ */
+export type Mode = "b" | "c" | "d";
 const MODE_LABEL: Readonly<Record<Mode, string>> = {
-  a: "A. 커스텀 fixture 주입 (@playwright/test 해석 가로채기)",
-  a0: "A0. ★ 음성 대조군 — shim 없이 fixture 주입만 시도 (프레임 0장이어야 한다)",
   b: "B. launchServer + use.connectOptions + connectOverCDP",
   c: "C. Reporter 만 (page 접근 가능성 판정)",
   d: "D. use.launchOptions --remote-debugging-port + connectOverCDP",
@@ -151,25 +156,6 @@ async function openViewer(browser: Browser, host: R2Host): Promise<Page> {
   return page;
 }
 
-/* ── 경로 A — 사용자 spec 을 shim 이 걸린 디렉토리로 복사 ──── */
-
-async function prepareShimSpecs(sourceDir: string): Promise<string> {
-  const root = resolve(PW_DIR, "shimroot");
-  await rm(root, { recursive: true, force: true });
-
-  // ① shim 패키지를 `shimroot/node_modules/@playwright/test` 로 **설치**한다.
-  //    커밋 원본은 `pw/shim-pkg/` 다 — 루트 .gitignore 의 `node_modules/` 규칙과 싸우지 않기 위해
-  //    런타임에 만든다. 이 위치여야 Node 모듈 해석이 진짜 패키지보다 먼저 잡는다.
-  const shimTarget = resolve(root, "node_modules/@playwright/test");
-  await mkdir(dirname(shimTarget), { recursive: true });
-  await cp(resolve(PW_DIR, "shim-pkg"), shimTarget, { recursive: true });
-
-  // ② 사용자 spec 을 그 아래로 복사한다. ★ 복사만 한다 — 내용은 **한 글자도** 바꾸지 않는다.
-  const specTarget = resolve(root, "specs");
-  await cp(resolve(PW_DIR, sourceDir), specTarget, { recursive: true });
-  return "./shimroot/specs";
-}
-
 /* ── 한 모드 실행 ─────────────────────────────────────────── */
 
 export async function runMode(opts: {
@@ -218,22 +204,13 @@ export async function runMode(opts: {
     ...(opts.userConfig === undefined ? {} : { TESTFLOW_R2_USER_CONFIG: opts.userConfig }),
     ...(opts.headed === true ? { TESTFLOW_R2_HEADLESS: "false" } : {}),
   };
-  let testDir = opts.specDir;
+  const testDir = opts.specDir;
   // 포트 충돌 회피 — PoC 수준으로 충분하다.
   const cdpPort = 9400 + (host.port % 500);
 
   try {
     viewerPage = await openViewer(opts.viewerBrowser, host);
-    if (opts.mode === "a") {
-      testDir = await prepareShimSpecs(opts.specDir);
-      env["TESTFLOW_R2_INGEST_WS"] = host.ingestWsUrl();
-    } else if (opts.mode === "a0") {
-      // ★ 음성 대조군 — ingest WS 는 똑같이 켜 두고 **shim 만 뺀다**.
-      //   사용자 spec 이 진짜 `@playwright/test` 를 잡으므로 fixture 가 안 걸려야 한다.
-      //   프레임이 온다면 "무엇이 스트리밍을 붙였는지" 우리 설명이 틀린 것이다.
-      env["TESTFLOW_R2_INGEST_WS"] = host.ingestWsUrl();
-      env["TESTFLOW_R2_MODE"] = "a";
-    } else if (opts.mode === "b") {
+    if (opts.mode === "b") {
       owned = await launchOwnedBrowser({ cdpPort, headless: true });
       env["TESTFLOW_R2_WS_ENDPOINT"] = owned.wsEndpoint;
       owned.onPage(attach);
@@ -272,7 +249,7 @@ export async function runMode(opts: {
     let client: ClientStats | null = null;
     let canvasSample: { distinctColors: number; center: number[] } | null = null;
     if (opts.measureSeconds > 0 && viewerPage !== null) {
-      const firstFrameDeadline = Date.now() + (opts.mode === "a0" || opts.mode === "c" ? 20_000 : 45_000);
+      const firstFrameDeadline = Date.now() + (opts.mode === "c" ? 20_000 : 45_000);
       let sawFrame = false;
       const vp = viewerPage;
       while (Date.now() < firstFrameDeadline) {
@@ -411,7 +388,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const all = args["all"] === "true";
   const modes: Mode[] = all
-    ? ["c", "a0", "a", "b", "d"]
+    ? ["c", "b", "d"]
     : [(args["mode"] ?? "d") as Mode];
   const specKey = args["spec"] ?? "measure";
   const specDir = SPEC_DIRS[specKey] ?? specKey;

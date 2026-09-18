@@ -22,11 +22,12 @@
 5. [환경변수 전량](#환경변수-전량)
 6. [타임존](#타임존)
 7. [실행 격리 모드](#실행-격리-모드-runner_execution_mode)
-8. [코드 입력 실행의 격리 ⚠️](#코드-입력-실행의-격리-runner_code_execution_mode--기본-docker)
-9. [배포 전제](#배포-전제)
-10. [MVP 범위와 미충족 항목](#mvp-범위와-미충족-항목)
-11. [고정된 기술 결정](#고정된-기술-결정)
-12. [문제 해결](#문제-해결)
+8. [시나리오 2종 — 녹화 기반 / 코드 입력](#시나리오-2종--녹화-기반--코드-입력)
+9. [코드 입력 실행의 격리 ⚠️](#코드-입력-실행의-격리-runner_code_execution_mode--기본-docker)
+10. [배포 전제](#배포-전제)
+11. [MVP 범위와 미충족 항목](#mvp-범위와-미충족-항목)
+12. [고정된 기술 결정](#고정된-기술-결정)
+13. [문제 해결](#문제-해결)
 
 ---
 
@@ -194,12 +195,21 @@ curl localhost:4000/api/health
    - **성공한 실행의 영상·trace 는 기본적으로 보관하지 않는다**(디스크 절약).
      남기려면 `KEEP_ARTIFACTS_ON_SUCCESS=true`.
 
+### 8) 두 번째 경로 — 이미 있는 테스트 코드를 넣기
+
+1. **`＋ 새 시나리오`** → **`테스트 코드 넣기`** 를 고르고 이름을 넣은 뒤 **`만들고 코드 넣기`**
+2. 코드 화면에서 **붙여넣거나** `.ts` 파일을 **올린다**(둘 다 같은 경로로 저장된다).
+3. 저장 → **`발행하기`** → **`▶ 실행`**
+4. 실행 현황 화면의 브라우저 영역에 **테스트가 진행되는 실제 화면이 실시간으로** 나온다.
+
+자세한 규칙·제약은 [시나리오 2종](#시나리오-2종--녹화-기반--코드-입력) 절에 있다.
+
 ### 검증 명령
 
 ```bash
 pnpm typecheck    # 7 workspaces
 pnpm lint         # 7 workspaces
-pnpm test         # contracts 22 · web 52 · runner 75 · api 93 = 242
+pnpm test         # contracts 143 · web 56 · runner 211 · api 106 = 516
 pnpm build        # 5 workspaces
 ```
 
@@ -362,6 +372,84 @@ docker 모드에서 주의할 점:
   `docker inspect` 나 프로세스 목록에 비밀번호가 남지 않게 하기 위해서다(확인함).
 - **대상 사이트가 호스트 로컬이면** `baseUrl` 에 `127.0.0.1` 대신 `host.docker.internal` 을 써야
   컨테이너에서 닿는다.
+
+---
+
+## 시나리오 2종 — 녹화 기반 / 코드 입력
+
+시나리오를 만들 때 **경로를 고른다.** 고른 뒤에는 바꿀 수 없다
+(`scenarios.source_type` 은 생성 후 변경 불가 — 스텝과 코드가 동시에 존재하면
+어느 쪽으로 실행할지 규칙이 두 벌이 된다).
+
+| | **녹화 기반** (`steps`) | **코드 입력** (`code`) |
+|---|---|---|
+| 만드는 법 | 원격 브라우저를 직접 조작해 녹화 | 화면에 붙여넣기 / `.spec.ts` 업로드 |
+| 저장 형태 | `test_steps` JSON 스텝 | `scenario_codes.content` (단일 파일, 최대 **256KB**) |
+| 실행 엔진 | 자체 해석기(`execute/interpreter.ts`) | `playwright test` (외부 프로세스) |
+| 실행 화면 | **없다** (headless. 실패 스크린샷만) | **라이브 스트림** (15fps) |
+| 총 단계 수 | 요청 시점에 확정 | **실행 중에 늘어난다** (`N / M` 의 M 이 커진다) |
+| 증적 | screenshot · video · trace · **console_log · network_log** (5종) | screenshot · video · trace (**3종**) |
+| 격리 기본값 | `RUNNER_EXECUTION_MODE=local` | `RUNNER_CODE_EXECUTION_MODE=`**`docker`** |
+
+두 경로 모두 **같은 `runs` · `step_results` · `artifacts` 테이블**에 결과를 남기고
+**같은 SSE 규약**으로 관찰된다. 실행 화면·목록·통계는 하나다.
+
+### codegen 산출물 반입
+
+```bash
+npx playwright codegen https://staging.example.com
+```
+
+생성된 코드를 **그대로 붙여넣거나** 파일로 저장해 올리면 된다(코드 화면에 같은 명령과
+복사 버튼이 있다). 업로드는 브라우저가 `File.text()` 로 읽어 기존 `PUT /api/scenarios/:id/code`
+로 보낸다 — 서버에 multipart 업로드 경로는 없다.
+
+### 반대 방향 — 녹화 스텝을 Playwright 코드로 내보내기
+
+빌더 헤더의 **`코드로 내보내기`** 를 누르면 녹화한 단계가 `.spec.ts` 로 변환된다.
+**복사**하거나 **`<시나리오코드>.spec.ts` 로 내려받아** 코드 시나리오에 그대로 올릴 수 있다.
+
+- `target_json` 의 `by` → `getByRole` / `getByLabel` / `getByText` / `getByTestId` / `locator`.
+  `nth` 가 있으면 `.nth(n)` 이 붙는다.
+- **`{{변수}}` 는 `process.env["TESTFLOW_VAR_<키>"]` 참조로 나간다 — 비밀번호가 파일에 박히지 않는다.**
+  Runner 가 실행 요청의 `variables` 를 **같은 이름**으로 주입하므로, 내보낸 코드를 코드
+  시나리오로 다시 넣고 같은 값으로 실행하면 녹화 실행과 동일하게 동작한다.
+- `{{baseUrl}}/path` 는 **상대 경로**(`page.goto("/path")`)로 나간다 — 생성 config 의
+  `use.baseURL` 이 실행 요청의 대상 주소로 채워진다.
+- Playwright 에 대응 문법이 없는 것(**대체 후보 순위**, **iframe `frameUrl`**)은 **주석**으로만 남는다.
+  버리지 않지만 자동 변환도 하지 않는다 — 추측한 코드가 조용히 엉뚱한 요소를 집는 쪽이 더 나쁘다.
+
+### 허용하는 import — `@playwright/test` **하나뿐**
+
+Node 내장 모듈(`fs` · `node:fs` …)과 상대 경로 import 는 **저장 시점에 400** 으로 거부되고,
+에디터가 **줄·열과 한국어 사유**를 함께 보여 준다. 검사는 `packages/contracts` 의
+`validateScenarioCode()` **한 함수**이고 web 과 api 가 그것을 같이 쓴다.
+
+> ### ★ 이 검사는 보안 경계가 **아니다**
+> 정규식 스캐너라 `require(["f","s"].join(""))` 같은 형태로 **우회된다**
+> (그 한계는 `code-validation.spec.ts` 에 통과하는 테스트로 고정돼 있다).
+> 목적은 "왜 안 돌아가는지"를 저장 전에 알려 주는 **UX** 다.
+> **보안은 아래 [실행 격리](#코드-입력-실행의-격리-runner_code_execution_mode--기본-docker)가 담당한다.**
+
+### 지원하지 않는 것 (사용자에게 그대로 보이는 거부 메시지가 있다)
+
+| 대상 | 동작 |
+|---|---|
+| `projects` 를 **2개 이상** 둔 `playwright.config` | 실행이 `error` 로 거부된다. project 마다 브라우저가 따로 떠 라이브 화면이 섞이고 CDP 포트를 한 브라우저만 잡는다 |
+| `webServer` 를 쓰는 `playwright.config` | 실행이 `error` 로 거부된다. 서버 수명이 우리 실행 타임라인과 충돌한다 |
+| 다중 파일 · fixture · helper import | 이번 범위는 **단일 파일**이다 |
+| `workers > 1` | 강제로 `workers: 1` 이다 — 라이브 화면이 1개다 |
+| **console / network 로그 수집** | **하지 않는다.** 코드 실행에서는 page 를 우리가 소유하지 않아 리스너를 걸 자리가 없다. 실패 증적은 **video · trace · screenshot 3종**뿐이고, 화면에도 그 사실이 적혀 있다 |
+
+### ★ 비밀번호는 코드에 적지 마라
+
+실행 요청에서 입력한 값을 `process.env["TESTFLOW_VAR_password"]` 로 읽으면
+단계 제목 · SSE · DB · 증적 · Runner 로그 · `docker inspect` **어디에도 남지 않는다**(전수 확인함).
+
+반대로 **코드 본문에 평문으로 적으면**
+① `scenario_codes.content` 에 그대로 저장되고
+② 실패했을 때 Playwright 기본 리포터가 **실패한 줄의 앞뒤 소스를 Runner 로그에 출력**한다.
+그 값은 우리가 모르는 문자열이라 마스킹할 수 없다. 코드 화면에도 같은 경고가 있다.
 
 ---
 

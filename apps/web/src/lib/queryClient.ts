@@ -55,8 +55,22 @@ export const queryKeys = {
    * (04-gen-2 §6)를 캐시에서도 깨지 않기 위해서다.
    */
   scenarioCode: (id: string) => ["scenarios", id, "code"] as const,
-  /** 실행 라이브 스트림 접속 정보(`GET /api/runs/:id/live`). 토큰이 실려 있어 캐시 수명이 짧다. */
-  runLive: (id: string) => ["runs", id, "live"] as const,
+  /**
+   * 실행 라이브 스트림 접속 정보(`GET /api/runs/:id/live`). 토큰이 실려 있어 캐시 수명이 짧다.
+   *
+   * ★ **일부러 `["runs", id, …]` 아래에 두지 않는다** (Gen-Phase 6 에서 실측으로 발견한 버그).
+   *   `useRunEvents` 는 `run.finished` 와 SSE desync 에서
+   *   `invalidateQueries({ queryKey: queryKeys.run(id) })` 를 부르는데, react-query 의
+   *   무효화는 **접두 일치**라 `["runs", id, "live"]` 까지 함께 무효화된다.
+   *   그러면 —
+   *     ① 토큰 쿼리가 다시 돌아 **새 토큰이 발급되고**, 키가 하나라 **지금 붙어 있는
+   *        소켓의 토큰이 무효**가 된다(04-gen-5 결정 3이 막으려던 바로 그 동작이다).
+   *     ② 실행이 이미 끝난 뒤라면 `GET …/live` 가 **404**(종료된 run)라서
+   *        브라우저 콘솔에 실패가 한 줄 남는다 — 실측: `+8494ms 404 …/live`.
+   *   키 공간을 분리하면 접두가 겹치지 않아 둘 다 사라진다.
+   *   (`staleTime: Infinity` 는 무효화를 막지 못한다 — 무효화는 stale 여부와 무관하다.)
+   */
+  runLive: (id: string) => ["run-live", id] as const,
   suites: (projectId: string) => ["projects", projectId, "suites"] as const,
   suite: (id: string) => ["suites", id] as const,
   runs: (filters?: Readonly<Record<string, unknown>>) =>

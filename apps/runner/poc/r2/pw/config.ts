@@ -9,12 +9,12 @@
  *   mode=b   `use.connectOptions.wsEndpoint`  — Runner 가 `launchServer` 로 띄운 브라우저에 붙는다.
  *   mode=d   `use.launchOptions.args`         — worker 가 브라우저를 띄우되 CDP 포트를 열어 둔다.
  *                                               Runner 가 `connectOverCDP` 로 그 브라우저에 붙는다.
- *   mode=a   아무 것도 안 한다                 — 스트리밍은 `@playwright/test` 해석 가로채기(shim)로
- *                                               주입된 fixture 가 담당한다.
+ *
+ *   (경로 A — `@playwright/test` 해석 가로채기 shim — 은 Gen-Phase 6 에서 코드째 폐기했다.)
  */
 import { defineConfig, type PlaywrightTestConfig } from "@playwright/test";
 
-const mode = process.env["TESTFLOW_R2_MODE"] ?? "a";
+const mode = process.env["TESTFLOW_R2_MODE"] ?? "d";
 const wsEndpoint = process.env["TESTFLOW_R2_WS_ENDPOINT"] ?? "";
 const cdpPort = process.env["TESTFLOW_R2_CDP_PORT"] ?? "";
 const testDir = process.env["TESTFLOW_R2_TESTDIR"] ?? "./specs";
