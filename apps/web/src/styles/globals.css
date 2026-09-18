@@ -501,6 +501,27 @@
   overscroll-behavior: contain;
 }
 
+/**
+ * 스크롤은 되되 **스크롤바를 그리지 않는다.**
+ *
+ * 사이드바(`--nav #15211e`)처럼 어두운 면에서는 OS 기본 스크롤바가 밝은 띠로 떠서
+ * 메뉴 오른쪽에 세로줄 하나가 더 생긴 것처럼 보인다. 항목이 그룹 하나 늘어난 뒤
+ * (`HELP`) 좁은 화면에서 실제로 나타났다.
+ *
+ * `overflow` 를 `hidden` 으로 바꾸지 않는 이유 — 그러면 짧은 화면에서 **아래 항목에
+ * 닿을 수가 없다.** 스크롤 기능은 그대로 두고 **표시만** 없앤다.
+ * 키보드(Tab·방향키)·휠·터치는 모두 그대로 동작한다.
+ */
+@utility tf-scrollbar-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* 구형 Edge */
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
 /** 확대 모드 백드롭. 뷰포트를 덮고 무대를 가운데 놓는다. */
 @utility tf-live-backdrop {
   position: fixed;

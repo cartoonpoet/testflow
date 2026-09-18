@@ -53,7 +53,7 @@ export function Sidebar({ projectName, open, onNavigate }: SidebarProps) {
         <b aria-hidden="true">⌄</b>
       </button>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto">
+      <nav className="tf-scrollbar-hidden min-h-0 flex-1 overflow-y-auto">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             <div className="px-[12px] pt-[17px] pb-[7px] text-nav-label text-nav-label-ink">
