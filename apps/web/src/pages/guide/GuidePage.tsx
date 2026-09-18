@@ -6,7 +6,6 @@ import { InlineMd } from "./InlineMd";
 import {
   GUIDE_INTRO,
   GUIDE_SECTIONS,
-  GUIDE_SOURCE_PATH,
   GUIDE_TITLE,
   type GuideBlock,
   type GuideSection,
@@ -14,7 +13,7 @@ import {
 } from "./content";
 
 /**
- * 가이드 화면 — `docs/AI로-테스트코드-만들기.md` 를 앱 안에서 읽는다.
+ * 가이드 화면. 본문 데이터는 `content.ts` 에 있고 그 파일이 이 문서의 단일 출처다.
  *
  * ## 레이아웃
  * 시안에 없는 화면이라 새 디자인을 만들지 않고 **기존 패턴만 조합**했다.
@@ -37,9 +36,8 @@ export function GuidePage() {
   return (
     <>
       {/*
-        `description` 을 주지 않는다. 원본 md 의 첫 문장이 바로 아래 `GUIDE_INTRO` 로
+        `description` 을 주지 않는다. 문서의 첫 문장이 바로 아래 `GUIDE_INTRO` 로
         그려지는데, 여기에 비슷한 요약을 또 쓰면 같은 말이 두 번 나온다.
-        (그리고 그 요약은 원본에 없는 **새로 쓴 문장**이 된다 — 이 작업의 금기다.)
       */}
       <PageHead title={GUIDE_TITLE} />
 
@@ -62,8 +60,8 @@ export function GuidePage() {
           ))}
 
           <p className="mt-[34px] border-t border-line pt-[16px] text-[11px] text-muted">
-            이 화면의 원본 문서는 레포지토리의 <code className="font-mono">{GUIDE_SOURCE_PATH}</code>{" "}
-            입니다. 내용을 고칠 때는 그 파일을 먼저 고치세요 — 두 곳이 어긋나면 테스트가 실패합니다.
+            이 화면이 이 문서의 원본입니다. 내용을 고칠 때는{" "}
+            <code className="font-mono">apps/web/src/pages/guide/content.ts</code> 를 고치세요.
           </p>
         </article>
       </div>
@@ -241,11 +239,11 @@ function Block({ block }: { block: GuideBlock }) {
 }
 
 /**
- * 원본 md 의 인용문(`>`) → 시안 amber notice.
+ * 인용문(`>`) 성격의 강조 → 시안 amber notice.
  *
- * 두 인용문 모두 `[⚠️] **굵은 한 문장.** 나머지 설명` 꼴이라, 앞의 굵은 부분을
+ * 두 경우 모두 `[⚠️] **굵은 한 문장.** 나머지 설명` 꼴이라, 앞의 굵은 부분을
  * `NoticeBox` 의 제목으로, 나머지를 `NoticeLine` 으로 넘긴다.
- * **데이터는 원본 md 문자열 한 덩어리 그대로 두고 쪼개는 일은 여기서만 한다** —
+ * **데이터는 마크다운 문자열 한 덩어리 그대로 두고 쪼개는 일은 여기서만 한다** —
  * 그래야 `content.spec.ts` 가 md 와 글자 단위로 대조할 수 있다.
  */
 const NOTE_LEAD = /^(⚠️\s*)?\*\*(.+?)\*\*\s*/;
