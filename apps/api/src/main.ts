@@ -3,7 +3,7 @@ import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import compression from "compression";
-import { MAX_SCENARIO_CODE_BYTES } from "@testflow/contracts";
+import { MAX_ATTACHMENT_BYTES, MAX_SCENARIO_CODE_BYTES } from "@testflow/contracts";
 import { AppModule } from "./app.module.js";
 
 /**
@@ -42,6 +42,26 @@ app.use(compression());
  *   그런 입력은 어차피 의미 상한도 넘으므로 거부가 정답이다.)
  */
 app.useBodyParser("json", { limit: MAX_SCENARIO_CODE_BYTES * 4 });
+
+/**
+ * ★ 첨부파일(테스트 데이터) 업로드 — `application/octet-stream` **raw body** (라운드 3).
+ *
+ * `multer`/`busboy` 를 추가하지 않기 위한 선택이다(라운드 1·2 가 지킨 "런타임 의존성 추가 없음").
+ * `express.raw()` 는 `@nestjs/platform-express` 가 이미 갖고 있어 **새 의존성이 0개**다.
+ * base64 를 JSON 에 싣는 대안은 본문을 **33% 부풀리기만** 하고 얻는 것이 없다.
+ *
+ * `type` 을 `application/octet-stream` 으로 **좁힌다** — 기본값도 그것이지만 명시한다.
+ * 좁히지 않으면 JSON 요청까지 이 파서가 가로챌 수 있고, 그러면 **기존 API 전부가 깨진다.**
+ *
+ * 전송 상한은 의미 상한(`MAX_ATTACHMENT_BYTES`)보다 커야 한다 — 코드 본문에서 배운
+ * 교훈 그대로다(위 주석). raw 는 이스케이프가 없어 부풀지 않으므로 여유를 1MiB 만 둔다.
+ * 그래야 **상한 초과의 거부 주체가 `ScenarioAttachmentService`(413 + 한국어 사유)** 가 되고,
+ * express 의 영어 `request entity too large` 가 사용자에게 보이지 않는다.
+ */
+app.useBodyParser("raw", {
+  type: "application/octet-stream",
+  limit: MAX_ATTACHMENT_BYTES + 1024 * 1024,
+});
 
 app.enableCors({
   origin:

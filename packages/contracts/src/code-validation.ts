@@ -59,6 +59,15 @@ export const CODE_VALIDATION_CODES = [
   "node_builtin",
   /** `test(` 도 `test.describe(` 도 없다 — 실행해도 아무 일이 일어나지 않는다(경고). */
   "no_test",
+  /**
+   * ★ 라운드 3 **추가** — `setInputFiles('X')` 의 `X` 가 첨부파일 목록에 없다(경고).
+   *
+   * `validateScenarioCode()` 는 이 코드를 **절대 만들지 않는다.** 그 함수는 본문만 보는
+   * 순수 함수이고, 이 판정에는 **첨부 목록이라는 바깥 상태**가 필요하기 때문이다.
+   * 만드는 곳은 `attachment.ts` 의 `checkAttachmentReferences(content, names)` 하나다.
+   * 항상 `severity:"warning"` 이다 — 파일명을 코드가 동적으로 만드는 정상 코드를 막지 않는다.
+   */
+  "missing_attachment",
 ] as const;
 export const CodeValidationCodeSchema = z.enum(CODE_VALIDATION_CODES);
 export type CodeValidationCode = z.infer<typeof CodeValidationCodeSchema>;

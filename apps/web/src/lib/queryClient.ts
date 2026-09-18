@@ -56,6 +56,12 @@ export const queryKeys = {
    */
   scenarioCode: (id: string) => ["scenarios", id, "code"] as const,
   /**
+   * 시나리오 첨부파일 목록(`GET /api/scenarios/:id/attachments`). 라운드 3 추가.
+   * `scenarioCode` 와 같은 이유로 상세와 분리한다 — 목록·상세가 첨부를 끌고 오지 않는
+   * 서버 구조(별도 테이블)를 캐시에서도 깨지 않는다.
+   */
+  scenarioAttachments: (id: string) => ["scenarios", id, "attachments"] as const,
+  /**
    * 실행 라이브 스트림 접속 정보(`GET /api/runs/:id/live`). 토큰이 실려 있어 캐시 수명이 짧다.
    *
    * ★ **일부러 `["runs", id, …]` 아래에 두지 않는다** (Gen-Phase 6 에서 실측으로 발견한 버그).

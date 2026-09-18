@@ -43,6 +43,7 @@ import { DEFAULT_VIEWPORT, collectSecretValues } from "@testflow/contracts";
 import type { RunJobData, RunStatus } from "@testflow/contracts";
 import type { Redis } from "ioredis";
 import type { DataSource } from "typeorm";
+import { loadScenarioAttachments, materializeAttachments } from "./code-attachments.js";
 import { collectPlaywrightArtifacts } from "./code-artifacts.js";
 import { findFreeCdpPort, startCodeBrowser } from "./code-browser.js";
 import type { CodeBrowserAttachment } from "./code-browser.js";
@@ -364,6 +365,41 @@ export async function executeCodeRun(params: {
     });
     const ws = workspace;
 
+    /* ── ★ 첨부파일(테스트 데이터)을 **작업공간 루트**에 푼다 (라운드 3) ──────────
+     *
+     * 왜 루트인가: `setInputFiles` 의 상대 경로 기준이 **테스트 프로세스의 `process.cwd()`**
+     * 라는 것을 실측했다(`code-attachments.ts` 상단의 3-케이스 표). Runner 의 cwd 는
+     * local 이 `ws.dir`, docker 가 `-w /ws`(= 같은 디렉토리) 라 **양쪽이 같은 코드로 동작한다.**
+     *
+     * 실패해도 실행을 죽이지 않는다 — 첨부 1건이 없으면 그 테스트만 실패하는 것이 맞고,
+     * 실행 전체를 `error` 로 접으면 나머지 테스트의 결과까지 사라진다.
+     * 다만 **조용히 넘기지 않는다**: 놓은 것도 못 놓은 것도 로그에 남긴다.
+     *
+     * 정리는 따로 하지 않는다 — 첨부는 작업공간 안에 있고 `workspace.dispose()` 가
+     * 어떤 경로로 끝나도(성공·실패·취소·타임아웃·예외) 통째로 지운다. */
+    if (job.scenarioId !== null) {
+      const rows = await loadScenarioAttachments(dataSource, job.scenarioId).catch(
+        (error: unknown) => {
+          log(`  [첨부] 목록 조회 실패 — 첨부 없이 진행한다: ${describeError(error)}`);
+          return [];
+        },
+      );
+      if (rows.length > 0) {
+        const result = await materializeAttachments({
+          workspaceDir: ws.dir,
+          artifactRoot: config.artifactRoot,
+          attachments: rows,
+        });
+        log(
+          `  [첨부] 작업공간에 ${String(result.placed.length)}건 배치 ` +
+            `(${String(result.totalBytes)}B) — ${result.placed.join(" · ")}`,
+        );
+        for (const [name, reason] of result.skipped) {
+          log(`  [첨부] ★ 배치 실패 — ${name}: ${reason}`);
+        }
+      }
+    }
+
     const env: Record<string, string> = {
       ...buildPwEnv({
         reporterPath: isolated ? CONTAINER_PW_REPORTER_MODULE : pwReporterModulePath(),
@@ -600,6 +636,10 @@ export async function executeCodeRun(params: {
     errorMessage: errorMessage === null ? null : reporter.mask(errorMessage),
     artifactCount,
   };
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function firstNonEmptyLine(text: string): string | null {
