@@ -419,6 +419,56 @@ npx playwright codegen https://staging.example.com
 - Playwright 에 대응 문법이 없는 것(**대체 후보 순위**, **iframe `frameUrl`**)은 **주석**으로만 남는다.
   버리지 않지만 자동 변환도 하지 않는다 — 추측한 코드가 조용히 엉뚱한 요소를 집는 쪽이 더 나쁘다.
 
+### 테스트 데이터 (첨부파일) — `setInputFiles` 가 쓰는 파일
+
+파일 업로드를 테스트하는 코드는 **파일 실물이 실행 디렉토리에 있어야** 돌아간다.
+
+```ts
+await page.locator('input[type="file"]')
+  .setInputFiles(['테스트용 파일-1.docx', '테스트용 파일-2.docx']);
+```
+
+코드 화면 오른쪽 **`테스트 데이터 (첨부파일)`** 패널에 파일을 올려 두면, 실행할 때 Runner 가
+그 파일들을 **작업 디렉토리 루트**에 원래 이름 그대로 풀어 놓는다. 코드에서는 **파일명만**
+쓰면 된다.
+
+> #### ★ 왜 작업 디렉토리 루트인가 — 실측한 사실
+> Playwright 1.63.0 의 `setInputFiles` 는 상대 경로를 **테스트 프로세스의 `process.cwd()`**
+> 기준으로 푼다. 직접 측정했다:
+>
+> | 파일을 둔 곳 | 결과 |
+> |---|---|
+> | 테스트 프로세스의 **cwd** | **OK** |
+> | `testDir`(spec 과 같은 디렉토리) | `ENOENT: stat '<파일명>'` |
+> | config / rootDir | `ENOENT: stat '<파일명>'` |
+>
+> Runner 의 cwd 는 `local` 이 작업공간(`cwd: ws.dir`), `docker` 가 `-w /ws`(같은 디렉토리)라
+> **두 모드가 동일하게 동작한다.**
+
+- **한글 파일명을 그대로 지원한다.** 저장 키에는 사용자 문자열이 한 글자도 들어가지 않고
+  (서버 생성 UUID 두 토막), 원래 이름은 DB 컬럼에만 산다. 다운로드는
+  `filename*=UTF-8''…`(RFC 5987)로 나간다.
+- **하위 폴더는 만들 수 없다.** 경로 구분자(`/` `\`)·`..`·숨김 파일(`.`으로 시작)·
+  작업공간 예약 이름(`playwright.config.mjs` · `node_modules` · `specs` · `out`)은 거부된다.
+- **상한**: 개당 **10MB** · 시나리오당 **20개** · 합계 **50MB**. 셋 다 있어야 상한이 닫힌다
+  (개당·개수만 두면 200MB 가 허용되고, 그만큼을 실행마다 복사하게 된다).
+- 같은 이름을 다시 올리면 **덮어쓴다**(`(scenario_id, filename)` UNIQUE). 같은 이름이 둘이면
+  Runner 가 무엇을 쓸지 정할 수 없어 실행이 비결정적이 된다.
+- 실행이 끝나면 작업공간째 지워진다 — 첨부 전용 정리 경로를 따로 두지 않는다.
+- **시나리오를 지우면 디스크의 첨부 파일도 함께 지워진다.** (DB 행은 FK CASCADE 가 지우지만
+  파일은 아무도 지우지 않아 고아가 된다 — 실측으로 확인해 고쳤다.)
+- 코드가 `setInputFiles('X')` 를 쓰는데 `X` 가 첨부에 없으면 **저장 시점에 경고**한다.
+  **오류가 아니다** — 파일명을 코드가 동적으로 만드는 정상 코드를 막지 않는다.
+
+업로드는 `POST /api/scenarios/:id/attachments?filename=…` 에 **`application/octet-stream`
+raw body** 로 보낸다. multipart 파서(`multer`/`busboy`)를 추가하지 않기 위해서다 —
+`express.raw()` 는 `@nestjs/platform-express` 가 이미 갖고 있어 **새 의존성이 0개**다.
+
+> **★ `ARTIFACT_ROOT` 는 여전히 컨테이너에 마운트되지 않는다.** 첨부 원본은
+> `ARTIFACT_ROOT/scenario-attachments/` 에 있지만, 컨테이너에 노출하는 대신 **호스트 쪽
+> Runner 가 작업공간으로 복사**한다. `docker inspect` 의 마운트는 여전히 `/ws`(rw) ·
+> `/tfdist`(ro) **두 개뿐**이다.
+
 ### 허용하는 import — `@playwright/test` **하나뿐**
 
 Node 내장 모듈(`fs` · `node:fs` …)과 상대 경로 import 는 **저장 시점에 400** 으로 거부되고,

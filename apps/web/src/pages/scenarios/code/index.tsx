@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import {
   ScenarioCodeFilenameSchema,
+  checkAttachmentReferences,
   hasBlockingIssues,
   validateScenarioCode,
   type CodeValidationIssue,
@@ -10,12 +11,14 @@ import { NoticeBox, NoticeLine, ProjectGate } from "@/components";
 import { Button, Input, PageHead, Panel, Skeleton, StateView } from "@/components/ui";
 import { toast } from "@/hooks/useToast";
 import { useScenarioBuilderMutations, useScenarioDetail } from "@/hooks/useScenarioBuilder";
+import { useScenarioAttachments } from "@/hooks/useScenarioAttachments";
 import {
   extractCodeIssues,
   useSaveScenarioCode,
   useScenarioCode,
 } from "@/hooks/useScenarioCode";
 import { RunDialog } from "@/pages/runs/RunDialog";
+import { AttachmentsField } from "./AttachmentsField";
 import { CodeEditorPanel } from "./CodeEditorPanel";
 import { CodeUploadField } from "./CodeUploadField";
 
@@ -34,6 +37,7 @@ export function CodeScenarioPage() {
   const { scenarioId = "" } = useParams<{ scenarioId: string }>();
   const detail = useScenarioDetail(scenarioId);
   const code = useScenarioCode(scenarioId);
+  const attachments = useScenarioAttachments(scenarioId);
   const save = useSaveScenarioCode(scenarioId);
   const mutations = useScenarioBuilderMutations(scenarioId);
 
@@ -57,10 +61,38 @@ export function CodeScenarioPage() {
    *   두 벌이면 규칙이 어긋나는 순간 한쪽이 조용히 뚫린다(03-phases 쟁점 5).
    */
   const localIssues = useMemo(() => validateScenarioCode(content), [content]);
+
+  /**
+   * ★ 첨부 연동 경고 (라운드 3) — `setInputFiles('X')` 의 `X` 가 첨부에 없으면 알린다.
+   *
+   * **오류가 아니라 경고다.** 파일명을 코드가 동적으로 만드는 정상 코드가 있고,
+   * 그것을 오류로 막으면 저장이 아예 불가능해진다. `blocked` 계산에 들어가지 않는다.
+   *
+   * 이 판정을 `validateScenarioCode()` 안에 넣지 않았다 — 그 함수는 본문만 보는 순수
+   * 함수여야 하고, 여기에는 **첨부 목록이라는 바깥 상태**가 필요하다. 서명을 오염시키면
+   * 서버(`PUT /code`)가 같은 함수를 못 쓴다.
+   */
+  const attachmentNames = useMemo(
+    () => (attachments.data?.items ?? []).map((item) => item.filename),
+    [attachments.data],
+  );
+  const missingIssues = useMemo(
+    () => (attachments.isPending ? [] : checkAttachmentReferences(content, attachmentNames)),
+    [content, attachmentNames, attachments.isPending],
+  );
+  const missingNames = useMemo(
+    () =>
+      missingIssues
+        .map((issue) => /'([^']+)'/.exec(issue.message)?.[1] ?? "")
+        .filter((name) => name !== ""),
+    [missingIssues],
+  );
   const filenameOk = ScenarioCodeFilenameSchema.safeParse(filename).success;
   // 서버 issue 는 본문을 고치면 낡는다. 편집 중에는 로컬 결과만 믿는다.
-  const issues = dirty ? localIssues : [...localIssues, ...dedupe(serverIssues, localIssues)];
-  const blocked = hasBlockingIssues(issues) || !filenameOk;
+  const baseIssues = dirty ? localIssues : [...localIssues, ...dedupe(serverIssues, localIssues)];
+  // ★ 첨부 경고는 **표시만** 한다. `blocked` 는 `baseIssues` 로만 계산한다.
+  const issues = [...baseIssues, ...missingIssues];
+  const blocked = hasBlockingIssues(baseIssues) || !filenameOk;
 
   if (detail.data !== undefined && detail.data.sourceType !== "code") {
     return <Navigate to={`/scenarios/${scenarioId}`} replace />;
@@ -85,7 +117,15 @@ export function CodeScenarioPage() {
                   {
                     onSuccess: () => {
                       setDraft(null);
-                      toast("코드를 저장했습니다.", { label: "저장" });
+                      // ★ 저장 시점 경고 — 저장을 막지는 않는다(동적 파일명일 수 있다).
+                      if (missingNames.length === 0) {
+                        toast("코드를 저장했습니다.", { label: "저장" });
+                      } else {
+                        toast(
+                          `저장했습니다. 다만 setInputFiles 가 쓰는 ${missingNames.join(" · ")} 이(가) 첨부파일에 없습니다.`,
+                          { label: "저장 · 첨부 확인 필요", tone: "danger" },
+                        );
+                      }
                     },
                     onError: (error: Error) => {
                       const details = extractCodeIssues(error);
@@ -215,6 +255,16 @@ export function CodeScenarioPage() {
                 }}
               />
 
+              <AttachmentsField
+                scenarioId={scenarioId}
+                data={attachments.data}
+                isPending={attachments.isPending}
+                error={attachments.error}
+                onRetry={() => void attachments.refetch()}
+                missingNames={missingNames}
+                disabled={save.isPending}
+              />
+
               <NoticeBox title="이 화면에서 알아 둘 것">
                 <NoticeLine>
                   허용하는 import 는 <code className="font-mono">@playwright/test</code> 하나뿐입니다.
@@ -238,6 +288,12 @@ export function CodeScenarioPage() {
                 <NoticeLine>
                   총 단계 수는 실행해 봐야 알 수 있어, 실행 화면의 `N / M 단계` 에서 M 이
                   실행 중에 늘어납니다.
+                </NoticeLine>
+                <NoticeLine>
+                  첨부파일은 실행 <strong>작업 디렉토리</strong>에 놓입니다.{" "}
+                  <code className="font-mono">setInputFiles</code> 의 상대 경로는 테스트
+                  프로세스의 작업 디렉토리 기준이라(실측 확인) 파일명만 쓰면 됩니다.
+                  하위 폴더는 만들 수 없습니다.
                 </NoticeLine>
               </NoticeBox>
             </div>

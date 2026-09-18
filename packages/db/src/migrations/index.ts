@@ -9,6 +9,7 @@ import { CreateRecordingSessions1758000000008 } from "./008-create-recording-ses
 import { SeedDefaultProject1758000000009, DEFAULT_PROJECT_ID } from "./009-seed-default-project.js";
 import { AddRunListIndexes1758000000010 } from "./010-add-run-list-indexes.js";
 import { AddScenarioSource1758000000011 } from "./011-add-scenario-source.js";
+import { CreateScenarioAttachments1758000000012 } from "./012-create-scenario-attachments.js";
 
 export {
   CreateProjects1758000000001,
@@ -23,6 +24,7 @@ export {
   DEFAULT_PROJECT_ID,
   AddRunListIndexes1758000000010,
   AddScenarioSource1758000000011,
+  CreateScenarioAttachments1758000000012,
 };
 
 /**
@@ -45,4 +47,6 @@ export const migrations = [
   AddRunListIndexes1758000000010,
   // 라운드 2 — scenarios.source_type · scenario_codes · runs.source_type
   AddScenarioSource1758000000011,
+  // 라운드 3 — scenario_attachments (시나리오 첨부파일 메타)
+  CreateScenarioAttachments1758000000012,
 ] as const;
