@@ -1,0 +1,372 @@
+{
+  "results": [
+    {
+      "name": "대시보드에서 CodeMirrorEditor 청크 요청 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "코드 화면 진입 시 에디터 청크를 받는다",
+      "pass": true,
+      "detail": [
+        "CodeMirrorEditor-C3nsDb2H.js"
+      ]
+    },
+    {
+      "name": "청크 경계 시나리오 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "`.cm-editor` 가 렌더된다",
+      "pass": true
+    },
+    {
+      "name": "contentDOM 에 data-testid=code-editor 가 남아 있다",
+      "pass": true
+    },
+    {
+      "name": "spellcheck 가 꺼져 있다",
+      "pass": true
+    },
+    {
+      "name": "aria-label 유지",
+      "pass": true
+    },
+    {
+      "name": "에디터가 서버 본문을 그대로 보여 준다",
+      "pass": true,
+      "detail": {
+        "lines": 11
+      }
+    },
+    {
+      "name": "줄 번호 거터가 1..N 을 그린다",
+      "pass": true,
+      "detail": {
+        "first": "1",
+        "last": "11",
+        "expected": 11
+      }
+    },
+    {
+      "name": "구문 강조 keyword 색 == @theme --color-code-keyword",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(10, 107, 77)",
+        "expected": "rgb(10, 107, 77)",
+        "token": "#0a6b4d"
+      }
+    },
+    {
+      "name": "구문 강조 string 색 == @theme --color-code-string",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(138, 84, 18)",
+        "expected": "rgb(138, 84, 18)",
+        "token": "#8a5412"
+      }
+    },
+    {
+      "name": "구문 강조 number 색 == @theme --color-code-number",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(28, 108, 134)",
+        "expected": "rgb(28, 108, 134)",
+        "token": "#1c6c86"
+      }
+    },
+    {
+      "name": "구문 강조 comment 색 == @theme --color-code-comment",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(110, 122, 117)",
+        "expected": "rgb(110, 122, 117)",
+        "token": "#6e7a75"
+      }
+    },
+    {
+      "name": "주석은 italic",
+      "pass": true,
+      "detail": "italic"
+    },
+    {
+      "name": "거터 배경 == --color-table-head",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(245, 247, 246)",
+        "expected": "rgb(245, 247, 246)"
+      }
+    },
+    {
+      "name": "에디터 폰트 == --font-mono",
+      "pass": true,
+      "detail": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    },
+    {
+      "name": "데스크톱 2단 그리드 유지 (tf-builder)",
+      "pass": true,
+      "detail": "800px 330px"
+    },
+    {
+      "name": "에디터와 첨부 패널이 겹치지 않는다",
+      "pass": true,
+      "detail": {
+        "columns": "800px 330px",
+        "attachmentsFound": true,
+        "attachRight": 1080,
+        "editorRight": 1061,
+        "overflow": 0
+      }
+    },
+    {
+      "name": "가로 오버플로 0",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "Tab 이 2칸 들여쓴다",
+      "pass": true,
+      "detail": "  const 대기 = 300;"
+    },
+    {
+      "name": "Shift+Tab 이 내어쓴다",
+      "pass": true,
+      "detail": "const 대기 = 300;"
+    },
+    {
+      "name": "Escape 로 에디터에서 빠져나온다",
+      "pass": true
+    },
+    {
+      "name": "괄호 매칭이 동작한다",
+      "pass": true,
+      "detail": 2
+    },
+    {
+      "name": "현재 줄 강조 == --color-step-selected-bg",
+      "pass": true,
+      "detail": {
+        "bg": "rgb(246, 251, 248)",
+        "token": "#f6fbf8"
+      }
+    },
+    {
+      "name": "렌더 시나리오 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "검증 목록에 오류가 잡힌다",
+      "pass": true,
+      "detail": [
+        {
+          "severity": "error",
+          "line": "1",
+          "text": "1:16오류 · Node 내장 모듈은 사용할 수 없습니다. 'fs'"
+        }
+      ]
+    },
+    {
+      "name": "오류 밑줄이 1번 줄에만 그려진다 (문서가 바뀌어도 낡은 범위가 안 남는다)",
+      "pass": true,
+      "detail": {
+        "count": 1,
+        "lines": [
+          1
+        ],
+        "text": [
+          "\"fs\";"
+        ],
+        "decorationColor": "rgb(195, 67, 67)",
+        "decorationStyle": "wavy",
+        "backgroundImage": "none",
+        "danger": "#c34343",
+        "errorLineCount": 1,
+        "errorLineBg": "rgb(255, 240, 239)",
+        "dangerSoft": "#fff0ef"
+      }
+    },
+    {
+      "name": "밑줄 색 == --color-danger",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(195, 67, 67)",
+        "expected": "rgb(195, 67, 67)"
+      }
+    },
+    {
+      "name": "밑줄이 물결(wavy)이다",
+      "pass": true,
+      "detail": "wavy"
+    },
+    {
+      "name": "lint 기본 SVG 배경(색 하드코딩)을 껐다",
+      "pass": true,
+      "detail": "none"
+    },
+    {
+      "name": "오류 줄 배경 == --color-danger-soft",
+      "pass": true,
+      "detail": {
+        "actual": "rgb(255, 240, 239)",
+        "expected": "rgb(255, 240, 239)"
+      }
+    },
+    {
+      "name": "오류 툴팁이 메시지를 띄운다",
+      "pass": true,
+      "detail": {
+        "text": "Node 내장 모듈은 사용할 수 없습니다. 'fs' (fs)node_builtin",
+        "border": "rgb(195, 67, 67)"
+      }
+    },
+    {
+      "name": "오류가 있으면 저장 버튼이 잠긴다",
+      "pass": true
+    },
+    {
+      "name": "검증 목록 줄:열 버튼이 에디터로 점프한다",
+      "pass": true
+    },
+    {
+      "name": "오류 시나리오 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "경고만 남는다",
+      "pass": true,
+      "detail": [
+        "warning"
+      ]
+    },
+    {
+      "name": "경고만 있으면 저장 버튼이 열려 있다",
+      "pass": true
+    },
+    {
+      "name": "경고 밑줄 색 == --color-warn",
+      "pass": true,
+      "detail": {
+        "color": "rgb(197, 120, 20)",
+        "warn": "#c57814"
+      }
+    },
+    {
+      "name": "경고만 있는 코드가 저장됐다",
+      "pass": true,
+      "detail": {
+        "got": "import { expect } from \"@playwright/test\";"
+      }
+    },
+    {
+      "name": "경고 저장 시나리오 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "에디터 → API 본문이 바이트 단위로 같다",
+      "pass": true,
+      "detail": {
+        "equal": true,
+        "savedLen": 299,
+        "expectedLen": 299,
+        "savedTail": "\"t(\\\"TestFlow 왕복\\\");\\n});\\n// 왕복 \\\"확인\\\" · 개행 보존\"",
+        "expectedTail": "\"t(\\\"TestFlow 왕복\\\");\\n});\\n// 왕복 \\\"확인\\\" · 개행 보존\""
+      }
+    },
+    {
+      "name": "개행이 \\n 으로 보존된다 (CRLF 없음)",
+      "pass": true
+    },
+    {
+      "name": "한글 · 따옴표 보존",
+      "pass": true
+    },
+    {
+      "name": "실행 다이얼로그가 열린다",
+      "pass": true
+    },
+    {
+      "name": "실행이 생성되고 실행 화면으로 넘어간다",
+      "pass": true,
+      "detail": "http://127.0.0.1:4173/runs/fcc7481d-3f71-40ae-90d2-9d0853d8c0e6"
+    },
+    {
+      "name": "실행이 종료 상태에 도달한다 (status=passed)",
+      "pass": true,
+      "detail": {
+        "status": "passed"
+      }
+    },
+    {
+      "name": "왕복 시나리오 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "1050px 에서 1단으로 접힌다",
+      "pass": true,
+      "detail": {
+        "columns": "758px",
+        "overflow": 0,
+        "editorWidth": 756,
+        "editorHeight": 380
+      }
+    },
+    {
+      "name": "1050px 가로 오버플로 0",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "1050px 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "760px 에서 1단으로 접힌다",
+      "pass": true,
+      "detail": {
+        "columns": "734px",
+        "overflow": 0,
+        "editorWidth": 732,
+        "editorHeight": 380
+      }
+    },
+    {
+      "name": "760px 가로 오버플로 0",
+      "pass": true,
+      "detail": 0
+    },
+    {
+      "name": "760px 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "reduced-motion 에서 에디터 안에 도는 애니메이션·트랜지션 0건",
+      "pass": true,
+      "detail": {
+        "scanned": 89,
+        "animated": [],
+        "hasCmCursor": false,
+        "caretColor": "rgb(8, 127, 91)"
+      }
+    },
+    {
+      "name": "커서는 브라우저 네이티브 캐럿이다 (.cm-cursor 없음 — drawSelection 미채택)",
+      "pass": true,
+      "detail": {
+        "caretColor": "rgb(8, 127, 91)"
+      }
+    },
+    {
+      "name": "reduced-motion 콘솔 에러 0건",
+      "pass": true,
+      "detail": []
+    }
+  ],
+  "fails": []
+}
