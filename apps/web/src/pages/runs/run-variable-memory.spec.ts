@@ -15,8 +15,8 @@ describe("toStorableVariables", () => {
       { key: "password", value: "PLAINTEXT-SECRET-1234" },
     ]);
     expect(stored).toEqual([
-      { key: "username", value: "qa-tester", custom: false },
-      { key: "password", value: "", custom: false },
+      { key: "username", value: "qa-tester", custom: false, plain: false },
+      { key: "password", value: "", custom: false, plain: false },
     ]);
     expect(JSON.stringify(stored)).not.toContain("PLAINTEXT-SECRET-1234");
   });
@@ -41,20 +41,41 @@ describe("toStorableVariables", () => {
 
   it("★ 직접 추가한 비밀 변수도 값이 저장되지 않는다", () => {
     const stored = toStorableVariables([
-      { key: "my_secret", value: "LEAK-ME", custom: true },
+      { key: "my_secret", value: "LEAK-ME", custom: true, plain: false },
     ]);
-    expect(stored).toEqual([{ key: "my_secret", value: "", custom: true }]);
+    expect(stored).toEqual([{ key: "my_secret", value: "", custom: true, plain: false }]);
   });
 
   it("비밀이 아닌 값은 그대로 기억한다", () => {
     expect(
       toStorableVariables([
         { key: "lawyer_email", value: "UI_il_1@test.com" },
-        { key: "projectName", value: "보안점검-1", custom: true },
+        { key: "projectName", value: "보안점검-1", custom: true, plain: false },
       ]),
     ).toEqual([
-      { key: "lawyer_email", value: "UI_il_1@test.com", custom: false },
-      { key: "projectName", value: "보안점검-1", custom: true },
+      { key: "lawyer_email", value: "UI_il_1@test.com", custom: false, plain: false },
+      { key: "projectName", value: "보안점검-1", custom: true, plain: false },
+    ]);
+  });
+
+  /* ────────────────────────────────────────────────────────────
+   * ★ 라운드 10 — 사용자가 **직접** 푼 칸(`plain`)만 예외다.
+   * ──────────────────────────────────────────────────────────── */
+  it("★ plain 을 주지 않으면 지금까지와 **정확히 같다**(기본은 저장 안 함)", () => {
+    expect(
+      toStorableVariables([{ key: "securitySecretKeyword", value: "[보안]" }]),
+    ).toEqual([{ key: "securitySecretKeyword", value: "", custom: false, plain: false }]);
+  });
+
+  it("★ 사용자가 plain 으로 지정한 칸만 값이 남는다", () => {
+    expect(
+      toStorableVariables([
+        { key: "securitySecretKeyword", value: "[보안]", plain: true },
+        { key: "password", value: "PLAINTEXT-SECRET-1234" },
+      ]),
+    ).toEqual([
+      { key: "securitySecretKeyword", value: "[보안]", custom: false, plain: true },
+      { key: "password", value: "", custom: false, plain: false },
     ]);
   });
 
@@ -66,17 +87,28 @@ describe("toStorableVariables", () => {
     expect(
       toStorableVariables([
         { key: "projectName", value: "before" },
-        { key: " projectName ", value: "after", custom: true },
+        { key: " projectName ", value: "after", custom: true, plain: false },
       ]),
-    ).toEqual([{ key: "projectName", value: "after", custom: true }]);
+    ).toEqual([{ key: "projectName", value: "after", custom: true, plain: false }]);
   });
 });
 
 describe("parseStoredVariables", () => {
   it("★ 저장소에 평문 비밀값이 들어 있어도 읽을 때 버린다", () => {
-    const raw = JSON.stringify([{ key: "password", value: "INJECTED-PLAINTEXT", custom: false }]);
+    const raw = JSON.stringify([{ key: "password", value: "INJECTED-PLAINTEXT", custom: false, plain: false }]);
     expect(parseStoredVariables(raw)).toEqual([
-      { key: "password", value: "", custom: false },
+      { key: "password", value: "", custom: false, plain: false },
+    ]);
+  });
+
+  it("★ plain 이 붙은 기록만 값을 되살린다", () => {
+    const raw = JSON.stringify([
+      { key: "securitySecretKeyword", value: "[보안]", custom: false, plain: true },
+      { key: "password", value: "INJECTED-PLAINTEXT", custom: false, plain: false },
+    ]);
+    expect(parseStoredVariables(raw)).toEqual([
+      { key: "securitySecretKeyword", value: "[보안]", custom: false, plain: true },
+      { key: "password", value: "", custom: false, plain: false },
     ]);
   });
 
@@ -89,7 +121,7 @@ describe("parseStoredVariables", () => {
 
   it("모양이 틀린 원소는 건너뛴다", () => {
     const raw = JSON.stringify([null, 3, { value: "no key" }, { key: "ok", value: "1" }]);
-    expect(parseStoredVariables(raw)).toEqual([{ key: "ok", value: "1", custom: false }]);
+    expect(parseStoredVariables(raw)).toEqual([{ key: "ok", value: "1", custom: false, plain: false }]);
   });
 
   it("왕복한다", () => {

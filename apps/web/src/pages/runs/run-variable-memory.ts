@@ -12,6 +12,22 @@ import { MAX_DETECTED_VARIABLES, isSecretVariableKey } from "@testflow/contracts
  *
  * 이 규칙은 `toStorableVariables()` **한 곳**에만 있고 저장 경로는 그 함수를 반드시 지난다.
  * `run-variable-memory.spec.ts` 가 "평문이 결과에 없다"를 고정한다.
+ *
+ * ★ 라운드 10 — **딱 하나의 예외: 사용자가 그 칸을 직접 "비밀 아님"으로 지정했을 때**
+ * (`plain: true`). 자동 판정이 느슨해지는 것이 **아니다** — `SECRET_KEY_PATTERN` 도
+ * `isSecretVariableKey()` 도 그대로이고, 기본값은 여전히 "저장 안 함" 이다.
+ * 사람이 그 칸을 보고 명시적으로 누를 때만 열린다(다이얼로그의 「비밀 아님」).
+ *
+ * 왜 필요한가: `securitySecretKeyword`(검색어 `[보안]`) 같은 **오탐**이 있다.
+ * 그런 칸은 가려질 이유가 없는데 매 실행마다 다시 타이핑해야 했다.
+ * 왜 이것이 위험하지 않은가:
+ *  - **서버 쪽 마스킹은 이 플래그를 아예 모른다.** `maskVariablesForStorage()` ·
+ *    `collectSecretValues()` 는 그대로 `isSecretVariableKey()` 로 판정한다.
+ *    즉 `runs.variables` 에는 계속 `***` 가 저장되고 로그에서도 계속 지워진다.
+ *  - 다이얼로그는 이 토글을 **코드에 평문 기본값이 있는 칸에만** 내놓는다
+ *    (`RunDialog.tsx` 의 `canMarkPlain`). 가드로 막힌 진짜 계정
+ *    (`username`/`password`)에는 토글 자체가 **나타나지 않는다.**
+ *  - 여기 남는 것은 그 브라우저 안의 값 하나뿐이고 서버로는 가지 않는다.
  * ════════════════════════════════════════════════════════════════════
  *
  * ## 왜 기억하나
@@ -31,9 +47,11 @@ export const RUN_VARIABLE_MEMORY_PREFIX = "testflow.runVariables.v1.";
 /** 저장 1건. `custom` 은 "감지된 것이 아니라 사용자가 직접 추가했다"는 뜻이다. */
 export type StoredRunVariable = {
   key: string;
-  /** ★ 비밀 키면 **언제나 빈 문자열**이다. */
+  /** ★ 비밀 키면 **언제나 빈 문자열**이다(`plain` 으로 직접 푼 칸만 예외). */
   value: string;
   custom: boolean;
+  /** ★ 사용자가 "이 칸은 비밀이 아니다"라고 **직접** 지정했는가. 기본 `false`. */
+  plain: boolean;
 };
 
 /** 값 길이 상한. `CreateRunRequestSchema.variables` 의 값 상한과 같은 값이다. */
@@ -46,22 +64,24 @@ export function memoryKey(scenarioId: string): string {
 /**
  * 저장 직전 변환 — **순수 함수**. 저장 경로는 반드시 여기를 지난다.
  *
- * - 비밀 키의 값 → `""`
+ * - 비밀 키의 값 → `""` (**사용자가 `plain` 으로 직접 푼 칸만 예외** — 머리 주석)
  * - 빈 키는 버린다(직접 추가하다 만 행)
  * - 같은 키가 겹치면 뒤엣것이 이긴다(직접 추가가 감지분을 덮어쓴다)
  * - 개수·길이 상한을 건다(localStorage 를 무한정 먹지 않게)
  */
 export function toStorableVariables(
-  entries: readonly { key: string; value: string; custom?: boolean }[],
+  entries: readonly { key: string; value: string; custom?: boolean; plain?: boolean }[],
 ): StoredRunVariable[] {
   const byKey = new Map<string, StoredRunVariable>();
   for (const entry of entries) {
     const key = entry.key.trim();
     if (key === "" || key.length > 100) continue;
+    const plain = entry.plain === true;
     byKey.set(key, {
       key,
-      value: isSecretVariableKey(key) ? "" : entry.value.slice(0, MAX_VALUE_LENGTH),
+      value: isSecretVariableKey(key) && !plain ? "" : entry.value.slice(0, MAX_VALUE_LENGTH),
       custom: entry.custom === true,
+      plain,
     });
   }
   return [...byKey.values()].slice(0, MAX_DETECTED_VARIABLES);
@@ -84,15 +104,20 @@ export function parseStoredVariables(raw: string | null): StoredRunVariable[] {
     const record = item as Record<string, unknown>;
     const key = typeof record["key"] === "string" ? record["key"] : "";
     if (key === "") continue;
+    const plain = record["plain"] === true;
     out.push({
       key,
       // ★ 읽을 때도 비밀 키는 값을 버린다. 저장 시점 규칙이 바뀌었거나
       //   누군가 손으로 넣어 둔 평문이 화면에 되살아나지 않게 한다.
+      //   `plain` 으로 **사용자가 직접 푼 칸**만 예외다(머리 주석) — 그 플래그는
+      //   이 파일이 직접 쓴 것이고, 손으로 고칠 수 있는 자리라는 점에서는 값과 같다
+      //   (localStorage 를 고칠 수 있는 쪽은 이미 그 브라우저를 쥐고 있다).
       value:
-        isSecretVariableKey(key) || typeof record["value"] !== "string"
+        (isSecretVariableKey(key) && !plain) || typeof record["value"] !== "string"
           ? ""
           : (record["value"] as string).slice(0, MAX_VALUE_LENGTH),
       custom: record["custom"] === true,
+      plain,
     });
   }
   return out.slice(0, MAX_DETECTED_VARIABLES);
@@ -114,7 +139,7 @@ export function loadRememberedVariables(scenarioId: string | undefined): StoredR
 /** 쓰기. 역시 던지지 않는다(quota 초과 등). */
 export function rememberVariables(
   scenarioId: string | undefined,
-  entries: readonly { key: string; value: string; custom?: boolean }[],
+  entries: readonly { key: string; value: string; custom?: boolean; plain?: boolean }[],
 ): void {
   if (scenarioId === undefined || scenarioId === "") return;
   const storable = toStorableVariables(entries);
