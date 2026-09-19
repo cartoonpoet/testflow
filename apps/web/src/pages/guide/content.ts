@@ -84,9 +84,12 @@ export const AI_PROMPT = `Playwright 테스트 코드를 만들어 줘. 아래 �
    기준 주소는 실행할 때 주입된다.
 4. 계정·비밀번호·조회 대상 이름 같은 값을 코드에 박지 마. 환경변수로 읽어.
    const username = process.env["TESTFLOW_VAR_username"] ?? "";
-   const password = process.env["TESTFLOW_VAR_password"] ?? "";
-   const projectName = process.env["TESTFLOW_VAR_projectName"] ?? "";
-   변수가 비었으면 왜 실패했는지 알 수 있게 맨 앞에서 명확히 멈춰.
+   기본값이 있는 값은 || 로 써. const kw = process.env["TESTFLOW_VAR_kw"] || "변호사";
+   꼭 있어야 하는 값은 test() 맨 앞에서 아래 형태 그대로 막아. 형태를 바꾸면 실행
+   화면이 "꼭 입력할 것"으로 못 알아본다(forEach·expect(...).toBeTruthy() 금지).
+   for (const key of ["TESTFLOW_VAR_username", "TESTFLOW_VAR_password"]) {
+     if (!(process.env[key] ?? "")) throw new Error(\`실행 변수 \${key} 가 필요합니다.\`);
+   }
 5. 요소를 찾을 때 getByRole → getByLabel → getByText → getByTestId 순으로 우선 써.
    CSS 선택자(page.locator('#id'))는 다른 방법이 없을 때만.
 6. 파일 업로드는 파일명만 써. \`setInputFiles('테스트용 파일-1.docx')\`
@@ -122,17 +125,22 @@ const CODE_ENV = `import { test, expect } from '@playwright/test';
 // 실행 변수: TESTFLOW_VAR_username, TESTFLOW_VAR_password, TESTFLOW_VAR_projectName
 
 test('법무 프로젝트 조회', async ({ page }) => {
-  // 변수가 비면 빈 문자열로 로그인해 '원인 불명 실패'가 된다. 여기서 먼저 멈춘다.
+  // ★ 이 가드가 곧 '꼭 입력할 것' 선언이다 — 실행 다이얼로그가 이 두 칸을 항상 보여 준다.
+  //   형태를 바꾸면(forEach, 상수 배열, 변수에 담았다 검사) 못 알아본다.
   for (const key of ['TESTFLOW_VAR_username', 'TESTFLOW_VAR_password']) {
     if (!(process.env[key] ?? '')) {
       throw new Error(\`실행 변수 \${key} 가 필요합니다. 실행 다이얼로그에서 입력해 주세요.\`);
     }
   }
-  const projectName = process.env['TESTFLOW_VAR_projectName'] ?? 'project-save-';
+  // 아래 ?? '' 는 타입 맞추기(string | undefined → string)용이다. 위 가드가 이미 막았다.
+  const username = process.env['TESTFLOW_VAR_username'] ?? '';
+  const password = process.env['TESTFLOW_VAR_password'] ?? '';
+  // || 기본값 → 선택 변수. 다이얼로그가 접어 두고 칸에 'project-save-' 를 채워 준다.
+  const projectName = process.env['TESTFLOW_VAR_projectName'] || 'project-save-';
 
   await page.goto('/#/signin');
-  await page.getByRole('textbox', { name: '이메일' }).fill(process.env['TESTFLOW_VAR_username'] ?? '');
-  await page.getByRole('textbox', { name: '비밀번호' }).fill(process.env['TESTFLOW_VAR_password'] ?? '');
+  await page.getByRole('textbox', { name: '이메일' }).fill(username);
+  await page.getByRole('textbox', { name: '비밀번호' }).fill(password);
   await page.getByRole('button', { name: '로그인' }).click();
 
   await page.getByRole('link', { name: projectName }).click();
@@ -259,7 +267,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
       },
       {
         kind: "p",
-        text: "`test()` 를 여러 개 두면 `test()` **마다 영상이 따로 만들어집니다.** 화면에는 그중 하나만 재생되므로, 두 번째 이후 `test()` 의 스텝을 눌러도 영상이 엉뚱한 곳으로 갑니다. (`test()` 가 하나도 없으면 저장은 되지만 노란 경고가 뜹니다 — 실행해도 스텝이 하나도 생기지 않습니다.)",
+        text: "`test()` 를 여러 개 두면 `test()` **마다 영상이 따로 만들어집니다.** 화면에는 그중 하나만 재생되므로, 두 번째 이후 `test()` 의 스텝을 눌러도 영상이 엉뚱한 곳으로 갑니다. (`test()` 도 `test.describe()` 도 없으면 저장은 되지만 노란 경고가 뜹니다 — 실행해도 스텝이 하나도 생기지 않습니다.)",
       },
       {
         kind: "p",
@@ -277,25 +285,92 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
         text: "기준 주소는 **실행할 때 「대상 주소(baseUrl)」칸에 입력한 값**이 들어갑니다. 상대 경로로 써야 **같은 테스트를 스테이징과 운영에 골라 돌릴 수 있습니다.** 절대 URL을 쓰면 그 주소로 고정됩니다.",
       },
 
-      { kind: "h3", id: "env-vars", text: "4. 값을 코드에 박지 마세요" },
+      { kind: "h3", id: "env-vars", text: "4. 값을 코드에 박지 마세요 — 선언하는 방법" },
       {
         kind: "p",
-        text: "계정, 비밀번호, 조회할 프로젝트 이름, 검색어처럼 **바뀔 수 있는 값**은 환경변수로 받으세요.",
+        text: "계정, 비밀번호, 조회할 프로젝트 이름, 검색어처럼 **바뀔 수 있는 값**은 환경변수로 받으세요. 이름은 `TESTFLOW_VAR_` 로 시작하면 **무엇이든 자유롭게** 정할 수 있고, 몇 개든 됩니다.",
+      },
+      {
+        kind: "p",
+        text: "그리고 **어떻게 쓰느냐가 실행 다이얼로그를 그대로 결정합니다.** TestFlow는 실행하기 전에 코드를 읽어 「꼭 입력할 것」과 「선택」을 가릅니다. 아래 네 가지 쓰임새를 알면 원하는 화면을 만들 수 있습니다.",
+      },
+      {
+        kind: "table",
+        table: {
+          head: ["코드에 이렇게 쓰면", "실행 다이얼로그는 이렇게 됩니다"],
+          rows: [
+            [
+              "**가드**로 검사 (`throw` · `test.skip`)",
+              "**꼭 입력할 것** — 접히지 않고 **항상 보이며**, 칸은 **비어 있습니다**",
+            ],
+            [
+              "`|| '변호사'`",
+              "**선택** — 접히고, 펼치면 칸에 `변호사` 가 **미리 채워져** 있습니다",
+            ],
+            [
+              "`|| ` 뒤에 `test-${Date.now()}` 같은 템플릿",
+              "**선택** — 빈 칸 + 「비우면 자동 생성됩니다」 (무엇이 될지 미리 알 수 없으므로)",
+            ],
+            [
+              "`?? ''` **만** 쓰고 가드 없음",
+              "**선택** — ⚠️ **접힙니다.** 꼭 필요한 값인데도 숨습니다",
+            ],
+          ],
+        },
+      },
+      {
+        kind: "note",
+        text: "⚠️ **네 번째 줄이 함정입니다.** `?? ''` 는 타입을 맞추려고(`string | undefined` → `string`) 붙이는 것이지 \"비워도 된다\"는 뜻이 아닙니다. 그런데 코드를 읽는 쪽에서는 **「빈 문자열 기본값이 있다」로 보여** 그 칸이 접힌 선택 영역으로 들어갑니다. 계정·비밀번호가 접혀 버린 실제 사고가 이 패턴 때문이었고, **이 가이드가 그것만 권했던 것이 그 사고의 직접 원인이었습니다.** 꼭 받아야 하는 값은 `?? ''` 에 맡기지 말고 **가드를 쓰세요.**",
       },
       {
         kind: "code",
         lang: "ts",
         code: CODE_ENV,
-        caption: "환경변수로 받는 전체 예시",
+        // ★ caption 은 InlineMd 를 지나지 않는다(CodeBlock 이 그대로 그린다).
+        //   백틱을 쓰면 화면에 그대로 보인다 — 코드 칩을 쓰지 마라.
+        caption: "가드로 필수를 선언하고 기본값을 주는 전체 예시",
         copy: true,
       },
       {
         kind: "p",
-        text: "**변수 이름 규칙**: 실행 다이얼로그의 「계정」칸은 `TESTFLOW_VAR_username`, 「비밀번호」칸은 `TESTFLOW_VAR_password` 로 들어갑니다. 이 두 개는 이름을 맞춰야 UI에서 실행할 수 있습니다. 나머지는 자유롭게 정하세요(`TESTFLOW_VAR_projectName` 등).",
+        text: "**가드는 모양이 정해져 있습니다.** 코드를 읽는 것은 정규식이라 아래 세 가지만 알아봅니다. 핵심은 **변수 이름이 조건이나 순회 대상(머리)에 글자 그대로 있어야** 한다는 것입니다 — 몸통 안에만 있으면 못 잡습니다.",
+      },
+      {
+        kind: "ul",
+        items: [
+          "✅ `for (const key of ['TESTFLOW_VAR_a', 'TESTFLOW_VAR_b']) { … throw … }` — 배열을 **그 자리에 적어** 순회",
+          "✅ `if (!process.env['TESTFLOW_VAR_a']) throw new Error('…')` — 한 줄이든 블록이든 됩니다",
+          "✅ `test.skip(!process.env['TESTFLOW_VAR_a'], '…')`",
+        ],
+      },
+      {
+        kind: "p",
+        text: "**아래 네 가지는 못 잡습니다.** 사람 눈에는 똑같은 가드인데 화면에는 올라오지 않습니다.",
+      },
+      {
+        kind: "ul",
+        items: [
+          "❌ **상수 배열을 참조** — `const KEYS = [...]` 를 밖에 두고 `for (const key of KEYS)`",
+          "❌ `.forEach` **로 순회** — `['TESTFLOW_VAR_a'].forEach(...)`",
+          "❌ **변수에 담았다 검사** — `const u = process.env['TESTFLOW_VAR_a']; if (!u) throw …`",
+          "❌ `expect(...).toBeTruthy()` — 멈추기는 하지만 **가드로 읽히지 않습니다**",
+        ],
       },
       {
         kind: "note",
-        text: '⚠️ **비밀번호를 코드에 직접 적지 마세요.** 코드 본문은 DB에 그대로 저장되고 에디터에도 보입니다. 테스트가 실패하면 Playwright가 실패한 줄의 소스를 로그에 출력하기 때문에 **로그에도 남습니다.** 환경변수로 넘긴 값은 스텝 이력에 `Fill "***"` 로 가려집니다.',
+        text: "⚠️ **실측**: 같은 키 4개를 `?? ''` 로 읽으면서 가드만 위 네 형태로 바꿔 보니, 배열을 그 자리에 적은 **한 개만** 「꼭 입력할 것」으로 올라오고 **나머지 세 개는 접혔습니다.** 그러니 AI에게 맡길 때도 **가드 형태를 그대로 쓰라고** 못 박으세요(1절 프롬프트 4번이 그렇게 돼 있습니다).",
+      },
+      {
+        kind: "p",
+        text: "**기본값은 칸에 미리 채워지고, 그대로 고칠 수 있습니다.** 고치면 고친 값이 쓰이고, 비우면 코드의 기본값이 쓰입니다 — 결과가 같습니다. 다만 **채우지 않는 경우가 둘** 있습니다: 기본값이 **120자를 넘을 때**와 **줄바꿈·제어문자가 섞여 있을 때**입니다. 화면에 보이는 모양이 코드의 원문과 달라지는데, 그 상태로 채워 두면 **원문과 다른 값을 사용자가 모르는 채로 보내게** 되기 때문입니다. 이때는 빈 칸으로 두고 「비우면 코드의 기본값을 씁니다」라고 알립니다.",
+      },
+      {
+        kind: "p",
+        text: "**「계정」·「비밀번호」라는 이름의 칸**은 `TESTFLOW_VAR_username` · `TESTFLOW_VAR_password` 를 읽을 때만 그 라벨로 나옵니다. 다른 이름을 쓰면 **그 이름이 그대로 칸 라벨**이 됩니다(`lawyerUsername` 등). 이름을 맞춰야 할 의무는 없습니다.",
+      },
+      {
+        kind: "note",
+        text: '⚠️ **비밀번호를 코드에 직접 적지 마세요.** 코드 본문은 DB에 그대로 저장되고 에디터에도 보입니다. 테스트가 실패하면 Playwright가 실패한 줄의 소스를 로그에 출력하기 때문에 **로그에도 남습니다.** 환경변수로 넘긴 값은 스텝 이력에 가려집니다. **기본값에도 적지 마세요** — 이름에 `password`·`secret`·`token` 이 들어가면 비밀로 판정돼 실행 기록에서는 가려지지만, 그 값은 **칸에 그대로 채워지고 코드 본문에도 평문으로 남아 있습니다.** 가려지는 것은 기록뿐이고, 코드에 적은 사실 자체는 지워지지 않습니다.',
       },
 
       { kind: "h3", id: "locators", text: "5. 요소를 찾는 방법" },
@@ -323,7 +398,7 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
       },
       {
         kind: "p",
-        text: "상한: **개당 10MB · 시나리오당 20개 · 합계 50MB**. 파일명에 `/` `\\` 따옴표를 쓸 수 없고, `.` 으로 시작할 수 없습니다.",
+        text: "상한: **개당 10MB · 시나리오당 20개 · 합계 50MB**. 파일명에 `/` `\\` `\"` 를 쓸 수 없고, `.` 으로 시작할 수 없습니다. `node_modules` · `package.json` 처럼 실행 환경이 쓰는 이름도 막힙니다.",
       },
     ],
   },
@@ -356,7 +431,10 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
                 ["대상 주소 (baseUrl)", "`https://내서비스주소`"],
                 ["환경 라벨", "`운영` / `스테이징` 등 (기록용)"],
                 ["브라우저", "지금은 `Chrome` 하나뿐입니다"],
-                ["계정 / 비밀번호", "테스트 계정. **이번 실행에만 쓰이고 저장되지 않습니다**"],
+                [
+                  "테스트 데이터",
+                  "코드가 읽는 `TESTFLOW_VAR_*` 마다 칸이 하나씩 생깁니다. **바로 아래** 설명 참고",
+                ],
               ],
             },
           },
@@ -367,6 +445,33 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
             ],
           },
         ],
+      },
+
+      { kind: "h3", id: "run-variables", text: "「테스트 데이터」 — 칸이 왜 그렇게 나오나" },
+      {
+        kind: "p",
+        text: "실행을 누르면 TestFlow가 먼저 코드를 읽어 **이 시나리오가 쓰는 변수를 찾아** 칸을 만듭니다. 그리고 그 칸을 **꼭 입력할 것**과 **선택**으로 가릅니다 — 맨 위에 「꼭 입력할 것 N개 · 선택 M개」로 나옵니다.",
+      },
+      {
+        kind: "ul",
+        items: [
+          "**꼭 입력할 것** — 코드가 **없으면 멈추게** 만들어 둔 값입니다. 접히지 않고 항상 보입니다. 비우고 실행하면 그 자리에서 실패합니다.",
+          "**선택** — 코드에 **기본값이 있는** 값입니다. 접혀 있고, **열지 않아도 됩니다.** 그대로 실행하면 코드에 적힌 기본값으로 돕니다.",
+          "**접힌 칸에는 기본값이 이미 채워져 있습니다.** 열어서 고치면 고친 값이 쓰이고, 그대로 두면 같은 값이 쓰입니다 — **결과가 같습니다.** 그래서 안 열어도 되는 것입니다.",
+          "값을 **지우면** 지운 채로 남습니다. 빈 칸은 서버로 보내지 않으므로 코드의 기본값이 살아납니다.",
+        ],
+      },
+      {
+        kind: "p",
+        text: "이름에 `password`·`secret`·`token` 같은 말이 들어간 칸은 **가려진 칸**(●●●)이 됩니다. 검색어처럼 실제로는 비밀이 아닌 값이 걸렸다면 그 칸의 **「비밀 아님」** 을 눌러 보이게 바꿀 수 있습니다. 이 선택은 **그 브라우저에만** 기억됩니다.",
+      },
+      {
+        kind: "note",
+        text: "⚠️ **입력한 값은 이번 실행에만 쓰이고 서버에 저장되지 않습니다.** 다음에 다시 입력하는 수고를 덜기 위해 **이 브라우저에만** 값을 기억해 두지만, **비밀값은 브라우저에도 남지 않습니다** — 가려진 칸은 다음에 열면 늘 비어 있습니다. 그래서 재실행할 때도 계정은 다시 입력해야 합니다.",
+      },
+      {
+        kind: "p",
+        text: "**칸이 하나도 안 나오거나 빠진 게 있으면** — **「+ 변수 추가」** 로 이름과 값을 직접 넣을 수 있습니다. 여러 시나리오를 한 번에 돌릴 때(「▶ 선택 실행」)와 스위트를 돌릴 때는 코드를 읽지 않으므로 **늘 이 방법**을 씁니다. 왜 못 찾는지와 원하는 칸을 만드는 방법은 **2절 4번**에 있습니다.",
       },
 
       { kind: "h3", id: "run-artifacts", text: "실행이 끝나면 무엇이 남나" },
@@ -581,16 +686,19 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
             ],
           },
           {
-            q: "**「계정」칸에 입력했는데 로그인이 안 됩니다**",
+            q: "**칸에 입력했는데 로그인이 안 됩니다**",
             a: [
-              "→ 코드가 읽는 변수 이름이 `TESTFLOW_VAR_username` 인지 확인하세요. `TESTFLOW_VAR_email` 처럼 다른 이름으로 읽고 있으면 값이 전달되지 않습니다.",
+              "→ **칸 이름과 코드의 변수 이름은 언제나 같습니다.** 코드가 `TESTFLOW_VAR_email` 을 읽으면 다이얼로그에도 `email` 이라는 칸이 나옵니다(「계정」·「비밀번호」라는 라벨은 `TESTFLOW_VAR_username` · `TESTFLOW_VAR_password` 일 때만 붙습니다). 그래서 이름이 어긋나 값이 안 들어가는 일은 생기지 않습니다.",
+              "→ 대신 **칸이 아예 안 보이는지** 확인하세요. 코드가 `process.env['TESTFLOW_VAR_' + name]` 처럼 이름을 **조립**해서 읽으면 찾지 못합니다. 그때는 **「+ 변수 추가」** 로 이름을 직접 적어 넣으면 됩니다.",
+              "→ 칸이 **접힌 선택 영역에 숨어 있을 수도** 있습니다. 꼭 필요한 값인데 접혀 있다면 코드에 가드가 없거나 가드 형태가 인식되지 않는 것입니다 — **2절 4번** 참고.",
             ],
           },
           {
             q: "**계정이 2개 이상 필요한 테스트**",
             a: [
-              "→ 실행 다이얼로그는 계정 1쌍(`TESTFLOW_VAR_username` / `TESTFLOW_VAR_password`)만 받습니다. 지금은 API로 실행해야 합니다.",
-              "→ 실제 사례: 보안등급별로 **누구에게 무엇이 보이는지**를 검증하는 시나리오가 변호사·일반 사용자·관리자 **계정 3쌍**을 필요로 했습니다. 이런 테스트는 UI에서 돌릴 수 없습니다.",
+              "→ **됩니다.** 변수를 쌍마다 따로 선언하면 실행 다이얼로그에 칸이 그만큼 생깁니다. `TESTFLOW_VAR_lawyerUsername` · `TESTFLOW_VAR_lawyerPassword` · `TESTFLOW_VAR_generalUsername` … 처럼 이름만 나누면 됩니다. 개수 제한은 없습니다(한 화면에 50개까지 보여 줍니다).",
+              "→ 실제 사례: 보안등급별로 **누구에게 무엇이 보이는지**를 검증하는 시나리오가 변호사·일반 사용자·관리자 **계정 3쌍**을 필요로 했습니다. 6개를 각각 선언하고 **가드로 한 번에 묶어** 막으면, 다이얼로그에 **「꼭 입력할 것 6개」** 로 6칸이 뜹니다. 실측으로 확인했습니다.",
+              "→ 이름에 `password` 가 들어간 3개는 자동으로 **가려진 칸**이 되고, 스텝 이력에서도 값이 가려집니다. 자세한 쓰는 법은 **2절 4번** 참고.",
             ],
           },
         ],
@@ -611,7 +719,6 @@ export const GUIDE_SECTIONS: readonly GuideSection[] = [
             ["`webServer` 설정", "대상 서버를 미리 띄워두고 주소만 지정"],
             ["Chrome 외 브라우저", "—"],
             ["예약·반복 실행", "수동 실행 / 「▶ 선택 실행」 으로 묶어서"],
-            ["계정 2쌍 이상을 UI에서 입력", "API 실행"],
             ["재실행할 때 계정 자동 채우기", "**보안상 저장하지 않습니다.** 다시 입력"],
             ["삭제 취소(휴지통)", "—"],
           ],
