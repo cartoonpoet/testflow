@@ -66,17 +66,48 @@ export function memoryKey(scenarioId: string): string {
  *
  * - 비밀 키의 값 → `""` (**사용자가 `plain` 으로 직접 푼 칸만 예외** — 머리 주석)
  * - 빈 키는 버린다(직접 추가하다 만 행)
+ * - ★ 라운드 11 — **코드의 기본값과 같은 값은 버린다**(`codeDefault`)
  * - 같은 키가 겹치면 뒤엣것이 이긴다(직접 추가가 감지분을 덮어쓴다)
  * - 개수·길이 상한을 건다(localStorage 를 무한정 먹지 않게)
+ *
+ * ════════════════════════════════════════════════════════════════════
+ * ## ★ 라운드 11 — 왜 **기본값과 같은 값은 기억하지 않나**
+ *
+ * 라운드 11 부터 다이얼로그는 코드의 리터럴 기본값을 **칸에 채운다.** 그러면
+ * 사용자가 아무것도 안 해도 그 값이 "입력값" 으로 보이고, 그대로 저장하면
+ * **코드의 기본값이 나중에 바뀌었을 때 브라우저에 남은 옛 값이 새 기본값을 조용히
+ * 덮는다** — 사용자는 그 값을 고른 적이 없는데도.
+ *
+ * 그래서 기억에는 **사용자가 기본값과 다르게 고른 값만** 남긴다. 같은 값은 저장하지
+ * 않고 매번 코드에서 다시 읽는다. 비워 둔 칸(`""`)이 기본값과 다르면 그것도 **사용자의
+ * 선택**이므로 남긴다.
+ *
+ * 읽을 때 비교하는 방법(= "기억한 값이 현재 기본값과 다를 때만 쓴다")은 이 문제를
+ * **못 막는다**: 기본값이 A→B 로 바뀌면 기억한 A 는 B 와 "다르므로" 그대로 이긴다.
+ * 막으려던 바로 그 경우다. 쓰는 쪽에서 거르는 것이 맞다.
+ *
+ * **예외는 `plain`** — 「비밀 아님」으로 풀어 둔 칸은 값이 기본값과 같아도 남긴다.
+ * 안 그러면 그 플래그까지 사라져 매 실행마다 다시 눌러야 한다(라운드 10 이 없애려던
+ * 바로 그 불편이다).
+ * ════════════════════════════════════════════════════════════════════
  */
 export function toStorableVariables(
-  entries: readonly { key: string; value: string; custom?: boolean; plain?: boolean }[],
+  entries: readonly {
+    key: string;
+    value: string;
+    custom?: boolean;
+    plain?: boolean;
+    /** 코드가 말한 값. `null`/`undefined` 면 비교하지 않는다(직접 추가한 변수 등). */
+    codeDefault?: string | null;
+  }[],
 ): StoredRunVariable[] {
   const byKey = new Map<string, StoredRunVariable>();
   for (const entry of entries) {
     const key = entry.key.trim();
     if (key === "" || key.length > 100) continue;
     const plain = entry.plain === true;
+    const codeDefault = entry.codeDefault ?? null;
+    if (!plain && codeDefault !== null && entry.value === codeDefault) continue;
     byKey.set(key, {
       key,
       value: isSecretVariableKey(key) && !plain ? "" : entry.value.slice(0, MAX_VALUE_LENGTH),
@@ -139,7 +170,13 @@ export function loadRememberedVariables(scenarioId: string | undefined): StoredR
 /** 쓰기. 역시 던지지 않는다(quota 초과 등). */
 export function rememberVariables(
   scenarioId: string | undefined,
-  entries: readonly { key: string; value: string; custom?: boolean; plain?: boolean }[],
+  entries: readonly {
+    key: string;
+    value: string;
+    custom?: boolean;
+    plain?: boolean;
+    codeDefault?: string | null;
+  }[],
 ): void {
   if (scenarioId === undefined || scenarioId === "") return;
   const storable = toStorableVariables(entries);

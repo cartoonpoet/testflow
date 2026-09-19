@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { isSecretVariableKey, type RunVariable } from "@testflow/contracts";
+import { isSecretVariableKey, variablePrefillValue, type RunVariable } from "@testflow/contracts";
 import { loadRememberedVariables, rememberVariables } from "./run-variable-memory";
 
 /**
@@ -14,9 +14,33 @@ import { loadRememberedVariables, rememberVariables } from "./run-variable-memor
  *  - 어떤 칸을 **그릴지**는 `detected` 가 정하고, 그 칸의 값은 언제나 `values[key] ?? ""` 다.
  *  → 감지가 늦게 와도 칸이 뜨는 순간 기억해 둔 값이 이미 들어 있다. effect 가 필요 없다.
  *
+ * ## ★ 라운드 11 — 코드의 기본값을 **칸에 채운다**(자동 바인딩)
+ *
+ * 라운드 10 은 기본값을 placeholder 로만 알렸다. "그럼 그냥 실제 값을 채워 달라" 가
+ * 사용자의 요구다. 여기서도 **effect 를 쓰지 않는다** — 값을 state 에 미리 밀어 넣는
+ * 대신, **읽을 때 겹쳐 본다**:
+ *
+ * ```
+ * valueOf(key) = values[key] ?? prefill(key) ?? ""
+ * ```
+ *
+ * `values[key]` 는 **사람이 만진 흔적**(기억해 둔 값 · 이번에 친 글자)이고,
+ * `prefill(key)` 는 **코드가 말한 값**이다. 사람이 만진 적이 없을 때만 코드가 이긴다.
+ * 감지가 늦게 도착해도 칸이 뜨는 순간 값이 들어 있다(라운드 9·10 과 같은 성질).
+ *
+ * ★ 칸을 **지운 것**(`values[key] === ""`)과 **만진 적이 없는 것**(`undefined`)은 다르다.
+ *   `??` 는 빈 문자열을 통과시키므로 지운 칸은 빈 채로 남는다 — 의도한 동작이다.
+ *
  * ## 기억
  * 제출 시 `rememberVariables()` 를 부른다. **비밀값은 그 함수가 언제나 버린다**
  * (`run-variable-memory.ts` 머리 주석).
+ *
+ * ★ 라운드 11 — **코드의 기본값과 같은 값은 기억하지 않는다.** 기억해 두면 나중에
+ *   코드의 기본값이 바뀌었을 때 브라우저에 남은 **옛 값이 조용히 새 기본값을 덮는다**
+ *   (사용자는 자기가 그 값을 고른 적이 없는데도). 기억에는 **사용자가 기본값과 다르게
+ *   고른 값만** 남기고, 같은 값은 매번 코드에서 다시 읽는다.
+ *   (읽을 때 비교하는 방법도 있지만, 그러면 기본값이 바뀐 순간 "기억한 옛 값 ≠ 새 기본값"
+ *   이 되어 옛 값이 이긴다 — 막으려던 바로 그 경우를 못 막는다.)
  */
 
 /** 직접 추가한 변수 1행. `id` 는 키 이름을 고치는 중에도 행이 흔들리지 않게 하는 용도다. */
@@ -26,8 +50,16 @@ export type RunVariableForm = {
   /** 감지분 + 직접 추가분을 합쳐 실제로 그릴 칸 목록. */
   fields: readonly RunVariable[];
   customs: readonly CustomVariableRow[];
+  /** 칸에 실제로 보이는 값 — 사람이 만진 값이 없으면 **코드의 기본값**이다. */
   valueOf: (key: string) => string;
   setValue: (key: string, value: string) => void;
+  /**
+   * ★ 라운드 11 — 지금 값이 **코드의 기본값 그대로인가**(= 사용자가 고르지 않았는가).
+   *
+   * 접힌 줄의 「직접 입력한 값 N개」 배지가 이것으로 센다. 자동 바인딩 뒤에는
+   * "값이 들어 있다"가 더 이상 "사용자가 넣었다"를 뜻하지 않는다.
+   */
+  isCodeDefault: (key: string) => boolean;
   /**
    * ★ 라운드 10 — 이 칸을 **지금 비밀로 다룰 것인가**.
    *
@@ -91,11 +123,39 @@ export function useRunVariableForm(params: {
     return fallbackKeys.map((key) => ({
       key,
       isSecret: isSecretVariableKey(key),
+      /*
+       * ★ 감지 0개일 때의 기본 칸은 **코드가 무엇을 선언했는지 모른다**(읽을 코드가
+       *   없거나 대상이 하나가 아니다). `required` 는 "코드가 선언했다"는 뜻이므로
+       *   거짓으로 두고, 기본값이 없다는 사실(`null`)만으로 필수가 된다 — 결과는
+       *   지금까지와 같다(계정·비밀번호가 언제나 보인다).
+       */
+      required: false,
       defaultValue: null,
     }));
   }, [detected, fallbackKeys]);
 
-  const valueOf = useCallback((key: string) => values[key] ?? "", [values]);
+  /**
+   * 키 → **코드가 말한 값**. 채우면 안 되는 기본값(잘림 · 템플릿 · 필수 칸)은
+   * 아예 들어오지 않는다 — 그 판정은 `variablePrefillValue()` 한 곳에 있다.
+   */
+  const prefills = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const field of fields) {
+      const value = variablePrefillValue(field);
+      if (value !== null) map.set(field.key, value);
+    }
+    return map;
+  }, [fields]);
+
+  const valueOf = useCallback(
+    (key: string) => values[key] ?? prefills.get(key) ?? "",
+    [prefills, values],
+  );
+
+  const isCodeDefault = useCallback(
+    (key: string) => (values[key] ?? prefills.get(key) ?? "") === (prefills.get(key) ?? ""),
+    [prefills, values],
+  );
 
   const setValue = useCallback((key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -142,11 +202,17 @@ export function useRunVariableForm(params: {
    *   코드 시나리오는 `process.env[…] ?? "기본값"` 이 살아나고, 녹화 시나리오는
    *   `VariableResolutionError` 로 **어느 키가 없는지** 분명하게 실패한다.
    *   빈 문자열을 보내면 녹화 쪽이 조용히 빈 값을 입력하고 엉뚱한 곳에서 실패한다.
+   *
+   * ★ 라운드 11 — 채워진 기본값은 **그대로 실려 나간다**(보이는 것이 곧 보내는 것이다).
+   *   결과는 같다: 보내면 `process.env[…]` 에 그 값이 들어가고, 안 보내면 코드의
+   *   `?? "그 값"` 이 살아난다. **같은 값**이 쓰인다.
+   *   채울 수 없는 기본값(템플릿 · 잘린 값)은 칸이 비어 있으므로 예전처럼 전달되지 않는다 —
+   *   즉 "잘린 값이 전송될" 경로가 존재하지 않는다.
    */
   const collect = useCallback((): Record<string, string> => {
     const out: Record<string, string> = {};
     for (const field of fields) {
-      const value = values[field.key] ?? "";
+      const value = values[field.key] ?? prefills.get(field.key) ?? "";
       if (value !== "") out[field.key] = value;
     }
     for (const row of customs) {
@@ -155,15 +221,22 @@ export function useRunVariableForm(params: {
       out[key] = row.value;
     }
     return out;
-  }, [customs, fields, values]);
+  }, [customs, fields, prefills, values]);
 
   const remember = useCallback(() => {
     rememberVariables(scenarioId, [
+      /*
+       * ★ 라운드 11 — **코드의 기본값과 같은 값은 기억하지 않는다.** 거르는 것은
+       *   `toStorableVariables()` 다 — 저장 규칙(비밀값 버리기 포함)을 한곳에 모아 둔
+       *   그 함수를 지나야 규칙이 두 벌이 되지 않는다. 여기서는 **코드가 말한 값**을
+       *   같이 실어 줄 뿐이다.
+       */
       ...fields.map((field) => ({
         key: field.key,
-        value: values[field.key] ?? "",
+        value: values[field.key] ?? prefills.get(field.key) ?? "",
         custom: false,
         plain: plainKeys.has(field.key),
+        codeDefault: prefills.get(field.key) ?? null,
       })),
       /*
        * ★ 직접 추가한 변수에는 `plain` 을 **주지 않는다.** 그 칸에는 토글도 없다 —
@@ -171,7 +244,7 @@ export function useRunVariableForm(params: {
        */
       ...customs.map((row) => ({ key: row.key, value: row.value, custom: true })),
     ]);
-  }, [customs, fields, plainKeys, scenarioId, values]);
+  }, [customs, fields, plainKeys, prefills, scenarioId, values]);
 
   const clearSecrets = useCallback(() => {
     setValues((prev) => {
@@ -193,6 +266,7 @@ export function useRunVariableForm(params: {
     customs,
     valueOf,
     setValue,
+    isCodeDefault,
     isSecretField,
     isPlain,
     togglePlain,
