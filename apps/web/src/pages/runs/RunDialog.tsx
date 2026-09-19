@@ -4,8 +4,10 @@ import { useNavigate } from "react-router-dom";
 import {
   BROWSERS,
   CreateRunRequestSchema,
+  effectiveVariableDefault,
   isOptionalVariable,
   isSecretVariableKey,
+  variablePrefillValue,
   type CreateRunResponse,
   type RunVariable,
 } from "@testflow/contracts";
@@ -40,6 +42,27 @@ import { useRunVariableForm } from "./useRunVariableForm";
  *    (안 그러면 "왜 이 값이 들어갔지"가 된다).
  *  - 펼치면 각 칸의 placeholder 가 **그 기본값**을 말한다.
  *  - 직접 추가한 변수는 **접지 않는다** — 자기가 넣은 것을 잃어버리면 안 된다.
+ *
+ * ## ★ 라운드 11 — ① 가드를 읽어 필수를 되찾고 ② 기본값을 **칸에 채운다**
+ *
+ * 라운드 10 을 배포하자 `project-save` 시나리오의 **계정·비밀번호가 접힌 섹션으로 숨었다.**
+ * 원인은 가이드가 권하는 `.fill(process.env['TESTFLOW_VAR_username'] ?? '')` 의 `?? ''` 를
+ * 기본값 스캐너가 "빈 문자열 기본값" 으로 읽은 것이다(타입 안전용인데). 이제 같은 코드에
+ * 있는 **가드**(`for (const key of [...]) { if (!…) throw }`)를 읽어 그 키를 **필수**로
+ * 올린다 — `contracts/run-variables.ts` 의 `extractCodeRequiredKeys()`.
+ *
+ * 그리고 placeholder 로만 알리던 기본값을 **칸에 실제 값으로 채운다.** 다만
+ *  - 실행 시점에 정해지는 기본값(`` `test-${Date.now()}` ``)은 **채울 값이 없다** — 비워 둔다.
+ *  - ★ **잘리거나 변형된 기본값은 절대 채우지 않는다.** placeholder 에 `…` 를 붙여
+ *    보여 주는 것과 달리, 채우면 **원문과 다른 값이 그대로 전송된다.** 판정은
+ *    `variablePrefillValue()` 한 곳에 있다.
+ *  - 필수 칸은 채우지 않는다 — 가드는 `process.env[key]` 를 **직접** 보므로 그 뒤의
+ *    `?? '기본값'` 은 닿지 않는 코드다.
+ *
+ * 채운 값은 **그대로 실려 나간다**(보이는 것이 곧 보내는 것이다). 결과는 비우고 실행한
+ * 것과 같다 — 보내면 그 값이 `process.env` 에 들어가고, 안 보내면 코드의 `??` 가 같은
+ * 값을 만든다. **기억(localStorage)에는 기본값과 다른 값만 남는다** —
+ * `useRunVariableForm.ts` 머리 주석(코드의 기본값이 나중에 바뀌었을 때의 규칙).
  *
  * ## ★ 라운드 9 — 변수를 **여러 개** 받는다
  * 계정 1쌍만 받던 폼으로는 권한별 조회를 검증하는 시나리오(계정 3쌍 = 6키)를 UI 에서
@@ -162,40 +185,57 @@ function variableLabel(key: string): string {
 
 /**
  * ★ 라운드 10 — placeholder 가 **기본값을 말한다.**
+ * ★ 라운드 11 — 채울 수 있는 기본값은 **칸에 들어가 있다.** 그래서 placeholder 는
+ *   이제 **채우지 못한 경우**와 **사용자가 칸을 비웠을 때**를 맡는다.
  *
- * 세 갈래를 **다르게** 적는다. 하나로 뭉치면 거짓말이 된다:
- *  - `literal` 값이 있음 → `비우면 "변호사"` — 따옴표로 **문자열 그 자체**임을 보인다.
+ * 갈래를 **다르게** 적는다. 하나로 뭉치면 거짓말이 된다:
+ *  - `literal` 값이 있음 → 칸에 그 값이 들어간다. 지우면 `비우면 "변호사"` 가 보인다.
  *  - `literal` 빈 문자열 → 따옴표(`""`)만 보여 주면 **빈 칸과 구분이 안 된다.**
  *    그래서 **문장으로** 적는다. 이것이 `|| ""` 의 실제 의미다
  *    (예: `relatedDoc*Row` — 이름을 안 주면 코드가 첫 행을 고른다).
+ *  - `literal` 이지만 **잘렸다/변형됐다** → ★ **채우지 않는다.** 칸이 비어 있는 이유를
+ *    말해야 한다. 앞부분만 보여 주고 "그래서 채우지 않았다"까지 적는다 —
+ *    잘린 값을 채우면 사용자가 모르는 채 **원문과 다른 값**이 전송된다.
  *  - `dynamic` → **리터럴 원문을 보여 주지 않는다.** `` `test-${Date.now()}` `` 를
  *    그대로 적으면 그 글자가 들어간다고 읽는다.
+ *  - 필수(가드) → 기본값이 있어도 **없는 것으로 다룬다**(`effectiveVariableDefault`).
  *
  * ★ 칸 하나의 폭(2열 그리드)에 **잘리지 않고 들어가는 길이**로 맞춘다. 잘린 문구는
  *   기본값을 잘못 읽게 만든다. 더 긴 설명은 `variableTitle()`(툴팁)이 맡는다.
  */
 function variablePlaceholder(variable: RunVariable, secret: boolean): string {
-  const fallback = variable.defaultValue;
+  const fallback = effectiveVariableDefault(variable);
   if (fallback === null) {
     if (variable.key === ACCOUNT_VARIABLE) return "qa-tester";
     return secret ? "••••••••" : "값을 입력하세요";
   }
   if (fallback.kind === "dynamic") return "비우면 자동 생성됩니다";
+  if (variablePrefillValue(variable) === null) {
+    return fallback.truncatedText ? "비우면 코드의 긴 기본값을 씁니다" : "비우면 코드의 기본값을 씁니다";
+  }
   if (fallback.text === "") return "비우면 빈 값으로 실행됩니다";
-  return `비우면 "${fallback.text}${fallback.truncatedText ? "…" : ""}"`;
+  return `비우면 "${fallback.text}"`;
 }
 
 /** placeholder 가 짧게 말한 것을 **끝까지** 말해 주는 툴팁. 없으면 `undefined`. */
 function variableTitle(variable: RunVariable): string | undefined {
-  const fallback = variable.defaultValue;
+  const fallback = effectiveVariableDefault(variable);
   if (fallback === null) return undefined;
   if (fallback.kind === "dynamic") {
     return "코드가 실행할 때 값을 만들어 냅니다(예: 타임스탬프). 무엇이 될지는 미리 알 수 없습니다.";
   }
+  if (variablePrefillValue(variable) === null) {
+    return (
+      (fallback.truncatedText
+        ? `코드의 기본값이 너무 길어 칸에 채우지 않았습니다. 앞부분: "${fallback.text}…"`
+        : `코드의 기본값에 줄바꿈 같은 보이지 않는 글자가 있어 칸에 채우지 않았습니다. 보이는 모양: "${fallback.text}"`) +
+      " — 비워 두면 코드의 값이 그대로 쓰입니다. 원문과 다른 값을 채워 두면 그 값이 그대로 전송됩니다."
+    );
+  }
   if (fallback.text === "") {
     return "코드의 기본값이 빈 문자열입니다. 비워 두면 코드가 정한 기본 동작(예: 목록의 첫 항목)이 쓰입니다.";
   }
-  return `코드의 기본값: "${fallback.text}${fallback.truncatedText ? "…(줄임)" : ""}" — 비워 두면 이 값이 쓰입니다.`;
+  return `코드의 기본값을 채워 두었습니다: "${fallback.text}" — 그대로 고쳐 쓸 수 있고, 비우면 같은 값이 쓰입니다.`;
 }
 
 /**
@@ -213,8 +253,9 @@ function variableTitle(variable: RunVariable): string | undefined {
  * `|| "changeme"` 처럼 **기본값이 있어도 진짜 비밀**일 수 있다. 기본값의 존재는
  * "코드에 평문이 적혀 있다"는 뜻이지 "이 값이 비밀이 아니다"는 뜻이 아니다.
  * 그래서 기본값은 **토글을 내놓는 조건**으로만 쓴다 — 실제로 푸는 것은 언제나 사람이다.
- * 코드 앞단 가드로 막힌 진짜 계정(`username`·`password`)은 기본값이 없으므로
- * 이 토글이 **아예 나타나지 않는다.**
+ * 코드 앞단 가드로 막힌 진짜 계정(`username`·`password`)은 **필수**이므로
+ * 이 토글이 **아예 나타나지 않는다**(라운드 11 — `?? ''` 때문에 기본값이 "있는" 것으로
+ * 읽히던 그 칸들이다. `isOptionalVariable()` 이 가드를 먼저 보므로 토글은 계속 안 나온다).
  *
  * ## 무엇이 바뀌고 무엇이 안 바뀌나
  * 바뀌는 것: 이 브라우저에서의 **표시**(`type=text`)와 **기억**(localStorage).
@@ -223,7 +264,7 @@ function variableTitle(variable: RunVariable): string | undefined {
  * 실행 요청의 `secretKeys` 도 그대로 `[]` 다 — 즉 마스킹 기준은 한 글자도 약해지지 않는다.
  */
 function canMarkPlain(variable: RunVariable): boolean {
-  return variable.isSecret && variable.defaultValue !== null;
+  return variable.isSecret && isOptionalVariable(variable);
 }
 
 /** 기존 칸의 `data-slot`·`name` 을 그대로 유지한다(선택자에 기대는 검증·스타일 회귀 방지). */
@@ -284,14 +325,25 @@ function RunDialogForm({
   const runnerDown = health.data?.runner === "down";
 
   /*
-   * ★ 가르는 기준은 **`defaultValue` 하나**다(`isOptionalVariable`).
+   * ★ 가르는 기준은 **`isOptionalVariable()` 하나**다. 라운드 11 부터 그 함수가
+   *   ① 코드의 가드(`required`) ② 기본값 유무 순으로 본다 — 화면은 순서를 모른다.
    *   "빈 문자열 기본값은 없는 셈 치자" 같은 판단을 화면에서 새로 만들지 않는다 —
    *   `|| ""` 는 "비워 두는 것이 정상" 이라는 **의미 있는 기본값**이다.
    */
   const requiredFields = form.fields.filter((field) => !isOptionalVariable(field));
   const optionalFields = form.fields.filter((field) => isOptionalVariable(field));
-  /** 접힌 상태에서도 보여 줄 숫자 — 값이 이미 들어가 있으면 그 사실이 보여야 한다. */
-  const filledOptional = optionalFields.filter((field) => form.valueOf(field.key) !== "").length;
+  /**
+   * 접힌 상태에서도 보여 줄 숫자 — **사용자가 코드의 기본값과 다르게 고른 칸**의 수다.
+   * ★ 라운드 11 — 자동 바인딩 뒤에는 "값이 들어 있다"가 "사용자가 넣었다"를 뜻하지 않는다.
+   *   채워진 기본값까지 세면 접힌 줄이 언제나 "입력해 둔 값 14개" 가 되어 의미를 잃는다.
+   */
+  const filledOptional = optionalFields.filter(
+    (field) => form.valueOf(field.key) !== "" && !form.isCodeDefault(field.key),
+  ).length;
+  /** 코드에서 값을 그대로 가져와 채운 칸의 수. 접힌 줄이 "왜 값이 들어 있는지" 를 말한다. */
+  const prefilledOptional = optionalFields.filter(
+    (field) => (variablePrefillValue(field) ?? "") !== "" && form.isCodeDefault(field.key),
+  ).length;
 
   const renderField = (variable: RunVariable) => {
     const secret = form.isSecretField(variable.key);
@@ -465,8 +517,18 @@ function RunDialogForm({
             <strong>꼭 입력할 것 {String(requiredFields.length)}개</strong> ·{" "}
             <strong>선택 {String(optionalFields.length)}개</strong>. 입력한 값은 이번 실행에만
             쓰이고 <strong>서버에 저장되지 않습니다.</strong>{" "}
-            <strong>빈 칸은 전달하지 않습니다</strong> — 코드의 기본값이 그대로 쓰이고, 기본값이
-            없으면 그 자리에서 실패합니다.
+            {optionalFields.length === 0 ? (
+              /* 선택이 0개면 채울 것도 없다 — 없는 이야기를 하지 않는다(회귀: 녹화 시나리오). */
+              <>
+                <strong>빈 칸은 전달하지 않습니다</strong> — 기본값이 없으면 그 자리에서 실패합니다.
+              </>
+            ) : (
+              <>
+                <strong>코드에 적힌 기본값은 칸에 미리 채워 두었습니다</strong> — 그대로 고쳐 쓸 수
+                있습니다. 실행할 때 값이 정해지는 기본값과 너무 긴 기본값은 채우지 않았고, 그 칸을
+                비워 두면 코드의 값이 그대로 쓰입니다.
+              </>
+            )}
             {detection.data?.truncated === true
               ? ` 변수가 너무 많아 앞 ${String(detected.length)}개만 보여 줍니다.`
               : ""}
@@ -544,14 +606,18 @@ function RunDialogForm({
           >
             <span aria-hidden="true">{optionalOpen ? "▾" : "▸"}</span>
             <span>선택 변수 {String(optionalFields.length)}개</span>
-            <span className="font-normal text-muted">· 비우면 코드의 기본값을 씁니다</span>
+            <span className="font-normal text-muted">
+              {prefilledOptional === 0
+                ? "· 비우면 코드의 기본값을 씁니다"
+                : `· 코드의 기본값 ${String(prefilledOptional)}개를 채워 두었습니다`}
+            </span>
           </button>
           {filledOptional === 0 ? null : (
             <span
               data-slot="optional-variables-filled"
               className="rounded-badge border border-brand bg-soft px-[7px] py-[4px] text-[10px] font-bold text-brand-dark"
             >
-              입력해 둔 값 {String(filledOptional)}개
+              직접 입력한 값 {String(filledOptional)}개
             </span>
           )}
         </div>
@@ -744,6 +810,12 @@ function VariableField({
         data-slot={variableSlot(variable.key)}
         data-variable-key={variable.key}
         data-secret={secret ? "true" : "false"}
+        /*
+         * ★ 라운드 11 — 이 칸의 값이 **코드에서 자동으로 채워질 수 있는 값인가.**
+         *   검증(스크린샷·덤프)이 "채워진 것" 과 "사용자가 친 것" 을 구분할 수 있어야 한다.
+         *   보이는 것은 바뀌지 않는다(선택자용 표시다).
+         */
+        data-prefill={variablePrefillValue(variable) === null ? "none" : "code-default"}
         type={secret ? "password" : "text"}
         value={value}
         autoComplete={secret ? "new-password" : "off"}

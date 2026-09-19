@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_DEFAULT_TEXT_LENGTH,
   MAX_DETECTED_VARIABLES,
+  RunVariableSchema,
   detectScenarioVariables,
+  effectiveVariableDefault,
+  extractCodeRequiredKeys,
   extractCodeVariableDefaults,
   extractCodeVariableKeys,
   extractStepVariableKeys,
   isOptionalVariable,
+  variablePrefillValue,
+  type RunVariable,
 } from "./run-variables.js";
 
 describe("extractCodeVariableKeys", () => {
@@ -119,8 +124,8 @@ describe("detectScenarioVariables", () => {
       code: `process.env["TESTFLOW_VAR_lawyer_email"]; process.env["TESTFLOW_VAR_lawyer_password"];`,
     });
     expect(result.variables).toEqual([
-      { key: "lawyer_email", isSecret: false, defaultValue: null },
-      { key: "lawyer_password", isSecret: true, defaultValue: null },
+      { key: "lawyer_email", isSecret: false, required: false, defaultValue: null },
+      { key: "lawyer_password", isSecret: true, required: false, defaultValue: null },
     ]);
   });
 
@@ -158,14 +163,14 @@ describe("detectScenarioVariables", () => {
     `;
     const result = detectScenarioVariables({ code });
     // ★ `?? ""` 는 **빈 문자열 기본값**이다 — "기본값 없음" 이 아니다.
-    const empty = { kind: "literal", text: "", truncatedText: false };
+    const empty = { kind: "literal", text: "", truncatedText: false, exactText: true };
     expect(result.variables).toEqual([
-      { key: "lawyer_email", isSecret: false, defaultValue: empty },
-      { key: "lawyer_password", isSecret: true, defaultValue: empty },
-      { key: "general_email", isSecret: false, defaultValue: empty },
-      { key: "general_password", isSecret: true, defaultValue: empty },
-      { key: "username", isSecret: false, defaultValue: empty },
-      { key: "password", isSecret: true, defaultValue: empty },
+      { key: "lawyer_email", isSecret: false, required: false, defaultValue: empty },
+      { key: "lawyer_password", isSecret: true, required: false, defaultValue: empty },
+      { key: "general_email", isSecret: false, required: false, defaultValue: empty },
+      { key: "general_password", isSecret: true, required: false, defaultValue: empty },
+      { key: "username", isSecret: false, required: false, defaultValue: empty },
+      { key: "password", isSecret: true, required: false, defaultValue: empty },
     ]);
   });
 });
@@ -182,6 +187,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "literal",
       text: "변호사",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -190,6 +196,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "literal",
       text: "qa-tester",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -198,6 +205,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "literal",
       text: "x",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -206,6 +214,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "literal",
       text: "",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -214,6 +223,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "dynamic",
       text: "",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -222,6 +232,7 @@ describe("extractCodeVariableDefaults", () => {
       kind: "literal",
       text: "고정값",
       truncatedText: false,
+      exactText: true,
     });
   });
 
@@ -309,7 +320,12 @@ describe("★ 필수 / 선택 가르기", () => {
   it("빈 문자열 기본값도 **선택**이다", () => {
     const { variables } = detectScenarioVariables({ code: CODE });
     const row = variables.find((v) => v.key === "relatedDocLegalAdviceRow");
-    expect(row?.defaultValue).toEqual({ kind: "literal", text: "", truncatedText: false });
+    expect(row?.defaultValue).toEqual({
+      kind: "literal",
+      text: "",
+      truncatedText: false,
+      exactText: true,
+    });
     expect(isOptionalVariable(row as never)).toBe(true);
   });
 
@@ -319,5 +335,204 @@ describe("★ 필수 / 선택 가르기", () => {
     });
     expect(variables.every((v) => v.defaultValue === null)).toBe(true);
     expect(variables.some(isOptionalVariable)).toBe(false);
+  });
+});
+
+/* ────────────────────────────────────────────────────────────
+ * ★ 라운드 11 — 가드(필수 선언) · 자동 바인딩
+ * ──────────────────────────────────────────────────────────── */
+
+describe("extractCodeRequiredKeys", () => {
+  it("★ 가이드의 배열 리터럴 순회 가드를 잡는다", () => {
+    const code = `
+      for (const key of ['TESTFLOW_VAR_username', 'TESTFLOW_VAR_password']) {
+        if (!(process.env[key] ?? '')) {
+          throw new Error(\`실행 변수 \${key} 가 필요합니다.\`);
+        }
+      }
+    `;
+    expect(extractCodeRequiredKeys(code)).toEqual(["username", "password"]);
+  });
+
+  it("개별 if 가드도 잡는다(블록 · 한 줄 둘 다)", () => {
+    const code = `
+      if (!process.env["TESTFLOW_VAR_a"]) throw new Error("a 가 필요합니다");
+      if (!(process.env['TESTFLOW_VAR_b'] ?? '')) { throw new Error('b'); }
+    `;
+    expect(extractCodeRequiredKeys(code)).toEqual(["a", "b"]);
+  });
+
+  it("throw 말고 test.skip · process.exit 로 멈춰도 가드다", () => {
+    const code = `
+      if (!process.env["TESTFLOW_VAR_a"]) test.skip();
+      if (!process.env["TESTFLOW_VAR_b"]) process.exit(1);
+    `;
+    expect(extractCodeRequiredKeys(code)).toEqual(["a", "b"]);
+  });
+
+  it("조건부 test.skip 호출의 인자도 읽는다", () => {
+    const code = `test.skip(!process.env["TESTFLOW_VAR_a"], "계정이 없습니다");`;
+    expect(extractCodeRequiredKeys(code)).toEqual(["a"]);
+  });
+
+  it("문자열 안의 괄호·중괄호에 속지 않는다", () => {
+    const code = `
+      if (!process.env["TESTFLOW_VAR_a"]) throw new Error("괄호 ) 와 중괄호 } 가 든 메시지");
+      const b = process.env["TESTFLOW_VAR_b"] ?? "x";
+    `;
+    expect(extractCodeRequiredKeys(code)).toEqual(["a"]);
+  });
+
+  it("주석 안의 가드는 세지 않는다", () => {
+    const code = `// if (!process.env["TESTFLOW_VAR_ghost"]) throw new Error("x");`;
+    expect(extractCodeRequiredKeys(code)).toEqual([]);
+  });
+
+  describe("★ 일부러 좁게 잡는다 — 아래는 가드로 보지 않는다", () => {
+    it("멈추지 않는 if 는 가드가 아니다", () => {
+      const code = `if (process.env["TESTFLOW_VAR_debug"]) { await page.screenshot(); }`;
+      expect(extractCodeRequiredKeys(code)).toEqual([]);
+    });
+
+    it("★ 몸통에만 있는 키는 세지 않는다(평범한 블록이 통째로 가드가 되면 안 된다)", () => {
+      const code = `
+        if (await dialogVisible()) {
+          await page.fill('#name', process.env["TESTFLOW_VAR_name"] ?? '기본');
+          if (bad) throw new Error('x');
+        }
+      `;
+      expect(extractCodeRequiredKeys(code)).toEqual([]);
+    });
+
+    it("상수 배열을 거치면 못 잡는다(값 추적이 필요하다)", () => {
+      const code = `
+        const KEYS = ['TESTFLOW_VAR_username'];
+        for (const key of KEYS) { if (!process.env[key]) throw new Error('x'); }
+      `;
+      expect(extractCodeRequiredKeys(code)).toEqual([]);
+    });
+
+    it("변수에 담았다가 검사하면 못 잡는다", () => {
+      const code = `
+        const u = process.env["TESTFLOW_VAR_username"];
+        if (!u) throw new Error("계정이 필요합니다");
+      `;
+      expect(extractCodeRequiredKeys(code)).toEqual([]);
+    });
+
+    it("forEach 순회는 못 잡는다", () => {
+      const code = `['TESTFLOW_VAR_username'].forEach((k) => { if (!process.env[k]) throw new Error('x'); });`;
+      expect(extractCodeRequiredKeys(code)).toEqual([]);
+    });
+  });
+});
+
+describe("★ 라운드 11 — project-save 형태(가드 + ?? '')", () => {
+  /**
+   * 배포본에서 **계정·비밀번호가 접힌 섹션으로 숨은** 바로 그 모양이다.
+   * `?? ''` 는 타입 안전용이고, 필수라는 사실은 **가드**가 말한다.
+   */
+  const CODE = `
+    test('법무 프로젝트 조회', async ({ page }) => {
+      for (const key of ['TESTFLOW_VAR_username', 'TESTFLOW_VAR_password']) {
+        if (!(process.env[key] ?? '')) {
+          throw new Error(\`실행 변수 \${key} 가 필요합니다.\`);
+        }
+      }
+      const projectName = process.env['TESTFLOW_VAR_projectName'] ?? 'project-save-';
+      const keyword = process.env['TESTFLOW_VAR_keyword'] || '변호사';
+      const row = process.env['TESTFLOW_VAR_relatedDocLegalAdviceRow'] || '';
+      const newName = process.env['TESTFLOW_VAR_newProjectName'] || \`test-\${Date.now()}\`;
+      await page.getByRole('textbox', { name: '이메일' }).fill(process.env['TESTFLOW_VAR_username'] ?? '');
+      await page.getByRole('textbox', { name: '비밀번호' }).fill(process.env['TESTFLOW_VAR_password'] ?? '');
+    });
+  `;
+
+  const detected = detectScenarioVariables({ code: CODE }).variables;
+  const find = (key: string) => detected.find((v) => v.key === key) as RunVariable;
+
+  it("★ 계정·비밀번호가 필수로 올라온다 — `?? ''` 가 있어도", () => {
+    expect(detected.filter((v) => !isOptionalVariable(v)).map((v) => v.key)).toEqual([
+      "username",
+      "password",
+    ]);
+  });
+
+  it("★ `?? ''` 는 응답에서 지우지 않는다 — 판정을 되짚을 수 있어야 한다", () => {
+    expect(find("username").required).toBe(true);
+    expect(find("username").defaultValue).toEqual({
+      kind: "literal",
+      text: "",
+      truncatedText: false,
+      exactText: true,
+    });
+  });
+
+  it("필수 칸에는 **채울 값도 보여 줄 기본값도 없다**(가드가 그 코드에 닿지 못한다)", () => {
+    expect(effectiveVariableDefault(find("password"))).toBeNull();
+    expect(variablePrefillValue(find("password"))).toBeNull();
+  });
+
+  it("나머지는 선택이고 리터럴 기본값이 칸에 채워진다", () => {
+    expect(detected.filter(isOptionalVariable).map((v) => v.key)).toEqual([
+      "projectName",
+      "keyword",
+      "relatedDocLegalAdviceRow",
+      "newProjectName",
+    ]);
+    expect(variablePrefillValue(find("projectName"))).toBe("project-save-");
+    expect(variablePrefillValue(find("keyword"))).toBe("변호사");
+  });
+
+  it("빈 문자열 기본값은 채워도 빈 칸이다(그게 정직하다)", () => {
+    expect(variablePrefillValue(find("relatedDocLegalAdviceRow"))).toBe("");
+  });
+
+  it("★ 템플릿 기본값은 채우지 않는다 — 채울 값이 존재하지 않는다", () => {
+    expect(find("newProjectName").defaultValue?.kind).toBe("dynamic");
+    expect(variablePrefillValue(find("newProjectName"))).toBeNull();
+  });
+});
+
+describe("★ variablePrefillValue — 잘리거나 변형된 기본값은 절대 채우지 않는다", () => {
+  const detect = (code: string, key: string) =>
+    detectScenarioVariables({ code }).variables.find((v) => v.key === key) as RunVariable;
+
+  it("★ 길이 상한을 넘은 기본값은 채우지 않는다(원문과 다른 값이 전송된다)", () => {
+    const long = "가".repeat(MAX_DEFAULT_TEXT_LENGTH + 10);
+    const variable = detect(`process.env["TESTFLOW_VAR_l"] || "${long}"`, "l");
+    expect(variable.defaultValue?.truncatedText).toBe(true);
+    expect(variable.defaultValue?.exactText).toBe(false);
+    expect(variablePrefillValue(variable)).toBeNull();
+    // 그래도 **선택**이다 — 비우면 코드의 긴 값이 그대로 쓰인다.
+    expect(isOptionalVariable(variable)).toBe(true);
+  });
+
+  it("★ 제어문자가 접힌 기본값도 채우지 않는다(원문은 줄바꿈이었다)", () => {
+    const variable = detect(`process.env["TESTFLOW_VAR_m"] || "a\\nb"`, "m");
+    expect(variable.defaultValue?.text).toBe("a b");
+    expect(variable.defaultValue?.truncatedText).toBe(false);
+    expect(variable.defaultValue?.exactText).toBe(false);
+    expect(variablePrefillValue(variable)).toBeNull();
+  });
+
+  it("상한 안의 평범한 리터럴은 그대로 채운다", () => {
+    const variable = detect(`process.env["TESTFLOW_VAR_n"] || "문채원 (cwmoon)"`, "n");
+    expect(variable.defaultValue?.exactText).toBe(true);
+    expect(variablePrefillValue(variable)).toBe("문채원 (cwmoon)");
+  });
+});
+
+describe("★ 라운드 11 — 구버전 응답 호환", () => {
+  it("required · exactText 가 없는 응답도 파싱되고 판정이 라운드 10 과 같다", () => {
+    const parsed = RunVariableSchema.parse({
+      key: "keyword",
+      isSecret: false,
+      defaultValue: { kind: "literal", text: "변호사" },
+    });
+    expect(parsed.required).toBe(false);
+    expect(parsed.defaultValue?.exactText).toBe(true);
+    expect(isOptionalVariable(parsed)).toBe(true);
+    expect(variablePrefillValue(parsed)).toBe("변호사");
   });
 });

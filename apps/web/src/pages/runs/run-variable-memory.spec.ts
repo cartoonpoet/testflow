@@ -132,3 +132,58 @@ describe("parseStoredVariables", () => {
     expect(parseStoredVariables(JSON.stringify(stored))).toEqual(stored);
   });
 });
+
+/* ────────────────────────────────────────────────────────────
+ * ★ 라운드 11 — 코드의 기본값과 같은 값은 기억하지 않는다
+ * ──────────────────────────────────────────────────────────── */
+
+describe("★ 라운드 11 — codeDefault", () => {
+  it("★ 코드의 기본값과 **같은** 값은 저장하지 않는다(옛 값이 새 기본값을 덮지 않게)", () => {
+    expect(
+      toStorableVariables([{ key: "keyword", value: "변호사", codeDefault: "변호사" }]),
+    ).toEqual([]);
+  });
+
+  it("기본값과 **다르게** 고친 값은 저장한다", () => {
+    expect(
+      toStorableVariables([{ key: "keyword", value: "법무사", codeDefault: "변호사" }]),
+    ).toEqual([{ key: "keyword", value: "법무사", custom: false, plain: false }]);
+  });
+
+  it("사용자가 **비운** 칸도 기본값과 다르면 그 선택을 저장한다", () => {
+    expect(toStorableVariables([{ key: "keyword", value: "", codeDefault: "변호사" }])).toEqual([
+      { key: "keyword", value: "", custom: false, plain: false },
+    ]);
+  });
+
+  it("빈 문자열 기본값(`|| \"\"`)을 그대로 둔 칸은 저장하지 않는다", () => {
+    expect(toStorableVariables([{ key: "row", value: "", codeDefault: "" }])).toEqual([]);
+  });
+
+  it("codeDefault 가 없으면(채울 수 없는 기본값 · 직접 추가) 지금까지처럼 저장한다", () => {
+    expect(toStorableVariables([{ key: "newName", value: "", codeDefault: null }])).toEqual([
+      { key: "newName", value: "", custom: false, plain: false },
+    ]);
+    expect(toStorableVariables([{ key: "lawyer_email", value: "a@b.c" }])).toEqual([
+      { key: "lawyer_email", value: "a@b.c", custom: false, plain: false },
+    ]);
+  });
+
+  it("★ 「비밀 아님」으로 푼 칸은 기본값과 같아도 남긴다(플래그가 사라지면 안 된다)", () => {
+    expect(
+      toStorableVariables([
+        { key: "securitySecretKeyword", value: "[보안]", plain: true, codeDefault: "[보안]" },
+      ]),
+    ).toEqual([
+      { key: "securitySecretKeyword", value: "[보안]", custom: false, plain: true },
+    ]);
+  });
+
+  it("★ 비밀값은 codeDefault 가 있어도 저장되지 않는다(규칙이 약해지지 않는다)", () => {
+    expect(
+      toStorableVariables([
+        { key: "password", value: "changeme", codeDefault: "not-the-same" },
+      ]),
+    ).toEqual([{ key: "password", value: "", custom: false, plain: false }]);
+  });
+});
