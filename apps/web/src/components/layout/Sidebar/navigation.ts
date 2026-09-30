@@ -1,9 +1,8 @@
 /**
- * 사이드바 메뉴 정의 — 시안 "공통 UI 요소 > 사이드바 구성" 1:1.
+ * 사이드바에 실제로 노출할 메뉴 정의.
  *
- * `enabled: false` 는 01-clarify "MVP 범위 > 제외" 에 따른 미구현 화면이다.
- * 라우트를 아예 빼지 않고 비활성으로 남기는 이유: 시안 레이아웃(그룹 4개)을 유지하면서
- * 테스터가 "없는 기능"인지 "아직인 기능"인지 구분할 수 있게 하기 위함.
+ * 관리 화면은 라우트와 기능을 유지하되 현재 내비게이션에서는 숨긴다. 숨긴 화면의 제목은
+ * `HIDDEN_PAGE_TITLES` 에 따로 둬 직접 URL 접근 시 브레드크럼이 깨지지 않게 한다.
  */
 export type NavEntry = {
   readonly label: string;
@@ -30,26 +29,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { label: "실행 현황", icon: "▶", to: "/runs", enabled: true },
     ],
   },
-  {
-    label: "MANAGE",
-    items: [
-      { label: "테스트 스위트", icon: "◇", to: "/suites", enabled: true },
-      { label: "실행 환경", icon: "◎", to: "/environments", enabled: false },
-      { label: "테스트 데이터", icon: "⌘", to: "/test-data", enabled: false },
-      { label: "프로젝트 설정", icon: "⚙", to: "/settings", enabled: false },
-    ],
-  },
   /**
-   * ★ 라운드 3 신규 그룹 — 시안의 그룹 2개(WORKSPACE·MANAGE)는 **건드리지 않았다.**
-   *
-   * 가이드를 `MANAGE` 에 넣지 않은 이유: 그 그룹의 4개는 전부 **프로젝트의 무엇인가를
-   * 바꾸는 화면**(스위트·환경·데이터·설정)이다. 읽기 전용 문서가 그 사이에 끼면
-   * "가이드도 설정하는 것"으로 읽히고, MVP 제외로 흐려진 항목 3개 옆에 붙어
-   * 같이 미구현처럼 보인다.
-   *
-   * 도움말은 성격이 달라 **맨 아래 별도 그룹**이 자연스럽다(시안의 그룹 구분 방식 자체는
-   * 그대로 따른다 — 대문자 라벨 + 항목 목록). 사이드바는 `overflow-y-auto` 라
-   * 그룹이 하나 늘어도 레이아웃이 밀리지 않는다.
+   * 도움말은 작업 메뉴와 성격이 달라 별도 그룹으로 유지한다.
    */
   {
     label: "HELP",
@@ -57,7 +38,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   },
 ];
 
+const HIDDEN_PAGE_TITLES: Readonly<Record<string, string>> = {
+  "/suites": "테스트 스위트",
+  "/environments": "실행 환경",
+  "/test-data": "테스트 데이터",
+  "/settings": "프로젝트 설정",
+};
+
 /** 브레드크럼·문서 타이틀용 경로 → 화면 이름 사전. */
-export const PAGE_TITLES: Readonly<Record<string, string>> = Object.fromEntries(
-  NAV_GROUPS.flatMap((g) => g.items).map((i) => [i.to, i.label]),
-);
+export const PAGE_TITLES: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(NAV_GROUPS.flatMap((g) => g.items).map((i) => [i.to, i.label])),
+  ...HIDDEN_PAGE_TITLES,
+};
